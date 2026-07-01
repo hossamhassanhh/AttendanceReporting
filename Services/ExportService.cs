@@ -1,0 +1,893 @@
+using AttendanceApp.Data;
+using AttendanceApp.Models;
+using ClosedXML.Excel;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.EntityFrameworkCore;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
+using System.Runtime.InteropServices;
+
+namespace AttendanceApp.Services;
+
+public class ExportService
+{
+    private readonly IDbContextFactory<AppDbContext> _factory;
+    private const string SayedTemplatePath = @"C:\Users\4779\Documents\Copy of SAYED.xlsx";
+
+    private static readonly Dictionary<string, string> StatusToCode = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "Present", "R" },
+        { "Late", "R" },
+        { "Early Leave", "B" },
+        { "Absent", "B" },
+        { "Leave", "A" },
+        { "Work From Home", "WH" },
+        { "Weekly Rest", "W" },
+        { "Holiday", "H" },
+        { "Mission", "DX" },
+        { "Training", "T" },
+    };
+
+    private static readonly Dictionary<string, string> LeaveTypeCodeMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "A", "A" }, { "Regular", "A" }, { "Regular Leave", "A" },
+        { "S", "S" }, { "Sick", "S" }, { "Sick Leave", "S" },
+        { "C", "C" }, { "Casual", "C" }, { "Casual Leave", "C" },
+        { "B", "B" }, { "Absence", "B" },
+        { "E", "E" }, { "Rest", "E" }, { "Rest Allowance", "E" },
+        { "DI", "DI" }, { "External Mission", "DI" },
+        { "DX", "DX" }, { "Internal Mission", "DX" },
+        { "T", "T" }, { "Training", "T" },
+    };
+
+    public ExportService(IDbContextFactory<AppDbContext> factory)
+    {
+        _factory = factory;
+    }
+
+    public async Task<List<string>> GetDepartmentsAsync()
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        return await db.Employees
+            .Where(e => e.IsActive && e.Department != null && e.Department != "")
+            .Select(e => e.Department!)
+            .Distinct()
+            .OrderBy(d => d)
+            .ToListAsync();
+    }
+
+    public async Task<byte[]> GenerateMonthlySheetAsync(int year, int month, string? department)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+
+        var employees = await db.Employees
+            .Where(e => e.IsActive && (department == null || department == "" || e.Department == department))
+            .OrderBy(e => e.FinancialNo)
+            .ToListAsync();
+
+        var dailyAtt = await db.DailyAttendances
+            .Include(d => d.LeaveType)
+            .Where(d => d.Date.Year == year && d.Date.Month == month)
+            .ToListAsync();
+
+        var leaveAtt = await GetLeaveCodesAsync(db, year, month);
+
+        var monthlyAtt = await db.MonthlyAttendances
+            .Where(a => a.Year == year && a.Month == month)
+            .ToListAsync();
+
+        var attByEmpDate = dailyAtt
+            .GroupBy(d => d.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(d => d.Date.Day));
+
+        var monthlyByEmpDate = monthlyAtt
+            .GroupBy(a => a.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(a => a.Day));
+
+        var monthNames = new[] { "", "يناير", "فبراير", "مارس", "ابريل", "مايو", "يونيو", "يوليو", "اغسطس", "سبتمبر", "اكتوبر", "نوفمبر", "ديسمبر" };
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+
+        var exportEmployees = employees
+            .Where(emp => attByEmpDate.ContainsKey(emp.FinancialNo)
+                || monthlyByEmpDate.ContainsKey(emp.FinancialNo)
+                || leaveAtt.ContainsKey(emp.FinancialNo)
+                || HasSunday(year, month))
+            .ToList();
+        return GenerateMonthlySheetWithExcel(year, month, department, monthNames[month], daysInMonth,
+            exportEmployees, attByEmpDate, monthlyByEmpDate, leaveAtt);
+    }
+
+    public async Task<List<object>> GetPreviewDataAsync(int year, int month, string? department)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+
+        var employees = await db.Employees
+            .Where(e => e.IsActive && (department == null || department == "" || e.Department == department))
+            .OrderBy(e => e.FinancialNo)
+            .ToListAsync();
+
+        var dailyAtt = await db.DailyAttendances
+            .Include(d => d.LeaveType)
+            .Where(d => d.Date.Year == year && d.Date.Month == month)
+            .ToListAsync();
+
+        var leaveAtt = await GetLeaveCodesAsync(db, year, month);
+
+        var monthlyAtt = await db.MonthlyAttendances
+            .Where(a => a.Year == year && a.Month == month)
+            .ToListAsync();
+
+        var attByEmpDate = dailyAtt
+            .GroupBy(d => d.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(d => d.Date.Day));
+
+        var monthlyByEmpDate = monthlyAtt
+            .GroupBy(a => a.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(a => a.Day));
+
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        var result = new List<object>();
+
+        foreach (var emp in employees)
+        {
+            var hasAtt = attByEmpDate.ContainsKey(emp.FinancialNo)
+                || monthlyByEmpDate.ContainsKey(emp.FinancialNo)
+                || leaveAtt.ContainsKey(emp.FinancialNo)
+                || HasSunday(year, month);
+            if (!hasAtt) continue;
+
+            var codes = new string[daysInMonth];
+            int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
+            int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
+
+            for (int d = 1; d <= daysInMonth; d++)
+            {
+                var empAtts = attByEmpDate.GetValueOrDefault(emp.FinancialNo);
+                var empMons = monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo);
+                var empLeaves = leaveAtt.GetValueOrDefault(emp.FinancialNo);
+                var code = GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves);
+
+                codes[d - 1] = code;
+                if (!string.IsNullOrEmpty(code))
+                    CountCode(code, ref presentDays, ref regLeave, ref sickDays,
+                        ref casualDays, ref absenceDays, ref restDays,
+                        ref extMission, ref intMission, ref trainingDays);
+            }
+
+            result.Add(new
+            {
+                emp.FinancialNo,
+                emp.Name,
+                emp.JobTitle,
+                emp.Department,
+                emp.Level,
+                DailyCodes = codes,
+                PresentDays = presentDays,
+                RegularLeave = regLeave,
+                SickDays = sickDays,
+                CasualDays = casualDays,
+                AbsenceDays = absenceDays,
+                RestDays = restDays,
+                ExternalMission = extMission,
+                InternalMission = intMission,
+                TrainingDays = trainingDays
+            });
+        }
+
+        return result;
+    }
+
+    public async Task<byte[]> GenerateMonthlyPdfAsync(int year, int month, string? department)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        var previewData = await GetPreviewDataAsync(year, month, department);
+        var monthNames = new[] { "", "يناير", "فبراير", "مارس", "ابريل", "مايو", "يونيو", "يوليو", "اغسطس", "سبتمبر", "اكتوبر", "نوفمبر", "ديسمبر" };
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        var monthName = monthNames[month];
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A2.Landscape());
+                page.Margin(20);
+                page.Header().Text($"time sheet periood {monthName} {year}")
+                    .FontSize(14).Bold().FontFamily("Cambria").AlignCenter();
+
+                page.Content().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.ConstantColumn(35);
+                        columns.ConstantColumn(100);
+                        columns.ConstantColumn(90);
+                        for (int d = 0; d < daysInMonth; d++)
+                            columns.ConstantColumn(22);
+                        columns.ConstantColumn(45);
+                        columns.ConstantColumn(30);
+                        for (int c = 0; c < 9; c++)
+                            columns.ConstantColumn(25);
+                        columns.ConstantColumn(80);
+                        columns.ConstantColumn(60);
+                        columns.ConstantColumn(80);
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("PR").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("Name").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("Job Title").FontSize(8).Bold().FontFamily("Cambria");
+                        for (int d = 1; d <= daysInMonth; d++)
+                            header.Cell().Text(d.ToString()).FontSize(8).Bold().FontFamily("Cambria").AlignCenter();
+                        header.Cell().Text("Total").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("Sig").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("X").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("A").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("S").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("C").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("B").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("E").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("DI").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("DX").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("T").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("الادارة العامة").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("المستوى").FontSize(8).Bold().FontFamily("Cambria");
+                        header.Cell().Text("Box").FontSize(8).Bold().FontFamily("Cambria");
+                    });
+
+                    foreach (var emp in previewData)
+                    {
+                        var finNo = GetPreviewValue(emp, "FinancialNo")?.ToString() ?? "";
+                        var name = GetPreviewValue(emp, "Name")?.ToString() ?? "";
+                        var jobTitle = GetPreviewValue(emp, "JobTitle")?.ToString() ?? "";
+                        var dept = GetPreviewValue(emp, "Department")?.ToString() ?? "";
+                        var level = GetPreviewValue(emp, "Level")?.ToString() ?? "";
+                        var dailyCodes = (string[])(GetPreviewValue(emp, "DailyCodes") ?? Array.Empty<string>());
+
+                        table.Cell().Text(finNo).FontSize(7).FontFamily("Cambria");
+                        table.Cell().Text(name).FontSize(7).FontFamily("Cambria");
+                        table.Cell().Text(jobTitle).FontSize(7).FontFamily("Cambria");
+
+                        for (int d = 0; d < daysInMonth; d++)
+                        {
+                            var code = d < dailyCodes.Length ? dailyCodes[d] : "";
+                            table.Cell().Text(code).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        }
+
+                        int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
+                        int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
+                        foreach (var c in dailyCodes)
+                        {
+                            if (!string.IsNullOrEmpty(c))
+                                CountCode(c, ref presentDays, ref regLeave, ref sickDays,
+                                    ref casualDays, ref absenceDays, ref restDays,
+                                    ref extMission, ref intMission, ref trainingDays);
+                        }
+
+                        table.Cell().Text(presentDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text("").FontSize(7);
+                        table.Cell().Text(presentDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(regLeave.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(sickDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(casualDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(absenceDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(restDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(extMission.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(intMission.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(trainingDays.ToString()).FontSize(7).FontFamily("Cambria").AlignCenter();
+                        table.Cell().Text(dept).FontSize(7).FontFamily("Cambria");
+                        table.Cell().Text(level).FontSize(7).FontFamily("Cambria");
+                        table.Cell().Text("").FontSize(7);
+                    }
+                });
+
+                page.Footer().AlignCenter().Text(txt =>
+                {
+                    txt.Span("Page ").FontSize(8);
+                    txt.CurrentPageNumber().FontSize(8);
+                    txt.Span(" of ").FontSize(8);
+                    txt.TotalPages().FontSize(8);
+                });
+            });
+        });
+
+        using var ms = new MemoryStream();
+        document.GeneratePdf(ms);
+        return ms.ToArray();
+    }
+
+    private static string GetCodeFromDaily(DailyAttendance da)
+    {
+        if (da.Status == "Leave" && da.LeaveType != null)
+        {
+            var ltCode = da.LeaveType.Code ?? "";
+            if (LeaveTypeCodeMap.TryGetValue(ltCode, out var mapped))
+                return mapped;
+            return ltCode;
+        }
+
+        if (StatusToCode.TryGetValue(da.Status, out var code))
+            return code;
+
+        return "X";
+    }
+
+    private static async Task<Dictionary<string, Dictionary<int, string>>> GetLeaveCodesAsync(AppDbContext db, int year, int month)
+    {
+        var monthStart = new DateTime(year, month, 1);
+        var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+        var transactions = await db.LeaveTransactions
+            .Include(t => t.LeaveType)
+            .Where(t => t.Status == "Approved" && t.FromDate <= monthEnd && t.ToDate >= monthStart)
+            .ToListAsync();
+
+        var result = new Dictionary<string, Dictionary<int, string>>();
+        foreach (var transaction in transactions)
+        {
+            var code = GetCodeFromLeaveType(transaction.LeaveType);
+            var from = transaction.FromDate.Date < monthStart ? monthStart : transaction.FromDate.Date;
+            var to = transaction.ToDate.Date > monthEnd ? monthEnd : transaction.ToDate.Date;
+
+            if (!result.TryGetValue(transaction.EmployeeFinancialNo, out var days))
+            {
+                days = new Dictionary<int, string>();
+                result[transaction.EmployeeFinancialNo] = days;
+            }
+
+            for (var date = from; date <= to; date = date.AddDays(1))
+                days[date.Day] = code;
+        }
+
+        return result;
+    }
+
+    private static string GetCodeFromLeaveType(LeaveType? leaveType)
+    {
+        if (leaveType == null)
+            return "A";
+
+        var ltCode = leaveType.Code ?? string.Empty;
+        if (LeaveTypeCodeMap.TryGetValue(ltCode, out var mapped))
+            return mapped;
+
+        return string.IsNullOrWhiteSpace(ltCode) ? "A" : ltCode;
+    }
+
+    private static string GetMonthlyCode(
+        int year,
+        int month,
+        int day,
+        Dictionary<int, DailyAttendance>? dailyByDay,
+        Dictionary<int, MonthlyAttendance>? monthlyByDay,
+        Dictionary<int, string>? leaveByDay)
+    {
+        if (leaveByDay != null && leaveByDay.TryGetValue(day, out var leaveCode))
+            return leaveCode;
+
+        if (new DateTime(year, month, day).DayOfWeek == DayOfWeek.Sunday)
+            return "WH";
+
+        if (dailyByDay != null && dailyByDay.TryGetValue(day, out var da))
+            return GetCodeFromDaily(da);
+
+        if (monthlyByDay != null && monthlyByDay.TryGetValue(day, out var ma))
+            return ma.Code ?? string.Empty;
+
+        return string.Empty;
+    }
+
+    private static bool HasSunday(int year, int month)
+    {
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+        for (var day = 1; day <= daysInMonth; day++)
+        {
+            if (new DateTime(year, month, day).DayOfWeek == DayOfWeek.Sunday)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static object? GetPreviewValue(object source, string propertyName)
+    {
+        return source.GetType().GetProperty(propertyName)?.GetValue(source);
+    }
+
+    private static byte[] GenerateMonthlySheetWithExcel(
+        int year,
+        int month,
+        string? department,
+        string monthName,
+        int daysInMonth,
+        List<Employee> exportEmployees,
+        Dictionary<string, Dictionary<int, DailyAttendance>> attByEmpDate,
+        Dictionary<string, Dictionary<int, MonthlyAttendance>> monthlyByEmpDate,
+        Dictionary<string, Dictionary<int, string>> leaveByEmpDate)
+    {
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Excel template export requires Windows and Microsoft Excel.");
+
+        if (!File.Exists(SayedTemplatePath))
+            throw new FileNotFoundException("SAYED template file was not found.", SayedTemplatePath);
+
+        var tempInput = Path.Combine(Path.GetTempPath(), $"sayed-template-{Guid.NewGuid():N}.xlsx");
+        File.Copy(SayedTemplatePath, tempInput, overwrite: true);
+
+        dynamic? excel = null;
+        dynamic? workbook = null;
+        dynamic? worksheet = null;
+
+        try
+        {
+            var excelType = Type.GetTypeFromProgID("Excel.Application")
+                ?? throw new InvalidOperationException("Microsoft Excel is not installed or COM automation is unavailable.");
+
+            excel = Activator.CreateInstance(excelType)!;
+            excel.Visible = false;
+            excel.DisplayAlerts = false;
+            excel.EnableEvents = false;
+            excel.ScreenUpdating = false;
+            excel.Calculation = -4135; // xlCalculationManual
+
+            workbook = excel.Workbooks.Open(tempInput, 0, false);
+            worksheet = workbook.Worksheets.Item(1);
+
+            worksheet.Cells[1, 2].Value2 = $"time sheet periood  {monthName} {year}";
+            worksheet.Cells[2, 3].Value2 = string.IsNullOrWhiteSpace(department) ? "تنمية الاعمال" : department;
+            worksheet.Cells[2, 11].Value2 = "Dep :";
+            worksheet.Cells[2, 13].Value2 = "Loction : المركز الرئيسى";
+
+            for (var d = 1; d <= 31; d++)
+                worksheet.Cells[7, 3 + d].Value2 = d <= daysInMonth ? d.ToString() : "";
+
+            var usedRange = worksheet.UsedRange;
+            var lastRow = usedRange.Row + usedRange.Rows.Count - 1;
+            ReleaseComObject(usedRange);
+
+            var templateLastDataRow = GetLastTemplateEmployeeRow(worksheet, lastRow);
+            ResizeTemplateDataRows(worksheet, 8, templateLastDataRow, exportEmployees.Count);
+
+            var row = 8;
+            var dayStyleGroups = new Dictionary<DayCellStyle, List<string>>();
+            foreach (var emp in exportEmployees)
+            {
+                var employeeInfo = new object[1, 3];
+                employeeInfo[0, 0] = emp.FinancialNo;
+                employeeInfo[0, 1] = emp.Name;
+                employeeInfo[0, 2] = emp.JobTitle ?? "";
+                worksheet.Range(worksheet.Cells[row, 1], worksheet.Cells[row, 3]).Value2 = employeeInfo;
+
+                int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
+                int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
+
+                var dayCodes = new object[1, 31];
+                for (var d = 1; d <= 31; d++)
+                {
+                    var empAtts = attByEmpDate.GetValueOrDefault(emp.FinancialNo);
+                    var empMons = monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo);
+                    var empLeaves = leaveByEmpDate.GetValueOrDefault(emp.FinancialNo);
+                    var code = d <= daysInMonth
+                        ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves)
+                        : string.Empty;
+
+                    dayCodes[0, d - 1] = code;
+                    if (!string.IsNullOrEmpty(code))
+                        CountCode(code, ref presentDays, ref regLeave, ref sickDays,
+                            ref casualDays, ref absenceDays, ref restDays,
+                            ref extMission, ref intMission, ref trainingDays);
+                }
+
+                dynamic dayRange = worksheet.Range(worksheet.Cells[row, 4], worksheet.Cells[row, 34]);
+                var mergeValue = dayRange.MergeCells;
+                var isMerged = mergeValue is bool b && b;
+                if (!isMerged)
+                    dayRange.Value2 = dayCodes;
+                ReleaseComObject(dayRange);
+
+                QueueDayCodeColors(dayStyleGroups, row, dayCodes, year, month, daysInMonth);
+
+                worksheet.Cells[row, 35].Value2 = presentDays;
+
+                var summary = new object[1, 11];
+                summary[0, 0] = presentDays;
+                summary[0, 1] = regLeave;
+                summary[0, 2] = sickDays;
+                summary[0, 3] = casualDays;
+                summary[0, 4] = absenceDays;
+                summary[0, 5] = restDays;
+                summary[0, 6] = extMission;
+                summary[0, 7] = intMission;
+                summary[0, 8] = trainingDays;
+                summary[0, 9] = emp.Department ?? "";
+                summary[0, 10] = emp.Level ?? "";
+                worksheet.Range(worksheet.Cells[row, 37], worksheet.Cells[row, 47]).Value2 = summary;
+
+                row++;
+            }
+
+            ApplyQueuedDayColors(worksheet, dayStyleGroups);
+
+            workbook.Save();
+            workbook.Close(false);
+            excel.Quit();
+
+            return File.ReadAllBytes(tempInput);
+        }
+        finally
+        {
+            ReleaseComObject(worksheet);
+            ReleaseComObject(workbook);
+            if (excel != null)
+            {
+                try { excel.Quit(); } catch { }
+                ReleaseComObject(excel);
+            }
+
+            try { File.Delete(tempInput); } catch { }
+        }
+    }
+
+    private static void ReleaseComObject(object? value)
+    {
+        if (value != null && Marshal.IsComObject(value))
+            Marshal.ReleaseComObject(value);
+    }
+
+    private static int GetLastTemplateEmployeeRow(dynamic worksheet, int usedLastRow)
+    {
+        var lastDataRow = 7;
+        for (var row = 8; row <= usedLastRow; row++)
+        {
+            var pr = Convert.ToString(worksheet.Cells[row, 1].Value2)?.Trim() ?? string.Empty;
+            int parsedPr;
+            if (int.TryParse(pr, out parsedPr))
+                lastDataRow = row;
+        }
+
+        return lastDataRow;
+    }
+
+    private static void ResizeTemplateDataRows(dynamic worksheet, int firstDataRow, int templateLastDataRow, int requiredRows)
+    {
+        var templateRows = Math.Max(0, templateLastDataRow - firstDataRow + 1);
+
+        if (requiredRows < templateRows)
+        {
+            var deleteFrom = firstDataRow + requiredRows;
+            var deleteTo = templateLastDataRow;
+            if (deleteFrom <= deleteTo)
+            {
+                dynamic rows = worksheet.Rows[$"{deleteFrom}:{deleteTo}"];
+                rows.Delete();
+                ReleaseComObject(rows);
+            }
+        }
+        else if (requiredRows > templateRows && templateRows > 0)
+        {
+            var rowsToAdd = requiredRows - templateRows;
+            var insertAt = templateLastDataRow + 1;
+            for (var i = 0; i < rowsToAdd; i++)
+            {
+                dynamic sourceRow = worksheet.Rows[templateLastDataRow];
+                dynamic targetRow = worksheet.Rows[insertAt];
+                sourceRow.Copy();
+                targetRow.Insert(-4121); // xlShiftDown
+                ReleaseComObject(targetRow);
+                ReleaseComObject(sourceRow);
+            }
+        }
+
+        for (var row = firstDataRow; row < firstDataRow + requiredRows; row++)
+        {
+            if (row != firstDataRow)
+                CopyEmployeeRowFormat(worksheet, firstDataRow, row);
+
+            dynamic dataRange = worksheet.Range(worksheet.Cells[row, 1], worksheet.Cells[row, 48]);
+            dataRange.ClearContents();
+            ReleaseComObject(dataRange);
+        }
+    }
+
+    private static void CopyEmployeeRowFormat(dynamic worksheet, int sourceRowNumber, int targetRowNumber)
+    {
+        dynamic sourceRange = worksheet.Range(worksheet.Cells[sourceRowNumber, 1], worksheet.Cells[sourceRowNumber, 48]);
+        dynamic targetRange = worksheet.Range(worksheet.Cells[targetRowNumber, 1], worksheet.Cells[targetRowNumber, 48]);
+
+        sourceRange.Copy();
+        targetRange.PasteSpecial(-4122); // xlPasteFormats
+        worksheet.Application.CutCopyMode = false;
+
+        dynamic sourceRow = worksheet.Rows[sourceRowNumber];
+        dynamic targetRow = worksheet.Rows[targetRowNumber];
+        targetRow.RowHeight = sourceRow.RowHeight;
+
+        ReleaseComObject(targetRow);
+        ReleaseComObject(sourceRow);
+        ReleaseComObject(targetRange);
+        ReleaseComObject(sourceRange);
+    }
+
+    private static void QueueDayCodeColors(Dictionary<DayCellStyle, List<string>> groups, int row, object[,] dayCodes, int year, int month, int daysInMonth)
+    {
+        for (var d = 1; d <= 31; d++)
+        {
+            var code = Convert.ToString(dayCodes[0, d - 1])?.Trim() ?? string.Empty;
+
+            var fill = GetCodeFillColor(code);
+            if (!fill.HasValue)
+            {
+                var isWeekend = d > daysInMonth;
+                if (d <= daysInMonth)
+                {
+                    var day = new DateTime(year, month, d).DayOfWeek;
+                    isWeekend = day == DayOfWeek.Friday || day == DayOfWeek.Saturday;
+                }
+
+                fill = isWeekend ? ExcelColor(191, 191, 191) : ExcelColor(255, 255, 255);
+            }
+
+            var font = code.StartsWith("B", StringComparison.OrdinalIgnoreCase)
+                ? ExcelColor(255, 255, 255)
+                : ExcelColor(0, 0, 0);
+
+            var style = new DayCellStyle(fill.Value, font);
+            if (!groups.TryGetValue(style, out var addresses))
+            {
+                addresses = new List<string>();
+                groups[style] = addresses;
+            }
+
+            addresses.Add($"{GetColumnName(3 + d)}{row}");
+        }
+    }
+
+    private static void ApplyQueuedDayColors(dynamic worksheet, Dictionary<DayCellStyle, List<string>> groups)
+    {
+        foreach (var group in groups)
+        {
+            foreach (var chunk in group.Value.Chunk(100))
+            {
+                dynamic range = worksheet.Range(string.Join(",", chunk));
+                dynamic interior = range.Interior;
+                dynamic font = range.Font;
+
+                interior.Color = group.Key.FillColor;
+                font.Color = group.Key.FontColor;
+
+                ReleaseComObject(font);
+                ReleaseComObject(interior);
+                ReleaseComObject(range);
+            }
+        }
+    }
+
+    private sealed record DayCellStyle(int FillColor, int FontColor);
+
+    private static int? GetCodeFillColor(string code)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+            return null;
+
+        var normalized = code.Trim().ToUpperInvariant();
+
+        if (normalized.StartsWith("B")) return ExcelColor(255, 0, 0);
+        if (normalized.StartsWith("S")) return ExcelColor(0, 176, 80);
+        if (normalized.StartsWith("C")) return ExcelColor(255, 192, 0);
+        if (normalized.StartsWith("A")) return ExcelColor(255, 255, 0);
+        if (normalized.StartsWith("E")) return ExcelColor(180, 198, 231);
+        if (normalized.StartsWith("DI") || normalized.StartsWith("DX")) return ExcelColor(0, 176, 240);
+        if (normalized.StartsWith("T")) return ExcelColor(191, 191, 191);
+        if (normalized.StartsWith("W") || normalized.StartsWith("H")) return ExcelColor(217, 217, 217);
+        if (normalized.StartsWith("X1")) return ExcelColor(221, 235, 247);
+        if (normalized.StartsWith("X2")) return ExcelColor(0, 176, 240);
+        if (normalized.StartsWith("X3")) return ExcelColor(91, 155, 213);
+        if (normalized.StartsWith("X4")) return ExcelColor(112, 48, 160);
+
+        return null;
+    }
+
+    private static int ExcelColor(int red, int green, int blue)
+    {
+        return red + (green << 8) + (blue << 16);
+    }
+
+    private static string GetCellText(SheetData sheetData, SharedStringTable? sharedStrings, string columnName, int rowIndex)
+    {
+        var cell = GetCell(sheetData, columnName, rowIndex, createIfMissing: false);
+        if (cell == null)
+            return string.Empty;
+
+        var value = cell.CellValue?.Text ?? cell.InnerText ?? string.Empty;
+        if (cell.DataType == null)
+            return value;
+
+        if (cell.DataType == CellValues.InlineString)
+            return cell.InlineString?.Text?.Text ?? cell.InnerText ?? string.Empty;
+
+        if (cell.DataType == CellValues.SharedString
+            && int.TryParse(value, out var sharedStringIndex)
+            && sharedStrings != null)
+            return sharedStrings.ElementAt(sharedStringIndex).InnerText;
+
+        return value;
+    }
+
+    private static void SetCellValue(
+        SheetData sheetData,
+        SharedStringTable sharedStrings,
+        string columnName,
+        int rowIndex,
+        string value,
+        List<CellRange>? mergedRanges = null,
+        bool preserveMergedValues = false)
+    {
+        if (preserveMergedValues && mergedRanges != null)
+        {
+            var columnIndex = GetColumnIndex(columnName);
+            if (mergedRanges.Any(r => r.Contains(rowIndex, columnIndex)))
+                return;
+        }
+
+        var cell = GetCell(sheetData, columnName, rowIndex, createIfMissing: true)!;
+        cell.CellFormula = null;
+        cell.InlineString = null;
+        cell.CellValue = new CellValue(GetSharedStringIndex(sharedStrings, value ?? string.Empty).ToString());
+        cell.DataType = CellValues.SharedString;
+    }
+
+    private static int GetSharedStringIndex(SharedStringTable sharedStrings, string value)
+    {
+        var index = 0;
+        foreach (var item in sharedStrings.Elements<SharedStringItem>())
+        {
+            if (item.InnerText == value)
+                return index;
+            index++;
+        }
+
+        sharedStrings.AppendChild(new SharedStringItem(new Text(value)));
+        return index;
+    }
+
+    private static Cell? GetCell(SheetData sheetData, string columnName, int rowIndex, bool createIfMissing)
+    {
+        var row = sheetData.Elements<Row>().FirstOrDefault(r => r.RowIndex?.Value == rowIndex);
+        if (row == null)
+        {
+            if (!createIfMissing)
+                return null;
+
+            row = new Row { RowIndex = (uint)rowIndex };
+            sheetData.Append(row);
+        }
+
+        var cellReference = $"{columnName}{rowIndex}";
+        var cell = row.Elements<Cell>().FirstOrDefault(c => c.CellReference?.Value == cellReference);
+        if (cell != null || !createIfMissing)
+            return cell;
+
+        cell = new Cell { CellReference = cellReference };
+        var columnIndex = GetColumnIndex(columnName);
+        var nextCell = row.Elements<Cell>()
+            .FirstOrDefault(c => GetColumnIndexFromCellReference(c.CellReference?.Value) > columnIndex);
+        row.InsertBefore(cell, nextCell);
+        return cell;
+    }
+
+    private static string GetColumnName(int columnNumber)
+    {
+        var dividend = columnNumber;
+        var columnName = string.Empty;
+
+        while (dividend > 0)
+        {
+            var modulo = (dividend - 1) % 26;
+            columnName = Convert.ToChar('A' + modulo) + columnName;
+            dividend = (dividend - modulo) / 26;
+        }
+
+        return columnName;
+    }
+
+    private static int GetColumnIndex(string columnName)
+    {
+        var sum = 0;
+        foreach (var c in columnName)
+            sum = sum * 26 + (char.ToUpperInvariant(c) - 'A' + 1);
+        return sum;
+    }
+
+    private static int GetColumnIndexFromCellReference(string? cellReference)
+    {
+        if (string.IsNullOrWhiteSpace(cellReference))
+            return int.MaxValue;
+
+        var column = new string(cellReference.TakeWhile(char.IsLetter).ToArray());
+        return GetColumnIndex(column);
+    }
+
+    private static List<CellRange> GetMergedRanges(Worksheet worksheet)
+    {
+        return worksheet.Elements<MergeCells>()
+            .SelectMany(m => m.Elements<MergeCell>())
+            .Select(m => CellRange.Parse(m.Reference?.Value))
+            .Where(r => r != null)
+            .Select(r => r!)
+            .ToList();
+    }
+
+    private sealed record CellRange(int FirstRow, int LastRow, int FirstColumn, int LastColumn)
+    {
+        public bool Contains(int row, int column)
+        {
+            return row >= FirstRow && row <= LastRow && column >= FirstColumn && column <= LastColumn;
+        }
+
+        public static CellRange? Parse(string? reference)
+        {
+            if (string.IsNullOrWhiteSpace(reference))
+                return null;
+
+            var parts = reference.Split(':');
+            var first = ParseAddress(parts[0]);
+            var last = ParseAddress(parts.Length > 1 ? parts[1] : parts[0]);
+            return new CellRange(first.Row, last.Row, first.Column, last.Column);
+        }
+
+        private static (int Row, int Column) ParseAddress(string address)
+        {
+            var columnName = new string(address.TakeWhile(char.IsLetter).ToArray());
+            var rowText = new string(address.SkipWhile(char.IsLetter).ToArray());
+            return (int.Parse(rowText), GetColumnIndex(columnName));
+        }
+    }
+
+    private static XLWorkbook OpenSayedTemplate()
+    {
+        if (!File.Exists(SayedTemplatePath))
+            throw new FileNotFoundException("SAYED template file was not found.", SayedTemplatePath);
+
+        using var file = new FileStream(SayedTemplatePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var templateBytes = new MemoryStream();
+        file.CopyTo(templateBytes);
+        templateBytes.Position = 0;
+        return new XLWorkbook(templateBytes);
+    }
+
+    private static void ClearTemplateDataValues(IXLWorksheet ws)
+    {
+        const int firstDataRow = 8;
+        const int firstCol = 1;
+        const int lastCol = 48;
+
+        var usedLastRow = Math.Max(ws.RangeUsed()?.LastRow().RowNumber() ?? firstDataRow, firstDataRow);
+
+        for (var row = firstDataRow; row <= usedLastRow; row++)
+        {
+            for (var col = firstCol; col <= lastCol; col++)
+                ws.Cell(row, col).Value = Blank.Value;
+        }
+    }
+
+    private static void CountCode(string code, ref int present, ref int reg, ref int sick,
+        ref int casual, ref int absent, ref int rest, ref int extMission,
+        ref int intMission, ref int training)
+    {
+        switch (code.ToUpperInvariant())
+        {
+            case "R": case "WH": case "X": case "X1": case "X2": case "X3": case "X4": present++; break;
+            case "A": reg++; break;
+            case "S": sick++; break;
+            case "C": casual++; break;
+            case "B": absent++; break;
+            case "E": rest++; break;
+            case "DI": extMission++; break;
+            case "DX": intMission++; break;
+            case "T": training++; break;
+        }
+    }
+}

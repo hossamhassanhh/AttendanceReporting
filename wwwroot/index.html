@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام الحضور والانصراف</title>
+    <link rel="stylesheet" href="/css/style.css?v=2">
+</head>
+<body>
+    <div class="container">
+        <header class="app-header">
+            <div class="brand-row">
+                <img src="/Images/pms-logo.png" alt="PMS" class="brand-logo">
+                <div>
+                    <h1>نظام تسجيل الحضور والإجازات</h1>
+                    <p>مزامنة البصمة، إدارة الإجازات، وتصدير كشف SAYED الشهري</p>
+                </div>
+            </div>
+            <div class="usage-choice" id="usageChoice">
+                <span>طريقة الاستخدام:</span>
+                <button type="button" class="choice-btn active" data-mode="browser">استخدام في المتصفح</button>
+                <button type="button" class="choice-btn" data-mode="pc">تحميل الملفات على الكمبيوتر</button>
+            </div>
+            <div id="syncStatus" class="sync-status"></div>
+            <div class="tabs">
+                <button class="tab active" data-tab="attendance">حضور</button>
+                <button class="tab" data-tab="employees">موظفين</button>
+                <button class="tab" data-tab="balances">أرصدة</button>
+                <button class="tab" data-tab="leave">إجازات</button>
+                <button class="tab" data-tab="export">كشف الحضور الشهري</button>
+            </div>
+        </header>
+
+        <!-- Attendance Tab -->
+        <section class="tab-content active" id="tab-attendance">
+            <h2>تقرير الحضور</h2>
+            <div class="controls">
+                <div class="form-group">
+                    <label>أرقام الموظفين (مفصولة بفاصلة):</label>
+                    <input type="text" id="attEmployees" placeholder="مثال: 4779, 4780 - اترك فارغاً للكل">
+                </div>
+                <div class="form-group">
+                    <label>من تاريخ:</label>
+                    <input type="date" id="attFrom">
+                </div>
+                <div class="form-group">
+                    <label>إلى تاريخ:</label>
+                    <input type="date" id="attTo">
+                </div>
+            </div>
+            <div class="controls" style="border:none;padding:0 16px 16px;background:transparent;">
+                <button id="fetchAttendanceBtn">عرض الحضور</button>
+            </div>
+            <section class="results" id="attResults" style="display:none;">
+                <h3>نتائج الحضور</h3>
+                <div id="attResultsContent"></div>
+                <div id="attExportActions" class="controls" style="margin-top:12px;border:none;padding:0;background:transparent;justify-content:center;display:none;">
+                    <button id="exportExcelBtn" class="success">تصدير إكسيل</button>
+                    <button id="exportPdfBtn" class="secondary">تصدير PDF</button>
+                </div>
+            </section>
+        </section>
+
+        <!-- Employees Tab -->
+        <section class="tab-content" id="tab-employees">
+            <h2>بيانات الموظفين</h2>
+            <div class="controls">
+                <div class="form-group">
+                    <label>بحث (اسم / رقم مالي):</label>
+                    <input type="text" id="empSearch" placeholder="ادخل الاسم أو الرقم">
+                </div>
+                <button id="searchEmpBtn">بحث</button>
+            </div>
+            <section class="results" id="empResults" style="display:none;">
+                <h3>نتائج البحث</h3>
+                <div id="empResultsContent"></div>
+            </section>
+        </section>
+
+        <!-- Balances Tab -->
+        <section class="tab-content" id="tab-balances">
+            <h2>أرصدة الإجازات</h2>
+            <div class="controls">
+                <div class="form-group">
+                    <label>رقم مالي:</label>
+                    <input type="text" id="balFinNo" placeholder="رقم مالي">
+                </div>
+                <button id="fetchBalBtn">عرض الرصيد</button>
+            </div>
+            <section class="results" id="balResults" style="display:none;">
+                <h3>الرصيد</h3>
+                <div id="balResultsContent"></div>
+            </section>
+        </section>
+
+        <!-- Leave Tab -->
+        <section class="tab-content" id="tab-leave">
+            <h2>إدارة الإجازات</h2>
+            <div class="controls">
+                <div class="form-group">
+                    <label>رقم مالي:</label>
+                    <input type="text" id="leaveFinNo" placeholder="رقم مالي">
+                </div>
+                <div class="form-group">
+                    <label>نوع الإجازة:</label>
+                    <select id="leaveTypeId"></select>
+                </div>
+                <div class="form-group">
+                    <label>من تاريخ:</label>
+                    <input type="date" id="leaveFrom">
+                </div>
+                <div class="form-group">
+                    <label>إلى تاريخ:</label>
+                    <input type="date" id="leaveTo">
+                </div>
+                <div class="form-group">
+                    <label>عدد الأيام محسوب تلقائياً:</label>
+                    <input type="number" id="leaveDays" min="1" step="1" readonly>
+                </div>
+                <div class="form-group">
+                    <label>السبب:</label>
+                    <input type="text" id="leaveReason" placeholder="سبب الإجازة">
+                </div>
+                <button id="grantLeaveBtn">منح الإجازة</button>
+                <button id="fetchLeaveTransBtn">عرض سجل الإجازات</button>
+                <button id="downloadLeaveTemplateBtn" class="secondary">تحميل قالب الإجازات</button>
+            </div>
+            <section class="results" id="leaveResults" style="display:none;">
+                <h3>العمليات</h3>
+                <div id="leaveResultsContent"></div>
+            </section>
+        </section>
+
+        <!-- Export Tab -->
+        <section class="tab-content" id="tab-export">
+            <h2>كشف الحضور الشهري</h2>
+            <div class="controls">
+                <div class="form-group">
+                    <label>السنة:</label>
+                    <input type="number" id="exportYear" value="2026" min="2020" max="2030">
+                </div>
+                <div class="form-group">
+                    <label>الشهر:</label>
+                    <select id="exportMonth">
+                        <option value="1">يناير</option>
+                        <option value="2">فبراير</option>
+                        <option value="3">مارس</option>
+                        <option value="4">ابريل</option>
+                        <option value="5" selected>مايو</option>
+                        <option value="6">يونيو</option>
+                        <option value="7">يوليو</option>
+                        <option value="8">اغسطس</option>
+                        <option value="9">سبتمبر</option>
+                        <option value="10">اكتوبر</option>
+                        <option value="11">نوفمبر</option>
+                        <option value="12">ديسمبر</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>الإدارة:</label>
+                    <select id="exportDept">
+                        <option value="">الكل</option>
+                    </select>
+                </div>
+                <button id="exportPreviewBtn">استخدام في المتصفح</button>
+                <button id="downloadMonthlyExcelTopBtn" class="success">تحميل Excel على الكمبيوتر</button>
+                <button id="downloadMonthlyPdfTopBtn" class="secondary">تحميل PDF على الكمبيوتر</button>
+            </div>
+            <section class="results" id="exportPreview" style="display:none;">
+                <div id="exportPreviewContent"></div>
+                <div class="controls" style="margin-top:12px;border:none;padding:0;background:transparent;justify-content:center;">
+                    <button id="monthlyExportExcelBtn" class="success">تصدير إكسيل</button>
+                    <button id="monthlyExportPdfBtn" class="secondary">تصدير PDF</button>
+                </div>
+            </section>
+            <section class="results" id="exportResults" style="display:none;">
+                <h3>النتيجة</h3>
+                <div id="exportResultsContent"></div>
+            </section>
+        </section>
+
+        <section class="loading" id="loading" style="display:none;">
+            <div class="spinner"></div>
+            <p>جارٍ التحميل...</p>
+        </section>
+        <section class="error" id="error" style="display:none;">
+            <p id="errorMessage"></p>
+        </section>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+</body>
+</html>
