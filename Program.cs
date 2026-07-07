@@ -1,5 +1,6 @@
 using AttendanceApp.Data;
 using AttendanceApp.Services;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using System.Xml;
 
@@ -42,7 +43,6 @@ builder.Services.AddScoped<ZkAttendanceService>(sp =>
     new ZkAttendanceService(connectionString ?? string.Empty, sp.GetRequiredService<IDbContextFactory<AppDbContext>>()));
 builder.Services.AddScoped<LeaveFillService>();
 builder.Services.AddScoped<ExportService>();
-builder.Services.AddHostedService<ZkSyncBackgroundService>();
 
 builder.Services.AddCors(options =>
 {
@@ -62,7 +62,15 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseCors();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        ctx.Context.Response.Headers.Append("Pragma", "no-cache");
+        ctx.Context.Response.Headers.Append("Expires", "0");
+    }
+});
 app.MapControllers();
 app.MapFallbackToFile("index.html");
 

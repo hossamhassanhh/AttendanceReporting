@@ -213,6 +213,13 @@ public class TrackingController : ControllerBase
         return Ok(balances);
     }
 
+    [HttpGet("balances")]
+    public async Task<IActionResult> GetAllBalances([FromQuery] string? financialNo)
+    {
+        var balances = await _tracker.GetLeaveBalancesAsync(financialNo);
+        return Ok(balances);
+    }
+
     [HttpPost("bulk-update")]
     public async Task<IActionResult> BulkUpdate([FromBody] BulkUpdateRequest request)
     {

@@ -1,5 +1,9 @@
 using AttendanceApp.Services;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 
 namespace AttendanceApp.Controllers;
 
@@ -57,10 +61,120 @@ public class LeaveController : ControllerBase
     }
 
     [HttpGet("transactions")]
-    public async Task<IActionResult> GetAllTransactions([FromQuery] string? financialNo)
+    public async Task<IActionResult> GetAllTransactions([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
     {
-        var transactions = await _leaveService.GetLeaveTransactionsAsync(financialNo);
+        var transactions = await _leaveService.GetLeaveTransactionsAsync(financialNo, leaveTypeId, fromDate, toDate);
         return Ok(transactions);
+    }
+
+    [HttpGet("all-transactions")]
+    public async Task<IActionResult> GetAllTransactionsAlias([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
+    {
+        var transactions = await _leaveService.GetLeaveTransactionsAsync(financialNo, leaveTypeId, fromDate, toDate);
+        return Ok(transactions);
+    }
+
+    [HttpGet("export/excel")]
+    public async Task<IActionResult> ExportExcel([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
+    {
+        var transactions = await _leaveService.GetLeaveTransactionsAsync(financialNo, leaveTypeId, fromDate, toDate);
+        using var workbook = new XLWorkbook();
+        var sheet = workbook.Worksheets.Add("Leave Transactions");
+
+        sheet.Cell(1, 1).Value = "#";
+        sheet.Cell(1, 2).Value = "الرقم المالي";
+        sheet.Cell(1, 3).Value = "الموظف";
+        sheet.Cell(1, 4).Value = "النوع";
+        sheet.Cell(1, 5).Value = "من";
+        sheet.Cell(1, 6).Value = "إلى";
+        sheet.Cell(1, 7).Value = "أيام";
+        sheet.Cell(1, 8).Value = "السبب";
+        sheet.Cell(1, 9).Value = "التاريخ";
+
+        var headerRange = sheet.Range(1, 1, 1, 9);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#1a2744");
+        headerRange.Style.Font.FontColor = XLColor.White;
+
+        for (int i = 0; i < transactions.Count; i++)
+        {
+            var t = transactions[i];
+            sheet.Cell(i + 2, 1).Value = i + 1;
+            sheet.Cell(i + 2, 2).Value = t.EmployeeFinancialNo;
+            sheet.Cell(i + 2, 3).Value = t.Employee?.Name ?? "-";
+            sheet.Cell(i + 2, 4).Value = t.LeaveType?.NameAr ?? t.LeaveType?.NameEn ?? "";
+            sheet.Cell(i + 2, 5).Value = t.FromDate.ToString("yyyy-MM-dd");
+            sheet.Cell(i + 2, 6).Value = t.ToDate.ToString("yyyy-MM-dd");
+            sheet.Cell(i + 2, 7).Value = t.DaysCount;
+            sheet.Cell(i + 2, 8).Value = t.Reason ?? "-";
+            sheet.Cell(i + 2, 9).Value = t.CreatedAt.ToString("yyyy-MM-dd HH:mm");
+        }
+
+        sheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "leave-transactions.xlsx");
+    }
+
+    [HttpGet("export/pdf")]
+    public async Task<IActionResult> ExportPdf([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        var transactions = await _leaveService.GetLeaveTransactionsAsync(financialNo, leaveTypeId, fromDate, toDate);
+
+        var pdfBytes = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4.Landscape());
+                page.Margin(20);
+                page.Content().Table(table =>
+                {
+                    table.ColumnsDefinition(columns =>
+                    {
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                        columns.RelativeColumn();
+                    });
+
+                    table.Header(header =>
+                    {
+                        header.Cell().Text("#").Bold();
+                        header.Cell().Text("الرقم المالي").Bold();
+                        header.Cell().Text("الموظف").Bold();
+                        header.Cell().Text("النوع").Bold();
+                        header.Cell().Text("من").Bold();
+                        header.Cell().Text("إلى").Bold();
+                        header.Cell().Text("أيام").Bold();
+                        header.Cell().Text("السبب").Bold();
+                        header.Cell().Text("التاريخ").Bold();
+                    });
+
+                    for (int i = 0; i < transactions.Count; i++)
+                    {
+                        var t = transactions[i];
+                        table.Cell().Text((i + 1).ToString());
+                        table.Cell().Text(t.EmployeeFinancialNo);
+                        table.Cell().Text(t.Employee?.Name ?? "-");
+                        table.Cell().Text(t.LeaveType?.NameAr ?? "");
+                        table.Cell().Text(t.FromDate.ToString("yyyy-MM-dd"));
+                        table.Cell().Text(t.ToDate.ToString("yyyy-MM-dd"));
+                        table.Cell().Text(t.DaysCount.ToString());
+                        table.Cell().Text(t.Reason ?? "-");
+                        table.Cell().Text(t.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+                    }
+                });
+            });
+        }).GeneratePdf();
+
+        return File(pdfBytes, "application/pdf", "leave-transactions.pdf");
     }
 }
 

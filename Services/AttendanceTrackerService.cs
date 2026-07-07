@@ -15,6 +15,7 @@ public class AttendanceTrackerService
         { "Early Leave", "انصراف مبكر" },
         { "Absent", "غائب" },
         { "Leave", "إجازة" },
+        { "Work From Home", "عمل من المنزل" },
         { "Weekly Rest", "راحة أسبوعية" },
         { "Holiday", "عطلة" },
         { "Mission", "مأمورية" },
@@ -79,14 +80,20 @@ public class AttendanceTrackerService
             .ToListAsync();
     }
 
-    public async Task<List<LeaveBalance>> GetLeaveBalancesAsync(string financialNo)
+    public async Task<List<LeaveBalance>> GetLeaveBalancesAsync(string? financialNo)
     {
         using var db = await _factory.CreateDbContextAsync();
 
-        return await db.LeaveBalances
+        var query = db.LeaveBalances
             .Include(b => b.Employee)
-            .Where(b => b.EmployeeFinancialNo == financialNo)
-            .OrderByDescending(b => b.Year)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(financialNo))
+            query = query.Where(b => b.EmployeeFinancialNo == financialNo);
+
+        return await query
+            .OrderBy(b => b.EmployeeFinancialNo)
+            .ThenByDescending(b => b.Year)
             .ToListAsync();
     }
 

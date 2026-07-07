@@ -1,7 +1,9 @@
 using AttendanceApp.Data;
 using AttendanceApp.Models;
 using ClosedXML.Excel;
+using ExcelDataReader;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace AttendanceApp.Services;
 
@@ -12,6 +14,7 @@ public class LeaveService
     public LeaveService(IDbContextFactory<AppDbContext> factory)
     {
         _factory = factory;
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
     }
 
     public async Task<LeaveTransaction> GrantLeaveAsync(string financialNo, int leaveTypeId, DateTime fromDate, DateTime toDate, double days, string? reason)
@@ -104,7 +107,7 @@ public class LeaveService
         return transaction;
     }
 
-    public async Task<List<LeaveTransaction>> GetLeaveTransactionsAsync(string? financialNo)
+    public async Task<List<LeaveTransaction>> GetLeaveTransactionsAsync(string? financialNo, int? leaveTypeId = null, DateTime? fromDate = null, DateTime? toDate = null)
     {
         using var db = await _factory.CreateDbContextAsync();
 
@@ -115,6 +118,15 @@ public class LeaveService
 
         if (!string.IsNullOrWhiteSpace(financialNo))
             query = query.Where(t => t.EmployeeFinancialNo == financialNo);
+
+        if (leaveTypeId.HasValue)
+            query = query.Where(t => t.LeaveTypeId == leaveTypeId.Value);
+
+        if (fromDate.HasValue)
+            query = query.Where(t => t.FromDate >= fromDate.Value);
+
+        if (toDate.HasValue)
+            query = query.Where(t => t.ToDate <= toDate.Value);
 
         return await query
             .OrderByDescending(t => t.CreatedAt)
@@ -171,5 +183,68 @@ public class LeaveService
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
         return stream.ToArray();
+    }
+
+    public async Task<string> ImportLeaveUploadAsync(string filePath)
+    {
+        using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = ExcelReaderFactory.CreateReader(stream);
+        var dataSet = reader.AsDataSet(new ExcelDataSetConfiguration
+        {
+            ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = true }
+        });
+
+        if (dataSet.Tables.Count == 0)
+            return "No sheets found in leave upload file";
+
+        using var db = await _factory.CreateDbContextAsync();
+        var leaveTypes = await db.LeaveTypes.ToListAsync();
+        var count = 0;
+
+        foreach (System.Data.DataRow row in dataSet.Tables[0].Rows)
+        {
+            var financialNo = GetText(row, "FinancialNo", "الرقم المالي", "رقم مالي");
+            var typeCode = GetText(row, "LeaveTypeCode", "LeaveType", "نوع الإجازة", "كود الإجازة");
+            var reason = GetText(row, "Reason", "السبب");
+            var fromDate = GetDate(row, "FromDate", "من تاريخ", "من");
+            var toDate = GetDate(row, "ToDate", "إلى تاريخ", "الى تاريخ", "إلى");
+
+            if (string.IsNullOrWhiteSpace(financialNo) || string.IsNullOrWhiteSpace(typeCode) || !fromDate.HasValue || !toDate.HasValue)
+                continue;
+
+            var leaveType = leaveTypes.FirstOrDefault(t => string.Equals(t.Code, typeCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t.NameEn, typeCode, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(t.NameAr, typeCode, StringComparison.OrdinalIgnoreCase));
+            if (leaveType == null)
+                continue;
+
+            await GrantLeaveAsync(financialNo, leaveType.Id, fromDate.Value, toDate.Value, 0, reason);
+            count++;
+        }
+
+        return $"Imported {count} leave transactions";
+    }
+
+    private static string GetText(System.Data.DataRow row, params string[] names)
+    {
+        foreach (var name in names)
+        {
+            if (row.Table.Columns.Contains(name))
+                return row[name]?.ToString()?.Trim() ?? string.Empty;
+        }
+
+        return string.Empty;
+    }
+
+    private static DateTime? GetDate(System.Data.DataRow row, params string[] names)
+    {
+        var text = GetText(row, names);
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        if (DateTime.TryParse(text, out var result))
+            return result.Date;
+
+        return null;
     }
 }

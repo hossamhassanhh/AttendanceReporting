@@ -27,7 +27,7 @@ public class EmployeesController : ControllerBase
             query = query.Where(e => e.Name.Contains(search) || e.FinancialNo.Contains(search));
         }
 
-        var employees = await query.OrderBy(e => e.Name).Take(100).ToListAsync();
+        var employees = await query.OrderBy(e => e.Name).ToListAsync();
         return Ok(employees);
     }
 

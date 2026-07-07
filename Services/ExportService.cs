@@ -15,7 +15,7 @@ namespace AttendanceApp.Services;
 public class ExportService
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
-    private const string SayedTemplatePath = @"C:\Users\4779\Documents\Copy of SAYED.xlsx";
+    private const string MonthlyReportTemplatePath = @"C:\Users\4779\Documents\Copy of SAYED.xlsx";
 
     private static readonly Dictionary<string, string> StatusToCode = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -96,7 +96,7 @@ public class ExportService
                 || leaveAtt.ContainsKey(emp.FinancialNo)
                 || HasSunday(year, month))
             .ToList();
-        return GenerateMonthlySheetWithExcel(year, month, department, monthNames[month], daysInMonth,
+        return GenerateMonthlySheetWithClosedXml(year, month, department, monthNames[month], daysInMonth,
             exportEmployees, attByEmpDate, monthlyByEmpDate, leaveAtt);
     }
 
@@ -411,11 +411,11 @@ public class ExportService
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Excel template export requires Windows and Microsoft Excel.");
 
-        if (!File.Exists(SayedTemplatePath))
-            throw new FileNotFoundException("SAYED template file was not found.", SayedTemplatePath);
+        if (!File.Exists(MonthlyReportTemplatePath))
+            throw new FileNotFoundException("Monthly report template file was not found.", MonthlyReportTemplatePath);
 
         var tempInput = Path.Combine(Path.GetTempPath(), $"sayed-template-{Guid.NewGuid():N}.xlsx");
-        File.Copy(SayedTemplatePath, tempInput, overwrite: true);
+        File.Copy(MonthlyReportTemplatePath, tempInput, overwrite: true);
 
         dynamic? excel = null;
         dynamic? workbook = null;
@@ -529,6 +529,289 @@ public class ExportService
 
             try { File.Delete(tempInput); } catch { }
         }
+    }
+
+    private static byte[] GenerateMonthlySheetWithClosedXml(
+        int year,
+        int month,
+        string? department,
+        string monthName,
+        int daysInMonth,
+        List<Employee> exportEmployees,
+        Dictionary<string, Dictionary<int, DailyAttendance>> attByEmpDate,
+        Dictionary<string, Dictionary<int, MonthlyAttendance>> monthlyByEmpDate,
+        Dictionary<string, Dictionary<int, string>> leaveByEmpDate)
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("Monthly Attendance");
+
+        ws.RightToLeft = true;
+
+        // Row 1: Title
+        ws.Cell(1, 1).Value = $"time sheet period {monthName} {year}";
+        ws.Range(1, 1, 1, 48).Merge();
+        ws.Cell(1, 1).Style.Font.Bold = true;
+        ws.Cell(1, 1).Style.Font.FontSize = 14;
+        ws.Cell(1, 1).Style.Font.FontName = "Cambria";
+        ws.Cell(1, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // Row 2: First set of labels
+        ws.Cell(2, 1).Value = "Annual";
+        ws.Cell(2, 2).Value = "Casual";
+        ws.Cell(2, 3).Value = "Rest";
+        ws.Cell(2, 4).Value = "Holiday";
+        ws.Cell(2, 5).Value = "";
+        ws.Cell(2, 6).Value = "From";
+        ws.Cell(2, 7).Value = "Work";
+        ws.Cell(2, 8).Value = "Home";
+        ws.Cell(2, 9).Value = "Military";
+        ws.Cell(2, 10).Value = "Infection";
+        ws.Cell(2, 11).Value = "Dep :";
+        ws.Cell(2, 12).Value = string.IsNullOrWhiteSpace(department) ? "تنمية الاعمال" : department;
+        ws.Range(2, 12, 2, 14).Merge();
+        ws.Cell(2, 15).Value = "Loection :";
+        ws.Cell(2, 16).Value = "المركز الرئيسى";
+        ws.Range(2, 16, 2, 18).Merge();
+        ws.Cell(2, 19).Value = "تقرير رئيسي";
+
+        // Row 3: First set of codes
+        ws.Cell(3, 1).Value = "A";
+        ws.Cell(3, 2).Value = "C";
+        ws.Cell(3, 3).Value = "R";
+        ws.Cell(3, 4).Value = "H";
+        ws.Cell(3, 5).Value = "";
+        ws.Cell(3, 6).Value = "";
+        ws.Cell(3, 7).Value = "WH";
+        ws.Cell(3, 8).Value = "";
+        ws.Cell(3, 9).Value = "ML";
+        ws.Cell(3, 10).Value = "I";
+
+        // Row 4: Second set of labels
+        ws.Cell(4, 1).Value = "Maternity";
+        ws.Cell(4, 2).Value = "Absent";
+        ws.Cell(4, 3).Value = "Sick Leave";
+        ws.Cell(4, 4).Value = "Chronic Sick";
+        ws.Cell(4, 5).Value = "Vacation";
+        ws.Cell(4, 6).Value = "Without";
+        ws.Cell(4, 7).Value = "Pay";
+        ws.Cell(4, 8).Value = "Labor";
+        ws.Cell(4, 9).Value = "Reduction";
+        ws.Cell(4, 10).Value = "Others";
+
+        // Row 5: Second set of codes
+        ws.Cell(5, 1).Value = "MA";
+        ws.Cell(5, 2).Value = "B";
+        ws.Cell(5, 3).Value = "S";
+        ws.Cell(5, 4).Value = "CS";
+        ws.Cell(5, 5).Value = "VW";
+        ws.Cell(5, 6).Value = "";
+        ws.Cell(5, 7).Value = "";
+        ws.Cell(5, 8).Value = "RD";
+        ws.Cell(5, 9).Value = "O";
+
+        // Row 6: Third set of labels + codes
+        ws.Cell(6, 1).Value = "Training";
+        ws.Cell(6, 2).Value = "T";
+        ws.Cell(6, 3).Value = "Hajj";
+        ws.Cell(6, 4).Value = "HJ";
+        ws.Cell(6, 5).Value = "Accident";
+        ws.Cell(6, 6).Value = "K";
+        ws.Cell(6, 7).Value = "Extraordinary";
+        ws.Cell(6, 8).Value = "vacation";
+        ws.Cell(6, 9).Value = "EV";
+
+        // Style legend rows
+        for (var legendRow = 2; legendRow <= 6; legendRow++)
+        {
+            var legendRange = ws.Range(legendRow, 1, legendRow, 19);
+            legendRange.Style.Font.Bold = true;
+            legendRange.Style.Font.FontSize = 8;
+            legendRange.Style.Font.FontName = "Cambria";
+            legendRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            legendRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            legendRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        }
+
+        // Row 7: Day numbers header
+        var dayHeaders = new List<string> { "PR", "Name", "Job Title" };
+        for (var d = 1; d <= 31; d++) dayHeaders.Add(d <= daysInMonth ? d.ToString() : string.Empty);
+        dayHeaders.AddRange(new[]
+        {
+            "Total Working Days", "Employee Signature", "X", "A", "S", "C", "B", "E", "DI", "DX", "T",
+            "الادارة العامة", "المستوى الوظيفى", "Box"
+        });
+
+        for (var c = 0; c < dayHeaders.Count; c++)
+            ws.Cell(7, c + 1).Value = dayHeaders[c];
+
+        var headerRange = ws.Range(7, 1, 7, dayHeaders.Count);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Font.FontSize = 8;
+        headerRange.Style.Font.FontName = "Cambria";
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#D9E2F3");
+        headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        var row = 8;
+        foreach (var emp in exportEmployees)
+        {
+            var empAtts = attByEmpDate.GetValueOrDefault(emp.FinancialNo);
+            var empMons = monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo);
+            var empLeaves = leaveByEmpDate.GetValueOrDefault(emp.FinancialNo);
+
+            // Check for extended leave (all days in month are leave)
+            var leaveStartDate = GetLeaveStartDate(emp.FinancialNo, year, month, leaveByEmpDate);
+            var lastWorkDay = GetLastWorkDay(emp.FinancialNo, year, month, daysInMonth, attByEmpDate, monthlyByEmpDate, leaveByEmpDate);
+
+            // Calculate total working days first
+            int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
+            int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
+            var allCodes = new string[31];
+            for (var d = 1; d <= 31; d++)
+            {
+                var code = d <= daysInMonth
+                    ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves)
+                    : string.Empty;
+                allCodes[d - 1] = code;
+                if (!string.IsNullOrEmpty(code))
+                    CountCode(code, ref presentDays, ref regLeave, ref sickDays,
+                        ref casualDays, ref absenceDays, ref restDays,
+                        ref extMission, ref intMission, ref trainingDays);
+            }
+
+            // Check if employee is on extended leave (all days are leave code)
+            var isExtendedLeave = leaveStartDate.HasValue && presentDays == 0 && daysInMonth > 0;
+
+            if (isExtendedLeave)
+            {
+                // Add merged green row for extended leave
+                var fromDate = leaveStartDate.Value;
+                var toDate = new DateTime(year, month, daysInMonth);
+                var leaveText = $"فترة غياب من: {fromDate:dd/MM/yyyy} إلى: {toDate:dd/MM/yyyy}";
+
+                ws.Cell(row, 1).Value = emp.FinancialNo;
+                ws.Cell(row, 2).Value = emp.Name;
+                ws.Range(row, 3, row, 34).Merge();
+                ws.Cell(row, 3).Value = leaveText;
+                ws.Cell(row, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(row, 3).Style.Font.Bold = true;
+                ws.Cell(row, 3).Style.Font.FontSize = 9;
+                ws.Cell(row, 35).Value = 0;
+
+                // Green fill for extended leave row
+                var greenFill = XLColor.FromHtml("#00B050");
+                var leaveRowRange = ws.Range(row, 1, row, 48);
+                leaveRowRange.Style.Fill.BackgroundColor = greenFill;
+                leaveRowRange.Style.Font.FontColor = XLColor.White;
+                leaveRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                leaveRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                row++;
+            }
+            else if (lastWorkDay.HasValue && presentDays == 0 && daysInMonth > 0)
+            {
+                // Add merged green row for last working day
+                var lastDay = lastWorkDay.Value;
+                var lastDayText = $"اخر يوم عمل: {lastDay:dd-MM-yyyy}";
+
+                ws.Cell(row, 1).Value = emp.FinancialNo;
+                ws.Cell(row, 2).Value = emp.Name;
+                ws.Range(row, 3, row, 34).Merge();
+                ws.Cell(row, 3).Value = lastDayText;
+                ws.Cell(row, 3).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                ws.Cell(row, 3).Style.Font.Bold = true;
+                ws.Cell(row, 3).Style.Font.FontSize = 9;
+                ws.Cell(row, 35).Value = 0;
+
+                // Green fill for last work day row
+                var greenFill = XLColor.FromHtml("#00B050");
+                var lastDayRowRange = ws.Range(row, 1, row, 48);
+                lastDayRowRange.Style.Fill.BackgroundColor = greenFill;
+                lastDayRowRange.Style.Font.FontColor = XLColor.White;
+                lastDayRowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                lastDayRowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                row++;
+            }
+            else
+            {
+                // Normal employee row
+                ws.Cell(row, 1).Value = emp.FinancialNo;
+                ws.Cell(row, 2).Value = emp.Name;
+                ws.Cell(row, 3).Value = emp.JobTitle ?? string.Empty;
+
+                for (var d = 1; d <= 31; d++)
+                {
+                    var code = allCodes[d - 1];
+                    var cell = ws.Cell(row, 3 + d);
+                    cell.Value = code;
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    cell.Style.Font.Bold = !string.IsNullOrWhiteSpace(code);
+
+                    ApplyClosedXmlCodeColor(cell, code, d, year, month, daysInMonth);
+                }
+
+                ws.Cell(row, 35).Value = presentDays;
+                ws.Cell(row, 37).Value = presentDays;
+                ws.Cell(row, 38).Value = regLeave;
+                ws.Cell(row, 39).Value = sickDays;
+                ws.Cell(row, 40).Value = casualDays;
+                ws.Cell(row, 41).Value = absenceDays;
+                ws.Cell(row, 42).Value = restDays;
+                ws.Cell(row, 43).Value = extMission;
+                ws.Cell(row, 44).Value = intMission;
+                ws.Cell(row, 45).Value = trainingDays;
+                ws.Cell(row, 46).Value = emp.Department ?? string.Empty;
+                ws.Cell(row, 47).Value = emp.Level ?? string.Empty;
+
+                var rowRange = ws.Range(row, 1, row, dayHeaders.Count);
+                rowRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+                rowRange.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+                row++;
+            }
+        }
+
+        ws.SheetView.FreezeRows(7);
+        ws.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static void ApplyClosedXmlCodeColor(IXLCell cell, string code, int day, int year, int month, int daysInMonth)
+    {
+        var normalized = (code ?? string.Empty).Trim().ToUpperInvariant();
+        var fill = normalized switch
+        {
+            var c when c.StartsWith("B") => XLColor.FromHtml("#FF0000"),
+            var c when c.StartsWith("S") => XLColor.FromHtml("#00B050"),
+            var c when c.StartsWith("C") => XLColor.FromHtml("#FFC000"),
+            var c when c.StartsWith("A") => XLColor.FromHtml("#FFFF00"),
+            var c when c.StartsWith("E") => XLColor.FromHtml("#B4C6E7"),
+            var c when c.StartsWith("DI") || c.StartsWith("DX") => XLColor.FromHtml("#00B0F0"),
+            var c when c.StartsWith("T") => XLColor.FromHtml("#BFBFBF"),
+            var c when c.StartsWith("W") || c.StartsWith("H") => XLColor.FromHtml("#D9D9D9"),
+            var c when c.StartsWith("X1") => XLColor.FromHtml("#DDEBF7"),
+            var c when c.StartsWith("X2") => XLColor.FromHtml("#00B0F0"),
+            var c when c.StartsWith("X3") => XLColor.FromHtml("#5B9BD5"),
+            var c when c.StartsWith("X4") => XLColor.FromHtml("#7030A0"),
+            _ => null
+        };
+
+        if (fill == null)
+        {
+            var isWeekend = day > daysInMonth;
+            if (day <= daysInMonth)
+            {
+                var dayOfWeek = new DateTime(year, month, day).DayOfWeek;
+                isWeekend = dayOfWeek == DayOfWeek.Friday || dayOfWeek == DayOfWeek.Saturday;
+            }
+
+            fill = isWeekend ? XLColor.FromHtml("#BFBFBF") : XLColor.White;
+        }
+
+        cell.Style.Fill.BackgroundColor = fill;
+        cell.Style.Font.FontColor = normalized.StartsWith("B") ? XLColor.White : XLColor.Black;
     }
 
     private static void ReleaseComObject(object? value)
@@ -848,10 +1131,10 @@ public class ExportService
 
     private static XLWorkbook OpenSayedTemplate()
     {
-        if (!File.Exists(SayedTemplatePath))
-            throw new FileNotFoundException("SAYED template file was not found.", SayedTemplatePath);
+        if (!File.Exists(MonthlyReportTemplatePath))
+            throw new FileNotFoundException("Monthly report template file was not found.", MonthlyReportTemplatePath);
 
-        using var file = new FileStream(SayedTemplatePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var file = new FileStream(MonthlyReportTemplatePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         var templateBytes = new MemoryStream();
         file.CopyTo(templateBytes);
         templateBytes.Position = 0;
@@ -889,5 +1172,48 @@ public class ExportService
             case "DX": intMission++; break;
             case "T": training++; break;
         }
+    }
+
+    private static DateTime? GetLeaveStartDate(string financialNo, int year, int month,
+        Dictionary<string, Dictionary<int, string>> leaveByEmpDate)
+    {
+        if (!leaveByEmpDate.TryGetValue(financialNo, out var leaveByDay))
+            return null;
+
+        // Find the first day with a leave code
+        for (var d = 1; d <= 31; d++)
+        {
+            if (leaveByDay.TryGetValue(d, out var code) && !string.IsNullOrEmpty(code))
+            {
+                return new DateTime(year, month, d);
+            }
+        }
+
+        return null;
+    }
+
+    private static DateTime? GetLastWorkDay(string financialNo, int year, int month, int daysInMonth,
+        Dictionary<string, Dictionary<int, DailyAttendance>> attByEmpDate,
+        Dictionary<string, Dictionary<int, MonthlyAttendance>> monthlyByEmpDate,
+        Dictionary<string, Dictionary<int, string>> leaveByEmpDate)
+    {
+        DateTime? lastWorkDay = null;
+
+        for (var d = daysInMonth; d >= 1; d--)
+        {
+            var empAtts = attByEmpDate.GetValueOrDefault(financialNo);
+            var empMons = monthlyByEmpDate.GetValueOrDefault(financialNo);
+            var empLeaves = leaveByEmpDate.GetValueOrDefault(financialNo);
+            var code = GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves);
+
+            // Consider R, WH as work days
+            if (code == "R" || code == "WH")
+            {
+                lastWorkDay = new DateTime(year, month, d);
+                break;
+            }
+        }
+
+        return lastWorkDay;
     }
 }
