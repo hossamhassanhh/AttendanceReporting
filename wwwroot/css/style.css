@@ -1704,6 +1704,163 @@ html[dir="ltr"] .utility-actions { direction: ltr; }
     .card::before { margin: -14px -14px 12px; }
 }
 
+/* ===================== FULL-SCREEN WORKSPACE ===================== */
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    min-height: 100dvh;
+}
+
+.app-shell {
+    width: 100%;
+    min-height: 100dvh;
+    grid-template-columns: clamp(236px, 16vw, 292px) minmax(0, 1fr);
+}
+
+.main-panel {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding-inline: clamp(18px, 2.5vw, 52px);
+    padding-bottom: 48px;
+}
+
+.topbar {
+    margin-inline: calc(clamp(18px, 2.5vw, 52px) * -1);
+    padding-inline: clamp(18px, 2.5vw, 52px);
+}
+
+.sidebar {
+    box-shadow: 10px 0 40px rgba(26, 39, 68, 0.045);
+}
+
+html[dir="rtl"] .sidebar {
+    box-shadow: -10px 0 40px rgba(26, 39, 68, 0.045);
+}
+
+.tabs {
+    gap: 8px;
+}
+
+.tab {
+    min-height: 44px;
+    padding-inline: 18px;
+}
+
+.workspace-brief {
+    width: 100%;
+    padding: clamp(20px, 2vw, 30px);
+    border-radius: 26px;
+}
+
+.tab-content.active {
+    width: 100%;
+}
+
+.card,
+.results {
+    width: 100%;
+    border-color: rgba(36, 53, 82, 0.1);
+    box-shadow: 0 12px 34px rgba(26, 39, 68, 0.075);
+}
+
+.filter-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, .96), rgba(246, 249, 252, .92));
+}
+
+.filter-header {
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(36, 53, 82, .08);
+}
+
+.form-group input,
+.form-group select,
+.result-tool input,
+.result-tool select {
+    border-color: rgba(36, 53, 82, .16);
+    background-color: rgba(255, 255, 255, .94);
+}
+
+.form-group input:hover,
+.form-group select:hover,
+.result-tool input:hover,
+.result-tool select:hover {
+    border-color: rgba(61, 138, 191, .42);
+}
+
+.primary-action,
+.secondary,
+.success,
+.ghost,
+.refresh-action {
+    font-weight: 700;
+}
+
+.results table {
+    min-width: 100%;
+}
+
+.results th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+@media (min-width: 1800px) {
+    .app-shell {
+        grid-template-columns: 300px minmax(0, 1fr);
+    }
+
+    .main-panel {
+        padding-inline: 56px;
+    }
+
+    .topbar {
+        margin-inline: -56px;
+        padding-inline: 56px;
+    }
+
+    .workspace-brief {
+        grid-template-columns: minmax(0, 1.35fr) minmax(520px, .8fr);
+    }
+
+    .filter-grid-4 {
+        grid-template-columns: repeat(5, minmax(160px, 1fr));
+    }
+}
+
+@media (max-width: 899px) {
+    .app-shell {
+        display: block;
+        min-height: 100dvh;
+    }
+
+    .main-panel {
+        padding-inline: clamp(12px, 3vw, 24px);
+    }
+
+    .topbar {
+        margin-inline: calc(clamp(12px, 3vw, 24px) * -1);
+        padding-inline: clamp(12px, 3vw, 24px);
+    }
+}
+
+@media (max-width: 575px) {
+    .main-panel {
+        padding-bottom: 24px;
+    }
+
+    .workspace-brief,
+    .card,
+    .results {
+        border-radius: 18px;
+    }
+}
+
 @media (max-width: 399px) {
     .workspace-brief { padding: 14px; border-radius: 16px; }
     .card::before { margin: -12px -12px 10px; }
@@ -3355,5 +3512,39 @@ button:disabled {
 
     .pagination-actions > button {
         flex: 1 1 0;
+    }
+}
+
+/* Keep the application edge-to-edge after all legacy responsive overrides. */
+.app-shell {
+    width: 100%;
+    min-height: 100dvh;
+    grid-template-columns: clamp(236px, 16vw, 292px) minmax(0, 1fr);
+}
+
+.main-panel {
+    width: 100%;
+    max-width: none;
+    margin-inline: 0;
+    padding-inline: clamp(18px, 2.5vw, 52px);
+}
+
+.topbar {
+    margin-inline: calc(clamp(18px, 2.5vw, 52px) * -1);
+    padding-inline: clamp(18px, 2.5vw, 52px);
+}
+
+@media (min-width: 1800px) {
+    .app-shell { grid-template-columns: 300px minmax(0, 1fr); }
+    .main-panel { padding-inline: 56px; }
+    .topbar { margin-inline: -56px; padding-inline: 56px; }
+}
+
+@media (max-width: 899px) {
+    .app-shell { display: block; }
+    .main-panel { padding-inline: clamp(12px, 3vw, 24px); }
+    .topbar {
+        margin-inline: calc(clamp(12px, 3vw, 24px) * -1);
+        padding-inline: clamp(12px, 3vw, 24px);
     }
 }
