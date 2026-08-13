@@ -78,7 +78,10 @@ public class TrackingController : ControllerBase
         [FromQuery] string? area,
         [FromQuery] string? status,
         [FromQuery] string? scheduleStart,
-        [FromQuery] string? scheduleEnd)
+        [FromQuery] string? scheduleEnd,
+        [FromQuery] string? sort,
+        [FromQuery] int? page,
+        [FromQuery] int? pageSize)
     {
         var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
         var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
@@ -125,6 +128,34 @@ public class TrackingController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(status))
             mapped = mapped.Where(m => string.Equals(m.Status, status, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        mapped = string.Equals(sort, "name", StringComparison.OrdinalIgnoreCase)
+            ? mapped.OrderBy(m => m.EmployeeName).ThenBy(m => m.EmployeeFinancialNo).ToList()
+            : mapped.OrderBy(m => int.TryParse(m.EmployeeFinancialNo, out var number) ? number : int.MaxValue)
+                .ThenBy(m => m.EmployeeFinancialNo)
+                .ThenBy(m => m.Date)
+                .ToList();
+
+        if (page.HasValue || pageSize.HasValue)
+        {
+            var requestedPageSize = Math.Clamp(pageSize ?? 50, 10, 200);
+            var totalCount = mapped.Count;
+            var totalPages = Math.Max(1, (int)Math.Ceiling(totalCount / (double)requestedPageSize));
+            var requestedPage = Math.Clamp(page ?? 1, 1, totalPages);
+            var items = mapped
+                .Skip((requestedPage - 1) * requestedPageSize)
+                .Take(requestedPageSize)
+                .ToList();
+
+            return Ok(new
+            {
+                items,
+                totalCount,
+                page = requestedPage,
+                pageSize = requestedPageSize,
+                totalPages
+            });
+        }
 
         return Ok(mapped);
     }

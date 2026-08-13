@@ -17,6 +17,11 @@
     var employeeFilterOptions = null;
     var exportFilterOptions = null;
     var leaveDaysRequestId = 0;
+    var attendancePage = 1;
+    var attendancePageSize = 50;
+    var attendanceTotalCount = 0;
+    var attendanceTotalPages = 1;
+    var attendanceRequestController = null;
 
     var i18n = {
         ar: {
@@ -361,6 +366,26 @@
     i18n.en.displayNameArPlaceholder = 'Arabic display name';
     i18n.en.optional = 'Optional';
     i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
+    i18n.ar.languageSelection = 'اختيار اللغة';
+    i18n.ar.mainNavigation = 'التنقل الرئيسي';
+    i18n.ar.workspaceSummary = 'ملخص مساحة العمل';
+    i18n.ar.workspaceIndicators = 'مؤشرات العمل';
+    i18n.ar.attendancePagination = 'صفحات نتائج الحضور';
+    i18n.ar.rowsPerPage = 'عدد الصفوف';
+    i18n.ar.previousPage = 'السابق';
+    i18n.ar.nextPage = 'التالي';
+    i18n.ar.scrollTableHint = 'مرر الجدول أفقياً لعرض بقية الأعمدة.';
+    i18n.ar.totalRecords = 'سجل';
+    i18n.en.languageSelection = 'Language selection';
+    i18n.en.mainNavigation = 'Main navigation';
+    i18n.en.workspaceSummary = 'Workspace summary';
+    i18n.en.workspaceIndicators = 'Workspace indicators';
+    i18n.en.attendancePagination = 'Attendance result pages';
+    i18n.en.rowsPerPage = 'Rows per page';
+    i18n.en.previousPage = 'Previous';
+    i18n.en.nextPage = 'Next';
+    i18n.en.scrollTableHint = 'Scroll the table horizontally to view the remaining columns.';
+    i18n.en.totalRecords = 'records';
 
     var monthNames = {
         ar: ['يناير', 'فبراير', 'مارس', 'ابريل', 'مايو', 'يونيو', 'يوليو', 'اغسطس', 'سبتمبر', 'اكتوبر', 'نوفمبر', 'ديسمبر'],
@@ -410,7 +435,9 @@
         });
 
         document.querySelectorAll('.lang-pill').forEach(function (pill) {
-            pill.classList.toggle('active-lang', pill.getAttribute('data-lang') === currentLang);
+            var isActiveLanguage = pill.getAttribute('data-lang') === currentLang;
+            pill.classList.toggle('active-lang', isActiveLanguage);
+            pill.setAttribute('aria-pressed', String(isActiveLanguage));
         });
 
         var todayEl = $('todayLabel');
@@ -634,6 +661,7 @@
             balances: 'balancesTitle',
             leave: 'leaveTitle',
             export: 'monthlyTitle',
+            daily: 'dailyTitle',
             admin: 'adminTitle'
         };
         var descMap = {
@@ -642,6 +670,7 @@
             balances: 'balancesDesc',
             leave: 'leaveDesc',
             export: 'monthlyDesc',
+            daily: 'dailyDesc',
             admin: 'adminDesc'
         };
         var dict = i18n[currentLang] || i18n.ar;
@@ -1173,9 +1202,17 @@
             else element.style.display = 'none';
         });
 
-        if (tabName === 'attendance') lastAttendanceRecords = null;
         if (tabName === 'attendance') {
+            lastAttendanceRecords = null;
+            attendancePage = 1;
+            attendanceTotalCount = 0;
+            attendanceTotalPages = 1;
+            if (attendanceRequestController) attendanceRequestController.abort();
+            attendanceRequestController = null;
             resetAttendanceFilters();
+            hide('attPagination');
+            hide('attExportActions');
+            $('attPageSummary').textContent = '';
             hide('attRecalculationResult');
             $('attRecalculationResult').textContent = '';
         }
@@ -1252,9 +1289,16 @@
         if (queryName === 'attendance') {
             resetAttendanceFilters();
             lastAttendanceRecords = null;
+            attendancePage = 1;
+            attendanceTotalCount = 0;
+            attendanceTotalPages = 1;
+            if (attendanceRequestController) attendanceRequestController.abort();
+            attendanceRequestController = null;
             hide('attResults');
+            hide('attPagination');
             clear($('attResultsContent'));
             $('attExportActions').style.display = 'none';
+            $('attPageSummary').textContent = '';
             hide('attRecalculationResult');
             $('attRecalculationResult').textContent = '';
         }
@@ -1328,7 +1372,10 @@
         var target = document.querySelector('.tab[data-tab="' + tabName + '"]');
         if (!target) return;
         var permission = target.getAttribute('data-permission');
-        if (permission && !hasPermission(permission)) tabName = 'attendance';
+        if (permission && !hasPermission(permission)) {
+            tabName = 'attendance';
+            target = document.querySelector('.tab[data-tab="attendance"]');
+        }
 
         var active = document.querySelector('.tab.active');
         var previousName = active ? active.getAttribute('data-tab') : null;
@@ -1337,7 +1384,10 @@
         }
 
         document.querySelectorAll('.tab').forEach(function (tab) {
-            tab.classList.toggle('active', tab.getAttribute('data-tab') === tabName);
+            var isActiveTab = tab.getAttribute('data-tab') === tabName;
+            tab.classList.toggle('active', isActiveTab);
+            if (isActiveTab) tab.setAttribute('aria-current', 'page');
+            else tab.removeAttribute('aria-current');
         });
         document.querySelectorAll('.tab-content').forEach(function (content) {
             content.classList.remove('active');
@@ -1346,6 +1396,11 @@
         $(contentId).classList.add('active');
         sessionStorage.setItem('attendance.activeTab', tabName);
         updateWorkspaceBrief();
+        target.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+            block: 'nearest',
+            inline: 'nearest'
+        });
         if (tabName === 'admin' && currentUser) loadAdminData();
     }
 
@@ -1364,6 +1419,8 @@
     $('attFrom').valueAsDate = today;
     $('attTo').valueAsDate = today;
     $('dailyDate').valueAsDate = today;
+    $('exportYear').value = today.getFullYear();
+    $('exportMonth').value = String(today.getMonth() + 1);
     $('leaveDays').value = '';
     renderAttendanceFilterOptions();
     ['attEmployees', 'attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
@@ -1448,6 +1505,24 @@
         return leaveTypesRequest;
     }
 
+    function updateAttendancePagination() {
+        var pagination = $('attPagination');
+        if (!pagination || attendanceTotalCount === 0) {
+            hide('attPagination');
+            return;
+        }
+
+        attendanceTotalPages = Math.max(1, attendanceTotalPages);
+        attendancePage = Math.min(Math.max(1, attendancePage), attendanceTotalPages);
+        $('attPageSummary').textContent = currentLang === 'ar'
+            ? attendanceTotalCount + ' ' + i18n.ar.totalRecords + ' • صفحة ' + attendancePage + ' من ' + attendanceTotalPages
+            : attendanceTotalCount + ' ' + i18n.en.totalRecords + ' • Page ' + attendancePage + ' of ' + attendanceTotalPages;
+        $('attPrevPage').disabled = attendancePage <= 1;
+        $('attNextPage').disabled = attendancePage >= attendanceTotalPages;
+        $('attPageSize').value = String(attendancePageSize);
+        pagination.style.display = 'flex';
+    }
+
     function renderAttendance(data) {
         var el = $('attResultsContent');
         clear(el);
@@ -1459,11 +1534,15 @@
             );
             show('attResults');
             hide('attExportActions');
+            hide('attPagination');
             flashUpdated('attResults');
             return;
         }
 
-        var html = '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'دقائق التأخير' : 'Late minutes') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th></tr></thead><tbody>';
+        var tableLabel = i18n[currentLang].attendanceResults;
+        var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
+            '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
+            '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'دقائق التأخير' : 'Late minutes') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th></tr></thead><tbody>';
         data.forEach(function (r, i) {
             var duration = '-';
             if (r.firstPunch && r.lastPunch) {
@@ -1472,9 +1551,9 @@
                 duration = fmtDuration(Math.round((l - f) / 60000));
             }
             html += '<tr>' +
-                '<td>' + (i + 1) + '</td>' +
+                '<td>' + (((attendancePage - 1) * attendancePageSize) + i + 1) + '</td>' +
                 '<td>' + r.employeeFinancialNo + '</td>' +
-                '<td style="text-align:right;font-weight:600">' + r.employeeName + '</td>' +
+                '<td class="name-cell">' + r.employeeName + '</td>' +
                 '<td>' + badge(r.status) + '</td>' +
                 '<td class="day-name">' + fmtDayName(r.dateDisplay) + '</td>' +
                 '<td>' + fmtDateLocal(r.dateDisplay) + '</td>' +
@@ -1486,10 +1565,11 @@
                 '<td><strong>' + (r.remainingLateMinutes || 0) + '</strong></td>' +
                 '</tr>';
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         el.innerHTML = html;
         show('attResults');
         show('attExportActions');
+        updateAttendancePagination();
         flashUpdated('attResults');
     }
 
@@ -1595,26 +1675,74 @@
     }
 
     // Attendance Tab
-    $('fetchAttendanceBtn').addEventListener('click', function () {
+    function fetchAttendance(resetPage) {
+        if (resetPage !== false) attendancePage = 1;
         var params = getAttQueryParams();
         if (!params) return;
+        params += '&page=' + attendancePage + '&pageSize=' + attendancePageSize;
+        if ($('attResultSort')) params += '&sort=' + encodeURIComponent($('attResultSort').value || 'fin-no');
+
+        if (attendanceRequestController) attendanceRequestController.abort();
+        attendanceRequestController = new AbortController();
+        var activeRequestController = attendanceRequestController;
 
         showLoading();
         hideError();
         hide('attResults');
         hide('attExportActions');
 
-        fetch('/api/tracking/query?' + params + '&_=' + Date.now(), { cache: 'no-store' })
+        fetch('/api/tracking/query?' + params + '&_=' + Date.now(), {
+            cache: 'no-store',
+            signal: activeRequestController.signal
+        })
             .then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'فشل التحميل' : 'Failed to load'); return r.json(); })
             .then(function (data) {
+                if (activeRequestController !== attendanceRequestController) return;
                 hideLoading();
-                lastAttendanceRecords = data || [];
+                lastAttendanceRecords = Array.isArray(data) ? data : (data.items || []);
+                attendanceTotalCount = Array.isArray(data) ? lastAttendanceRecords.length : (data.totalCount || 0);
+                attendancePage = Array.isArray(data) ? 1 : (data.page || attendancePage);
+                attendancePageSize = Array.isArray(data) ? Math.max(lastAttendanceRecords.length, 1) : (data.pageSize || attendancePageSize);
+                attendanceTotalPages = Array.isArray(data) ? 1 : (data.totalPages || 1);
                 renderAttendance(lastAttendanceRecords);
+                attendanceRequestController = null;
             })
             .catch(function (err) {
+                if (err.name === 'AbortError') {
+                    if (!attendanceRequestController || activeRequestController === attendanceRequestController) hideLoading();
+                    return;
+                }
                 hideLoading();
                 showError(err.message);
+                attendanceRequestController = null;
             });
+    }
+
+    $('fetchAttendanceBtn').addEventListener('click', function () {
+        fetchAttendance(true);
+    });
+
+    $('attPrevPage').addEventListener('click', function () {
+        if (attendancePage <= 1) return;
+        attendancePage -= 1;
+        fetchAttendance(false);
+    });
+
+    $('attNextPage').addEventListener('click', function () {
+        if (attendancePage >= attendanceTotalPages) return;
+        attendancePage += 1;
+        fetchAttendance(false);
+    });
+
+    $('attPageSize').addEventListener('change', function () {
+        attendancePageSize = Number(this.value) || 50;
+        attendancePage = 1;
+        fetchAttendance(false);
+    });
+
+    $('attResultSort').addEventListener('change', function () {
+        attendancePage = 1;
+        if (lastAttendanceRecords) fetchAttendance(false);
     });
 
     $('exportExcelBtn').addEventListener('click', function () {

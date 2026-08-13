@@ -4,7 +4,6 @@ using AttendanceApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using System.IO.Compression;
@@ -184,33 +183,18 @@ using (var scope = app.Services.CreateScope())
 
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.StartsWithSegments("/api"))
+    context.Response.OnStarting(() =>
     {
-        context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
-        context.Response.Headers.Append("Pragma", "no-cache");
-        context.Response.Headers.Append("Expires", "0");
-    }
+        context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate, max-age=0";
+        context.Response.Headers.Pragma = "no-cache";
+        context.Response.Headers.Expires = "0";
+        return Task.CompletedTask;
+    });
 
     await next();
 });
 app.UseResponseCompression();
-app.UseStaticFiles(new StaticFileOptions
-{
-    OnPrepareResponse = ctx =>
-    {
-        var extension = Path.GetExtension(ctx.File.Name);
-        if (extension.Equals(".html", StringComparison.OrdinalIgnoreCase))
-        {
-            ctx.Context.Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-            ctx.Context.Response.Headers.Pragma = "no-cache";
-            ctx.Context.Response.Headers.Expires = "0";
-        }
-        else
-        {
-            ctx.Context.Response.Headers.CacheControl = "public,max-age=604800";
-        }
-    }
-});
+app.UseStaticFiles();
 app.UseAuthentication();
 app.Use(async (context, next) =>
 {

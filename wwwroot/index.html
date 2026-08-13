@@ -8,15 +8,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=38">
+    <link rel="stylesheet" href="/css/style.css?v=39">
 </head>
 <body translate="no">
     <section class="auth-screen" id="loginScreen">
         <div class="auth-card">
             <img src="/Images/pms-logo.png" alt="PMS" class="auth-logo">
-            <div class="auth-language-switch" aria-label="Language">
-                <button class="lang-pill active-lang" type="button" data-lang="ar" data-i18n="langAr">العربية</button>
-                <button class="lang-pill" type="button" data-lang="en" data-i18n="langEn">English</button>
+            <div class="auth-language-switch" aria-label="Language" data-i18n-aria-label="languageSelection">
+                <button class="lang-pill active-lang" type="button" data-lang="ar" aria-pressed="true" data-i18n="langAr">العربية</button>
+                <button class="lang-pill" type="button" data-lang="en" aria-pressed="false" data-i18n="langEn">English</button>
             </div>
             <div id="loginPanel">
                 <h1 data-i18n="loginTitle">تسجيل الدخول</h1>
@@ -54,14 +54,14 @@
                     <h1 data-i18n="appTitle">نظام الحضور والإجازات</h1>
                 </div>
             </div>
-            <nav class="tabs" aria-label="التنقل الرئيسي">
-                <button class="tab active" type="button" data-tab="attendance" data-i18n="navAttendance"> الحضور</button>
-                <button class="tab" type="button" data-tab="employees" data-i18n="navEmployees"> الموظفون</button>
-                <button class="tab" type="button" data-tab="balances" data-i18n="navBalances"> الأرصدة</button>
-                <button class="tab" type="button" data-tab="leave" data-i18n="navLeave"> الإجازات</button>
-                <button class="tab" type="button" data-tab="export" data-i18n="navMonthly"> التقرير الشهري</button>
-                <button class="tab" type="button" data-tab="daily" data-i18n="navDaily"> التقرير اليومي</button>
-                <button class="tab" type="button" data-tab="admin" data-i18n="navAdmin" data-permission="ManagePermissions"> الإدارة</button>
+            <nav class="tabs" aria-label="التنقل الرئيسي" data-i18n-aria-label="mainNavigation">
+                <button class="tab active" type="button" data-tab="attendance" aria-controls="tab-attendance" aria-current="page" data-i18n="navAttendance"> الحضور</button>
+                <button class="tab" type="button" data-tab="employees" aria-controls="tab-employees" data-i18n="navEmployees"> الموظفون</button>
+                <button class="tab" type="button" data-tab="balances" aria-controls="tab-balances" data-i18n="navBalances"> الأرصدة</button>
+                <button class="tab" type="button" data-tab="leave" aria-controls="tab-leave" data-i18n="navLeave"> الإجازات</button>
+                <button class="tab" type="button" data-tab="export" aria-controls="tab-export" data-i18n="navMonthly"> التقرير الشهري</button>
+                <button class="tab" type="button" data-tab="daily" aria-controls="tab-daily" data-i18n="navDaily"> التقرير اليومي</button>
+                <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-i18n="navAdmin" data-permission="ManagePermissions"> الإدارة</button>
             </nav>
             <div class="sidebar-footer">
                 <span data-i18n="userName">حسام حسن</span>
@@ -73,8 +73,8 @@
             <header class="topbar">
                 <div class="utility-actions">
                     <button class="logout-action" id="logoutBtn" type="button" data-i18n="logout">تسجيل الخروج</button>
-                    <button class="lang-pill active-lang" type="button" data-lang="ar" data-i18n="langAr">العربية</button>
-                    <button class="lang-pill" type="button" data-lang="en" data-i18n="langEn">الإنجليزية</button>
+                    <button class="lang-pill active-lang" type="button" data-lang="ar" aria-pressed="true" data-i18n="langAr">العربية</button>
+                    <button class="lang-pill" type="button" data-lang="en" aria-pressed="false" data-i18n="langEn">الإنجليزية</button>
                     <span class="role-pill" id="rolePill">موظف إداري</span>
                 </div>
                 <div class="topbar-meta">
@@ -84,13 +84,13 @@
                 </div>
             </header>
 
-            <section class="workspace-brief" aria-label="ملخص مساحة العمل">
+            <section class="workspace-brief" aria-label="ملخص مساحة العمل" data-i18n-aria-label="workspaceSummary">
                 <div class="workspace-copy">
                     <span class="workspace-eyebrow" data-i18n="workspaceKicker">نظام الحضور والإجازات</span>
                     <h2 id="workspaceTitle" data-i18n="workspaceTitle">الحضور والإجازات</h2>
                     <p id="workspaceDesc" data-i18n="workspaceDesc">بيانات الحضور والإجازات والتقارير الشهرية.</p>
                 </div>
-                <div class="workspace-chips" aria-label="مؤشرات العمل">
+                <div class="workspace-chips" aria-label="مؤشرات العمل" data-i18n-aria-label="workspaceIndicators">
                     <span class="info-chip"><strong data-i18n="chipLiveData">بيانات الحضور</strong><small data-i18n="chipLiveDataDesc">قاعدة بيانات الحضور</small></span>
                     <span class="info-chip"><strong data-i18n="chipMonthlyReports">تقارير شهرية</strong><small data-i18n="chipMonthlyReportsDesc">Excel / PDF</small></span>
                     <span class="info-chip"><strong data-i18n="chipTemplates">استيراد البيانات</strong><small data-i18n="chipTemplatesDesc">استيراد وتحديث</small></span>
@@ -160,7 +160,7 @@
                         <div class="filter-action-row">
                             <div class="query-actions">
                                 <button id="fetchAttendanceBtn" class="primary-action" type="button" data-i18n="showAttendance">عرض الحضور</button>
-                                <button id="recalculateAttendanceBtn" class="secondary" type="button" data-permission="ManageCalendar" data-i18n="recalculateAttendance">إعادة احتساب الحالات</button>
+                                <button id="recalculateAttendanceBtn" class="ghost recalculate-action" type="button" data-permission="ManageCalendar" data-i18n="recalculateAttendance">إعادة احتساب الحالات</button>
                                 <button class="ghost clear-filters-action" type="button" data-clear-query="attendance" data-i18n="clearFilters">مسح عوامل التصفية</button>
                             </div>
                         </div>
@@ -186,6 +186,21 @@
                         </div>
                     </div>
                     <div id="attResultsContent"></div>
+                    <nav id="attPagination" class="pagination-controls" aria-label="صفحات نتائج الحضور" data-i18n-aria-label="attendancePagination" style="display:none;">
+                        <label class="page-size-control" for="attPageSize">
+                            <span data-i18n="rowsPerPage">عدد الصفوف</span>
+                            <select id="attPageSize">
+                                <option value="25">25</option>
+                                <option value="50" selected>50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </label>
+                        <span id="attPageSummary" class="page-summary" aria-live="polite"></span>
+                        <div class="pagination-actions">
+                            <button id="attPrevPage" class="ghost" type="button" data-i18n="previousPage">السابق</button>
+                            <button id="attNextPage" class="ghost" type="button" data-i18n="nextPage">التالي</button>
+                        </div>
+                    </nav>
                 </section>
             </section>
 
@@ -377,7 +392,7 @@
                             </label>
                             <label class="result-tool">
                                 <span data-i18n="sortResults">ترتيب النتائج</span>
-                                <select id="leaveResultSort" aria-label="Sort leave results">
+                                <select id="leaveResultSort" aria-label="ترتيب النتائج" data-i18n-aria-label="sortResults">
                                     <option value="date-desc" data-i18n="sortDateNewest">التاريخ: الأحدث أولاً</option>
                                     <option value="date-asc" data-i18n="sortDateOldest">التاريخ: الأقدم أولاً</option>
                                     <option value="employee-asc" data-i18n="sortEmployee">الموظف</option>
@@ -576,7 +591,7 @@
             </footer>
         </main>
     </div>
-    <script src="/js/app.js?v=42"></script>
+    <script src="/js/app.js?v=44"></script>
     <script>
         (function(){
             var el = document.getElementById('todayLabel');
