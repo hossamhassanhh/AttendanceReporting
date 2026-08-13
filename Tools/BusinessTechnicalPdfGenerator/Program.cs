@@ -29,7 +29,7 @@ Document.Create(container =>
             {
                 "The application centralizes employee attendance, leave management, and monthly attendance reporting for PMS operational teams.",
                 "It synchronizes punch data from the ZK/Biotime PostgreSQL database into a SQL Server application database, applies schedule and leave rules, and produces browser previews plus Excel/PDF monthly reports.",
-                "The Excel output is designed to preserve the official SAYED monthly timesheet format while dynamically reflecting selected year, month, department, attendance logs, and approved leave intervals."
+                "The Excel output is designed to preserve the official Monthly Attendance Template format while dynamically reflecting selected year, month, department, attendance logs, and approved leave intervals."
             });
 
             Section(col, "Business Objectives", new[]
@@ -48,7 +48,7 @@ Document.Create(container =>
                 "Leave balance review: users inspect annual leave balances per employee.",
                 "Leave granting: users select an employee, leave type, date interval, and reason; the system calculates the day count and updates daily attendance records.",
                 "Leave audit: users can view leave transactions for one employee or all employees when no employee is selected.",
-                "Monthly reporting: users choose year, month, and optional department, preview the SAYED-style table in the browser, then download Excel or PDF for PC use."
+                "Monthly reporting: users choose year, month, and optional department, preview the Monthly Attendance Template layout in the browser, then download Excel or PDF for PC use."
             });
 
             Section(col, "Key Business Rules", new[]
@@ -68,7 +68,7 @@ Document.Create(container =>
                 "Application database: SQL Server accessed through Entity Framework Core.",
                 "Biometric source database: ZK/Biotime PostgreSQL accessed with Npgsql.",
                 "Background service: hosted polling service reads new ZK transactions every configured interval and updates daily attendance.",
-                "Reporting: QuestPDF generates PDF reports; Excel monthly export uses Microsoft Excel COM automation to preserve the SAYED template layout, drawings, and formatting."
+                "Reporting: QuestPDF generates PDF reports; Excel monthly export uses Microsoft Excel COM automation to preserve the Monthly Attendance Template layout, drawings, and formatting."
             });
 
             Section(col, "Core Components", new[]
@@ -97,7 +97,7 @@ Document.Create(container =>
                 "SQL Server Express hosts the application database.",
                 "PostgreSQL/Biotime provides raw biometric punch transactions from public.iclock_transaction.",
                 "Microsoft Excel must be installed on the Windows host for template-preserving monthly Excel export.",
-                "The SAYED template is expected at C:\\Users\\4779\\Documents\\Copy of SAYED.xlsx.",
+                "The Monthly Attendance Template is expected at C:\\Users\\4779\\Documents\\Monthly Attendance Template.xlsx.",
                 "GitHub repository stores source code; live appsettings.json and database backup files are intentionally excluded unless explicitly handled separately."
             });
 
@@ -105,7 +105,7 @@ Document.Create(container =>
             {
                 "The app can be run locally with dotnet run and served in a browser.",
                 "ZK synchronization settings are configured through ZkSync.PollingIntervalSeconds and ZkSync.BatchSize.",
-                "Monthly Excel export depends on the availability of the SAYED template and Excel COM automation.",
+                "Monthly Excel export depends on the availability of the Monthly Attendance Template and Excel COM automation.",
                 "Sensitive configuration should be stored in appsettings.json locally and not committed to Git.",
                 "Large database backups should be handled with Git LFS or an external backup/storage process."
             });

@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using AttendanceApp.Models;
 using AttendanceApp.Services;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AttendanceApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "Attendance")]
 public class AttendanceController : ControllerBase
 {
     private readonly AttendanceService _attendanceService;

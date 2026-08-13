@@ -26,6 +26,9 @@ public class LeaveTransaction
     [MaxLength(50)]
     public string Status { get; set; } = "Approved";
 
+    [MaxLength(80)]
+    public string EnteredBy { get; set; } = "admin";
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     [ForeignKey(nameof(EmployeeFinancialNo))]

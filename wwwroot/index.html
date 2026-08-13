@@ -4,27 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="google" content="notranslate">
-    <title>منصة الحضور والإجازات</title>
+    <title>نظام الحضور والإجازات</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=19">
+    <link rel="stylesheet" href="/css/style.css?v=38">
 </head>
 <body translate="no">
-    <div class="app-shell">
+    <section class="auth-screen" id="loginScreen">
+        <div class="auth-card">
+            <img src="/Images/pms-logo.png" alt="PMS" class="auth-logo">
+            <div class="auth-language-switch" aria-label="Language">
+                <button class="lang-pill active-lang" type="button" data-lang="ar" data-i18n="langAr">العربية</button>
+                <button class="lang-pill" type="button" data-lang="en" data-i18n="langEn">English</button>
+            </div>
+            <div id="loginPanel">
+                <h1 data-i18n="loginTitle">تسجيل الدخول</h1>
+                <p data-i18n="loginDesc">أدخل اسم المستخدم وكلمة المرور.</p>
+                <form id="loginForm" class="auth-form">
+                    <label for="loginUsername" data-i18n="username">اسم المستخدم</label>
+                    <input id="loginUsername" name="username" autocomplete="username" required>
+                    <label for="loginPassword" data-i18n="password">كلمة المرور</label>
+                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+                    <label class="remember-field"><input id="loginRemember" type="checkbox"> <span data-i18n="rememberMe">تذكرني</span></label>
+                    <button type="submit" class="primary-action" data-i18n="login">دخول</button>
+                </form>
+            </div>
+            <div id="changePasswordPanel" style="display:none;">
+                <h1 data-i18n="changePasswordTitle">تغيير كلمة المرور</h1>
+                <p data-i18n="changePasswordDesc">يجب تغيير كلمة المرور المؤقتة قبل المتابعة.</p>
+                <form id="changePasswordForm" class="auth-form">
+                    <label for="currentPassword" data-i18n="currentPassword">كلمة المرور الحالية</label>
+                    <input id="currentPassword" type="password" autocomplete="current-password" required>
+                    <label for="newPassword" data-i18n="newPassword">كلمة المرور الجديدة</label>
+                    <input id="newPassword" type="password" autocomplete="new-password" minlength="10" required>
+                    <label for="confirmPassword" data-i18n="confirmPassword">تأكيد كلمة المرور</label>
+                    <input id="confirmPassword" type="password" autocomplete="new-password" minlength="10" required>
+                    <button type="submit" class="primary-action" data-i18n="savePassword">حفظ كلمة المرور</button>
+                </form>
+            </div>
+            <p class="auth-error" id="authError" style="display:none;"></p>
+        </div>
+    </section>
+    <div class="app-shell" id="appShell" style="display:none;">
         <aside class="sidebar">
             <div class="brand-block">
                 <img src="/Images/pms-logo.png" alt="PMS" class="brand-logo">
                 <div>
-                    <h1 data-i18n="appTitle">منصة الحضور والإجازات</h1>
+                    <h1 data-i18n="appTitle">نظام الحضور والإجازات</h1>
                 </div>
             </div>
             <nav class="tabs" aria-label="التنقل الرئيسي">
-                <button class="tab active" data-tab="attendance" data-i18n="navAttendance"> الحضور</button>
-                <button class="tab" data-tab="employees" data-i18n="navEmployees"> الموظفين</button>
-                <button class="tab" data-tab="balances" data-i18n="navBalances"> الأرصدة</button>
-                <button class="tab" data-tab="leave" data-i18n="navLeave"> الإجازات</button>
-                <button class="tab" data-tab="export" data-i18n="navMonthly"> التقرير الشهري</button>
+                <button class="tab active" type="button" data-tab="attendance" data-i18n="navAttendance"> الحضور</button>
+                <button class="tab" type="button" data-tab="employees" data-i18n="navEmployees"> الموظفون</button>
+                <button class="tab" type="button" data-tab="balances" data-i18n="navBalances"> الأرصدة</button>
+                <button class="tab" type="button" data-tab="leave" data-i18n="navLeave"> الإجازات</button>
+                <button class="tab" type="button" data-tab="export" data-i18n="navMonthly"> التقرير الشهري</button>
+                <button class="tab" type="button" data-tab="daily" data-i18n="navDaily"> التقرير اليومي</button>
+                <button class="tab" type="button" data-tab="admin" data-i18n="navAdmin" data-permission="ManagePermissions"> الإدارة</button>
             </nav>
             <div class="sidebar-footer">
                 <span data-i18n="userName">حسام حسن</span>
@@ -35,15 +72,30 @@
         <main class="main-panel">
             <header class="topbar">
                 <div class="utility-actions">
-                    <button class="lang-pill active-lang" type="button" data-lang="ar" data-i18n="langAr">عربي</button>
-                    <button class="lang-pill" type="button" data-lang="en" data-i18n="langEn">إنجليزي</button>
-                    <span class="role-pill" data-i18n="roleEmployee">موظف إداري</span>
+                    <button class="logout-action" id="logoutBtn" type="button" data-i18n="logout">تسجيل الخروج</button>
+                    <button class="lang-pill active-lang" type="button" data-lang="ar" data-i18n="langAr">العربية</button>
+                    <button class="lang-pill" type="button" data-lang="en" data-i18n="langEn">الإنجليزية</button>
+                    <span class="role-pill" id="rolePill">موظف إداري</span>
                 </div>
                 <div class="topbar-meta">
                     <span id="todayLabel"></span>
-                    <span data-i18n="hrPortal">بوابة الموارد البشرية</span>
+                    <span id="syncStatus" class="sync-pill"></span>
+                    <span data-i18n="hrPortal">الموارد البشرية</span>
                 </div>
             </header>
+
+            <section class="workspace-brief" aria-label="ملخص مساحة العمل">
+                <div class="workspace-copy">
+                    <span class="workspace-eyebrow" data-i18n="workspaceKicker">نظام الحضور والإجازات</span>
+                    <h2 id="workspaceTitle" data-i18n="workspaceTitle">الحضور والإجازات</h2>
+                    <p id="workspaceDesc" data-i18n="workspaceDesc">بيانات الحضور والإجازات والتقارير الشهرية.</p>
+                </div>
+                <div class="workspace-chips" aria-label="مؤشرات العمل">
+                    <span class="info-chip"><strong data-i18n="chipLiveData">بيانات الحضور</strong><small data-i18n="chipLiveDataDesc">قاعدة بيانات الحضور</small></span>
+                    <span class="info-chip"><strong data-i18n="chipMonthlyReports">تقارير شهرية</strong><small data-i18n="chipMonthlyReportsDesc">Excel / PDF</small></span>
+                    <span class="info-chip"><strong data-i18n="chipTemplates">استيراد البيانات</strong><small data-i18n="chipTemplatesDesc">استيراد وتحديث</small></span>
+                </div>
+            </section>
 
             <section class="tab-content active" id="tab-attendance">
                 <div class="section-heading">
@@ -52,30 +104,85 @@
                         <h2 data-i18n="attendanceTitle">تقرير الحضور</h2>
                         <p data-i18n="attendanceDesc">استعرض سجلات الحضور والانصراف حسب الفترة والموظف أو كل الموظفين.</p>
                     </div>
+                    <button class="refresh-action" type="button" data-refresh="attendance" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="card filter-card">
-                    <div class="controls compact-controls">
-                        <div class="form-group">
-                            <label data-i18n="employeeNumbers">أرقام الموظفين (مفصولة بفاصلة)</label>
+                    <div class="filter-header">
+                        <div class="filter-header-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            <span data-i18n="filterCriteria">عوامل التصفية والخيارات</span>
+                        </div>
+                        <span class="active-filters-count" id="attActiveFilterCount"></span>
+                    </div>
+                    <div class="controls filter-grid-4">
+                        <div class="form-group wide">
+                            <label for="attEmployees" data-i18n="employeeNumbers">أرقام الموظفين (مفصولة بفاصلة)</label>
                             <input type="text" id="attEmployees" data-i18n-placeholder="employeeNumbersPlaceholder" placeholder="مثال: 4779, 4780 - اتركه فارغاً للكل">
                         </div>
                         <div class="form-group">
-                            <label data-i18n="fromDate">من تاريخ</label>
+                            <label for="attFrom" data-i18n="fromDate">من تاريخ</label>
                             <input type="date" id="attFrom">
                         </div>
                         <div class="form-group">
-                            <label data-i18n="toDate">إلى تاريخ</label>
+                            <label for="attTo" data-i18n="toDate">إلى تاريخ</label>
                             <input type="date" id="attTo">
                         </div>
-                        <button id="fetchAttendanceBtn" class="primary-action" data-i18n="showAttendance">عرض الحضور</button>
+                        <div class="form-group">
+                            <label for="attDepartment" data-i18n="department">الإدارة</label>
+                            <select id="attDepartment">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="attStatus" data-i18n="attStatusFilter">الحالة</label>
+                            <select id="attStatus">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group attendance-advanced-filter">
+                            <label for="attLevel" data-i18n="level">المستوى</label>
+                            <select id="attLevel">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group attendance-advanced-filter">
+                            <label for="attArea" data-i18n="area">المنطقة</label>
+                            <select id="attArea">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group attendance-advanced-filter">
+                            <label for="attSchedule" data-i18n="shift">الوردية</label>
+                            <select id="attSchedule">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="filter-action-row">
+                            <div class="query-actions">
+                                <button id="fetchAttendanceBtn" class="primary-action" type="button" data-i18n="showAttendance">عرض الحضور</button>
+                                <button id="recalculateAttendanceBtn" class="secondary" type="button" data-permission="ManageCalendar" data-i18n="recalculateAttendance">إعادة احتساب الحالات</button>
+                                <button class="ghost clear-filters-action" type="button" data-clear-query="attendance" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                            </div>
+                        </div>
                     </div>
+                    <div class="active-filters-chips" id="attActiveFilterChips"></div>
+                    <div class="operation-feedback" id="attRecalculationResult" role="status" aria-live="polite" style="display:none;"></div>
                 </div>
                 <section class="results" id="attResults" style="display:none;">
                     <div class="results-header">
                         <h3 data-i18n="attendanceResults">نتائج الحضور</h3>
+                        <div class="leave-result-tools">
+                            <label class="result-tool">
+                                <span data-i18n="sortResults">ترتيب النتائج</span>
+                                <select id="attResultSort">
+                                    <option value="fin-no" data-i18n="sortByFinNo">الرقم المالي</option>
+                                    <option value="name" data-i18n="sortByName">الاسم</option>
+                                </select>
+                            </label>
+                        </div>
                         <div id="attExportActions" class="table-actions" style="display:none;">
-                            <button id="exportExcelBtn" class="success" data-i18n="exportExcel">تصدير إكسيل</button>
-                            <button id="exportPdfBtn" class="secondary" data-i18n="exportPdf">تصدير بي دي إف</button>
+                            <button id="exportExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إكسيل</button>
+                            <button id="exportPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير بي دي إف</button>
                         </div>
                     </div>
                     <div id="attResultsContent"></div>
@@ -89,33 +196,76 @@
                         <h2 data-i18n="employeesTitle">بيانات الموظفين</h2>
                         <p data-i18n="employeesDesc">ابحث في قاعدة بيانات الموظفين أو اعرض كل الموظفين المسجلين.</p>
                     </div>
+                    <button class="refresh-action" type="button" data-refresh="employees" data-i18n="refresh">تحديث</button>
                 </div>
-                <div class="two-column">
-                    <div class="card">
-                        <div class="controls stacked-controls">
-                            <div class="form-group">
-                                <label data-i18n="searchNameOrNumber">بحث (اسم / رقم مالي)</label>
-                                <input type="text" id="empSearch" data-i18n-placeholder="allEmployeesPlaceholder" placeholder="اتركه فارغاً لعرض كل الموظفين">
+                <div class="card filter-card">
+                    <div class="filter-header">
+                        <div class="filter-header-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            <span data-i18n="filterCriteria">عوامل التصفية والخيارات</span>
+                        </div>
+                        <span class="active-filters-count" id="empActiveFilterCount"></span>
+                    </div>
+                    <div class="controls emp-controls">
+                        <div class="form-group emp-search-wide">
+                            <label for="empSearch" data-i18n="searchNameOrNumber">بحث (اسم / رقم مالي)</label>
+                            <input type="text" id="empSearch" data-i18n-placeholder="allEmployeesPlaceholder" placeholder="اتركه فارغاً لعرض كل الموظفين">
+                        </div>
+                        <div class="form-group">
+                            <label for="empDepartment" data-i18n="department">الإدارة</label>
+                            <select id="empDepartment">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="empLevel" data-i18n="level">المستوى</label>
+                            <select id="empLevel">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="empArea" data-i18n="area">المنطقة</label>
+                            <select id="empArea">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="empStatus" data-i18n="attStatusFilter">الحالة</label>
+                            <select id="empStatus">
+                                <option value="" data-i18n="all">الكل</option>
+                            </select>
+                        </div>
+                        <div class="filter-action-row">
+                            <div class="query-actions">
+                                <button id="searchEmpBtn" class="primary-action" type="button" data-i18n="search">بحث</button>
+                                <button class="ghost clear-filters-action" type="button" data-clear-query="employees" data-i18n="clearFilters">مسح عوامل التصفية</button>
                             </div>
-                            <button id="searchEmpBtn" class="primary-action" data-i18n="search">بحث</button>
                         </div>
                     </div>
-                    <div class="card upload-panel">
-                        <div>
-                            <strong data-i18n="uploadEmployeesTitle">رفع بيانات الموظفين</strong>
-                            <p data-i18n="uploadEmployeesDesc">تحديث الأسماء، الوظائف، الإدارات، والمستويات.</p>
-                        </div>
-                        <input type="file" id="employeesUploadFile" accept=".xlsx,.xls">
-                        <div class="button-bar">
-                            <button id="uploadEmployeesBtn" class="secondary" data-i18n="uploadData">رفع البيانات</button>
-                            <button id="downloadEmployeesTemplateBtn" class="ghost" data-i18n="downloadTemplate">تحميل القالب</button>
-                        </div>
-                    </div>
+                    <div class="active-filters-chips" id="empActiveFilterChips"></div>
                 </div>
                 <section class="results" id="empResults" style="display:none;">
-                    <div class="results-header"><h3 data-i18n="searchResults">نتائج البحث</h3></div>
+                    <div class="results-header">
+                        <h3 data-i18n="searchResults">نتائج البحث</h3>
+                        <div id="empExportActions" class="table-actions" style="display:none;">
+                            <button id="exportEmployeesExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إلى Excel</button>
+                            <button id="exportEmployeesPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير إلى PDF</button>
+                        </div>
+                    </div>
                     <div id="empResultsContent"></div>
                 </section>
+                <div class="card upload-panel secondary-workflow">
+                    <div>
+                        <strong data-i18n="uploadEmployeesTitle">استيراد بيانات الموظفين</strong>
+                        <p data-i18n="uploadEmployeesDesc">تحديث الأسماء، الوظائف، الإدارات، والمستويات.</p>
+                    </div>
+                    <div class="file-picker"><input type="file" id="employeesUploadFile" accept=".xlsx,.xls"><label for="employeesUploadFile" data-i18n="chooseFile">اختيار ملف</label><span data-file-name-for="employeesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span></div>
+                    <div class="button-bar">
+                        <button id="uploadEmployeesBtn" class="secondary" type="button" data-i18n="uploadData">استيراد البيانات</button>
+                        <button id="clearEmployeesUploadBtn" class="ghost" type="button" data-i18n="clearSelectedFile">مسح الملف المختار</button>
+                        <button id="downloadEmployeesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
+                    </div>
+                </div>
             </section>
 
             <section class="tab-content" id="tab-balances">
@@ -125,31 +275,41 @@
                         <h2 data-i18n="balancesTitle">أرصدة الإجازات</h2>
                         <p data-i18n="balancesDesc">راجع حصص الإجازات السنوية لكل الموظفين أو لموظف محدد.</p>
                     </div>
+                    <button class="refresh-action" type="button" data-refresh="balances" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="two-column">
                     <div class="card">
                         <div class="controls stacked-controls">
                             <div class="form-group">
-                                <label data-i18n="financialNo">رقم مالي</label>
+                                <label for="balFinNo" data-i18n="financialNo">رقم مالي</label>
                                 <input type="text" id="balFinNo" data-i18n-placeholder="allBalancesPlaceholder" placeholder="اتركه فارغاً لعرض كل الأرصدة">
                             </div>
-                            <button id="fetchBalBtn" class="primary-action" data-i18n="showBalance">عرض الرصيد</button>
+                            <div class="query-actions">
+                                <button id="fetchBalBtn" class="primary-action" type="button" data-i18n="showBalance">عرض الرصيد</button>
+                                <button class="ghost clear-filters-action" type="button" data-clear-query="balances" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                            </div>
                         </div>
                     </div>
                     <div class="card upload-panel">
                         <div>
-                            <strong data-i18n="uploadBalancesTitle">رفع أرصدة الإجازات</strong>
+                            <strong data-i18n="uploadBalancesTitle">استيراد أرصدة الإجازات</strong>
                             <p data-i18n="uploadBalancesDesc">تحديث حصص الإجازات لكل الموظفين من ملف إكسيل.</p>
                         </div>
-                        <input type="file" id="balancesUploadFile" accept=".xlsx,.xls">
+                        <div class="file-picker"><input type="file" id="balancesUploadFile" accept=".xlsx,.xls"><label for="balancesUploadFile" data-i18n="chooseFile">اختيار ملف</label><span data-file-name-for="balancesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span></div>
                         <div class="button-bar">
-                            <button id="uploadBalancesBtn" class="secondary" data-i18n="uploadBalances">رفع الأرصدة</button>
-                            <button id="downloadBalancesTemplateBtn" class="ghost" data-i18n="downloadTemplate">تحميل القالب</button>
+                            <button id="uploadBalancesBtn" class="secondary" type="button" data-i18n="uploadBalances">استيراد الأرصدة</button>
+                            <button id="downloadBalancesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
                         </div>
                     </div>
                 </div>
                 <section class="results" id="balResults" style="display:none;">
-                    <div class="results-header"><h3 data-i18n="balance">الرصيد</h3></div>
+                    <div class="results-header">
+                        <h3 data-i18n="balance">الرصيد</h3>
+                        <div id="balExportActions" class="table-actions" style="display:none;">
+                            <button id="exportBalancesExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إلى Excel</button>
+                            <button id="exportBalancesPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير إلى PDF</button>
+                        </div>
+                    </div>
                     <div id="balResultsContent"></div>
                 </section>
             </section>
@@ -161,39 +321,99 @@
                         <h2 data-i18n="leaveTitle">إدارة الإجازات</h2>
                         <p data-i18n="leaveDesc">سجل الإجازات، راجع المعاملات، وارفع قوالب الإجازات الجماعية.</p>
                     </div>
+                    <button class="refresh-action" type="button" data-refresh="leave" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="card filter-card">
                     <div class="controls leave-grid">
-                        <div class="form-group"><label data-i18n="financialNo">رقم مالي</label><input type="text" id="leaveFinNo" data-i18n-placeholder="leaveFinancialPlaceholder" placeholder="رقم مالي للإضافة، أو اتركه فارغاً لعرض كل السجلات"></div>
-                        <div class="form-group"><label data-i18n="leaveType">نوع الإجازة</label><select id="leaveTypeId"></select></div>
-                        <div class="form-group"><label data-i18n="fromDate">من تاريخ</label><input type="date" id="leaveFrom"></div>
-                        <div class="form-group"><label data-i18n="toDate">إلى تاريخ</label><input type="date" id="leaveTo"></div>
-                        <div class="form-group"><label data-i18n="daysCount">عدد الأيام</label><input type="number" id="leaveDays" min="1" step="1" readonly></div>
-                        <div class="form-group wide"><label data-i18n="reason">السبب</label><input type="text" id="leaveReason" data-i18n-placeholder="reasonPlaceholder" placeholder="سبب الإجازة"></div>
+                        <div class="form-group"><label for="leaveFinNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="leaveFinNo" data-i18n-placeholder="leaveFinancialPlaceholder" placeholder="رقم مالي للإضافة، أو اتركه فارغاً لعرض كل السجلات"></div>
+                        <div class="form-group"><label for="leaveTypeId" data-i18n="leaveType">نوع الإجازة</label><select id="leaveTypeId"></select></div>
+                        <div class="form-group"><label for="leaveFrom" data-i18n="fromDate">من تاريخ</label><input type="date" id="leaveFrom"></div>
+                        <div class="form-group"><label for="leaveTo" data-i18n="toDate">إلى تاريخ</label><input type="date" id="leaveTo"></div>
+                        <div class="form-group"><label for="leaveDays" data-i18n="daysCount">عدد الأيام</label><input type="number" id="leaveDays" min="1" step="1" readonly></div>
+                        <div class="form-group wide"><label for="leaveReason" data-i18n="reason">السبب</label><input type="text" id="leaveReason" data-i18n-placeholder="reasonPlaceholder" placeholder="سبب الإجازة"></div>
                     </div>
                     <div class="button-bar">
-                        <button id="grantLeaveBtn" class="primary-action" data-i18n="grantLeave">منح الإجازة</button>
-                        <button id="fetchLeaveTransBtn" class="secondary" data-i18n="showLeaveLog">عرض سجل الإجازات</button>
+                        <button id="grantLeaveBtn" class="primary-action" type="button" data-i18n="grantLeave">منح الإجازة</button>
+                        <button id="fetchLeaveTransBtn" class="secondary" type="button" data-i18n="showLeaveLog">عرض سجل الإجازات</button>
+                        <button class="ghost clear-filters-action" type="button" data-clear-query="leave" data-i18n="clearFilters">مسح عوامل التصفية</button>
                     </div>
                 </div>
-                <div class="card upload-panel slim-upload">
-                    <div><strong data-i18n="uploadLeavesTitle">رفع أيام الإجازات</strong><p data-i18n="uploadLeavesDesc">إضافة معاملات إجازة متعددة دفعة واحدة.</p></div>
-                    <input type="file" id="leavesUploadFile" accept=".xlsx,.xls">
-                    <div class="button-bar">
-                        <button id="uploadLeavesBtn" class="secondary" data-i18n="uploadLeaves">رفع الإجازات</button>
-                        <button id="downloadLeaveTemplateBtn" class="ghost" data-i18n="downloadLeaveTemplate">تحميل قالب الإجازات</button>
+                <div class="card upload-panel slim-upload leave-upload-panel">
+                    <div class="upload-identity">
+                        <span class="upload-mark" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M7 3.75h7l3 3V20.25H7z"></path>
+                                <path d="M14 3.75v3h3M12 16v-6m-2.5 2.5L12 10l2.5 2.5"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <span class="section-kicker" data-i18n="bulkImport">استيراد مجمع</span>
+                            <strong data-i18n="uploadLeavesTitle">استيراد بيانات الإجازات</strong>
+                            <p data-i18n="uploadLeavesDesc">إضافة عدة حركات إجازة دفعة واحدة.</p>
+                        </div>
+                    </div>
+                    <div class="leave-upload-workspace">
+                        <div class="file-picker leave-file-picker">
+                            <input type="file" id="leavesUploadFile" accept=".xlsx,.xls">
+                            <span class="file-picker-copy">
+                                <strong data-i18n="dropExcelFile">ملف Excel للإجازات</strong>
+                                <span data-file-name-for="leavesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span>
+                            </span>
+                            <label for="leavesUploadFile" data-i18n="chooseFile">اختيار ملف</label>
+                        </div>
+                        <div class="leave-upload-actions">
+                            <button id="downloadLeaveTemplateBtn" class="ghost" type="button" data-i18n="downloadLeaveTemplate">تحميل قالب الإجازات</button>
+                            <button id="uploadLeavesBtn" class="secondary" type="button" data-i18n="uploadLeaves">استيراد الإجازات</button>
+                        </div>
                     </div>
                 </div>
                 <section class="results" id="leaveResults" style="display:none;">
                     <div class="results-header">
-                        <h3 data-i18n="transactions">العمليات</h3>
+                        <h3 data-i18n="transactions">حركات الإجازات</h3>
+                        <div class="leave-result-tools">
+                            <label class="result-tool">
+                                <span data-i18n="filterResults">تصفية النتائج</span>
+                                <input id="leaveResultFilter" type="search" data-i18n-placeholder="filterResults" placeholder="تصفية النتائج">
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="sortResults">ترتيب النتائج</span>
+                                <select id="leaveResultSort" aria-label="Sort leave results">
+                                    <option value="date-desc" data-i18n="sortDateNewest">التاريخ: الأحدث أولاً</option>
+                                    <option value="date-asc" data-i18n="sortDateOldest">التاريخ: الأقدم أولاً</option>
+                                    <option value="employee-asc" data-i18n="sortEmployee">الموظف</option>
+                                    <option value="type-asc" data-i18n="sortLeaveType">نوع الإجازة</option>
+                                </select>
+                            </label>
+                        </div>
                         <div id="leaveExportActions" class="table-actions" style="display:none;">
-                            <button id="exportLeaveExcelBtn" class="success" data-i18n="exportExcel">تصدير إكسيل</button>
-                            <button id="exportLeavePdfBtn" class="secondary" data-i18n="exportPdf">تصدير PDF</button>
+                            <button id="exportLeaveExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إكسيل</button>
+                            <button id="exportLeavePdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير بي دي إف</button>
                         </div>
                     </div>
                     <div id="leaveResultsContent"></div>
                 </section>
+                <dialog id="editLeaveDialog" class="app-dialog">
+                    <form id="editLeaveForm" method="dialog">
+                        <div class="dialog-heading">
+                            <div>
+                                <span class="section-kicker" data-i18n="editLeave">تعديل الإجازة</span>
+                                <h3 id="editLeaveEmployee"></h3>
+                            </div>
+                            <button id="closeEditLeaveBtn" class="dialog-close" type="button" aria-label="Close" data-i18n-aria-label="closeDialog">&times;</button>
+                        </div>
+                        <input id="editLeaveId" type="hidden">
+                        <div class="dialog-grid">
+                            <div class="form-group"><label for="editLeaveTypeId" data-i18n="leaveType">نوع الإجازة</label><select id="editLeaveTypeId" required></select></div>
+                            <div class="form-group"><label for="editLeaveFrom" data-i18n="fromDate">من تاريخ</label><input id="editLeaveFrom" type="date" required></div>
+                            <div class="form-group"><label for="editLeaveTo" data-i18n="toDate">إلى تاريخ</label><input id="editLeaveTo" type="date" required></div>
+                            <div class="form-group dialog-wide"><label for="editLeaveReason" data-i18n="reason">السبب</label><input id="editLeaveReason" type="text"></div>
+                        </div>
+                        <div class="dialog-actions">
+                            <button id="cancelEditLeaveBtn" class="ghost" type="button" data-i18n="cancel">إلغاء</button>
+                            <button class="primary-action" type="submit" data-i18n="saveChanges">حفظ التعديلات</button>
+                        </div>
+                    </form>
+                </dialog>
             </section>
 
             <section class="tab-content" id="tab-export">
@@ -203,33 +423,143 @@
                         <h2 data-i18n="monthlyTitle">كشف الحضور الشهري</h2>
                         <p data-i18n="monthlyDesc">أنشئ تقرير الحضور الشهري من بيانات الحضور والإجازات حسب الشهر والإدارة.</p>
                     </div>
+                    <button class="refresh-action" type="button" data-refresh="monthly" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="card filter-card">
-                    <div class="controls compact-controls">
-                        <div class="form-group"><label data-i18n="year">السنة</label><input type="number" id="exportYear" value="2026" min="2020" max="2030"></div>
-                        <div class="form-group"><label data-i18n="month">الشهر</label><select id="exportMonth"><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">ابريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">اغسطس</option><option value="9">سبتمبر</option><option value="10">اكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
-                        <div class="form-group"><label data-i18n="department">الإدارة</label><select id="exportDept"><option value="" data-i18n="all">الكل</option></select></div>
-                        <button id="exportPreviewBtn" class="primary-action" data-i18n="showReport">عرض التقرير</button>
+                    <div class="filter-header">
+                        <div class="filter-header-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            <span data-i18n="filterCriteria">عوامل التصفية والخيارات</span>
+                        </div>
+                        <span class="active-filters-count" id="exportActiveFilterCount"></span>
                     </div>
-                </div>
-                <div class="card upload-panel slim-upload">
-                    <div><strong data-i18n="uploadMonthlyTitle">رفع بيانات تقرير شهري</strong><p data-i18n="uploadMonthlyDesc">دمج أكواد شهرية مستوردة مع بيانات الحضور والإجازات.</p></div>
-                    <input type="file" id="monthlyAttendanceUploadFile" accept=".xlsx,.xls">
-                    <div class="button-bar">
-                        <button id="uploadMonthlyAttendanceBtn" class="secondary" data-i18n="uploadReportData">رفع بيانات التقرير</button>
-                        <button id="downloadMonthlyTemplateBtn" class="ghost" data-i18n="downloadTemplate">تحميل القالب</button>
+                    <div class="controls filter-grid-3">
+                        <div class="form-group"><label for="exportYear" data-i18n="year">السنة</label><input type="number" id="exportYear" value="2026" min="2020" max="2030"></div>
+                        <div class="form-group"><label for="exportMonth" data-i18n="month">الشهر</label><select id="exportMonth"><option value="1">يناير</option><option value="2">فبراير</option><option value="3">مارس</option><option value="4">ابريل</option><option value="5">مايو</option><option value="6">يونيو</option><option value="7">يوليو</option><option value="8">اغسطس</option><option value="9">سبتمبر</option><option value="10">اكتوبر</option><option value="11">نوفمبر</option><option value="12">ديسمبر</option></select></div>
+                        <div class="form-group"><label for="exportDept" data-i18n="department">الإدارة</label><select id="exportDept"><option value="" data-i18n="all">الكل</option></select></div>
+                        <div class="form-group"><label for="exportLevel" data-i18n="level">المستوى</label><select id="exportLevel"><option value="" data-i18n="all">الكل</option></select></div>
+                        <div class="form-group"><label for="exportArea" data-i18n="area">المنطقة</label><select id="exportArea"><option value="" data-i18n="all">الكل</option></select></div>
+                        <div class="filter-action-row">
+                            <div class="query-actions">
+                                <button id="exportPreviewBtn" class="primary-action" type="button" data-i18n="showReport">عرض التقرير</button>
+                                <button class="ghost clear-filters-action" type="button" data-clear-query="export" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                            </div>
+                        </div>
                     </div>
+                    <div class="active-filters-chips" id="exportActiveFilterChips"></div>
                 </div>
                 <section class="results" id="exportPreview" style="display:none;">
                     <div id="exportPreviewContent"></div>
-                    <div class="table-actions centered-actions">
-                        <button id="monthlyExportExcelBtn" class="success" data-i18n="exportExcel">تصدير إكسيل</button>
-                        <button id="monthlyExportPdfBtn" class="secondary" data-i18n="exportPdf">تصدير بي دي إف</button>
+                    <div id="monthlyExportActions" class="table-actions centered-actions">
+                        <button id="monthlyExportExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إكسيل</button>
+                            <button id="monthlyExportPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير بي دي إف</button>
                     </div>
                 </section>
                 <section class="results" id="exportResults" style="display:none;">
                     <div class="results-header"><h3 data-i18n="result">النتيجة</h3></div>
                     <div id="exportResultsContent"></div>
+                </section>
+            </section>
+
+            <section class="tab-content" id="tab-daily">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker" data-i18n="dailyKicker">الإدارة العليا</span>
+                        <h2 data-i18n="dailyTitle">التقرير اليومي</h2>
+                        <p data-i18n="dailyDesc">بصمات حضور وانصراف الإدارة العليا لليوم والأمس.</p>
+                    </div>
+                    <button class="refresh-action" type="button" data-refresh="daily" data-i18n="refresh">تحديث</button>
+                </div>
+                <div class="card filter-card">
+                    <div class="controls compact-controls">
+                        <div class="form-group">
+                            <label for="dailyDate" data-i18n="dailyDate">تاريخ التقرير</label>
+                            <input type="date" id="dailyDate">
+                        </div>
+                        <div class="query-actions">
+                            <button id="fetchDailyBtn" class="primary-action" type="button" data-i18n="showDaily">عرض التقرير</button>
+                            <button class="ghost clear-filters-action" type="button" data-clear-query="daily" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                        </div>
+                    </div>
+                </div>
+                <section class="results" id="dailyResults" style="display:none;">
+                    <div class="results-header">
+                        <h3 data-i18n="dailyResults">نتائج التقرير اليومي</h3>
+                        <div id="dailyExportActions" class="table-actions" style="display:none;">
+                            <button id="exportDailyExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إلى Excel</button>
+                            <button id="exportDailyPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير إلى PDF</button>
+                        </div>
+                    </div>
+                    <div id="dailyResultsContent"></div>
+                </section>
+            </section>
+
+            <section class="tab-content" id="tab-admin">
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker" data-i18n="adminKicker">الإدارة</span>
+                        <h2 data-i18n="adminTitle">إدارة الصلاحيات والتقويم</h2>
+                        <p data-i18n="adminDesc">أنشئ المستخدمين، اضبط الصلاحيات، وحدد أيام الراحة أو العمل المنزلي أو العطلات الرسمية.</p>
+                    </div>
+                    <button class="refresh-action" type="button" data-refresh="admin" data-i18n="refresh">تحديث</button>
+                </div>
+                <div class="two-column">
+                    <div class="card" data-permission="CreateUsers">
+                        <div class="controls stacked-controls">
+                            <div class="form-group"><label for="adminUsername" data-i18n="username">اسم المستخدم</label><input type="text" id="adminUsername" data-i18n-placeholder="usernamePlaceholder" placeholder="اسم المستخدم"></div>
+                            <div class="form-group"><label for="adminDisplayNameAr" data-i18n="displayNameAr">الاسم العربي</label><input type="text" id="adminDisplayNameAr" data-i18n-placeholder="displayNameArPlaceholder" placeholder="اسم المستخدم بالعربية"></div>
+                            <div class="form-group"><label for="adminDisplayNameEn" data-i18n="displayNameEn">الاسم الإنجليزي</label><input type="text" id="adminDisplayNameEn" data-i18n-placeholder="displayNameEnPlaceholder" placeholder="الاسم باللغة الإنجليزية"></div>
+                            <div class="form-group"><label for="adminPassword" data-i18n="temporaryPassword">كلمة المرور المؤقتة</label><input type="password" id="adminPassword" autocomplete="new-password" minlength="10"></div>
+                            <div class="form-group"><label for="adminRole" data-i18n="role">الدور</label><select id="adminRole"><option value="Admin">مدير النظام</option><option value="Employee">موظف موارد بشرية</option></select></div>
+                            <button id="saveUserBtn" class="primary-action" type="button" data-i18n="saveUser" data-permission="CreateUsers">حفظ المستخدم</button>
+                        </div>
+                        <div id="adminPermissions" class="permission-list"></div>
+                    </div>
+                    <div class="card" data-permission="ManageCalendar">
+                        <div class="controls stacked-controls">
+                            <div class="form-group"><label for="calendarDate" data-i18n="calendarDate">التاريخ</label><input type="date" id="calendarDate"></div>
+                            <div class="form-group"><label for="calendarDayType" data-i18n="dayType">نوع اليوم</label><select id="calendarDayType"><option value="Weekly Rest">راحة أسبوعية</option><option value="Work From Home">عمل منزلي</option><option value="Holiday">عطلة رسمية</option></select></div>
+                            <div class="form-group"><label for="calendarNotes" data-i18n="notes">ملاحظات</label><input type="text" id="calendarNotes" data-i18n-placeholder="optional" placeholder="اختياري"></div>
+                            <button id="saveCalendarDayBtn" class="primary-action" type="button" data-i18n="saveDay">حفظ اليوم</button>
+                        </div>
+                    </div>
+                    <div class="card" data-permission="ManageCalendar">
+                        <div class="controls stacked-controls">
+                            <h3 data-i18n="employeeScheduleTitle">تعديل مواعيد الموظفين</h3>
+                            <p class="form-hint" data-i18n="employeeScheduleHint">أدخل رقماً مالياً واحداً أو عدة أرقام مفصولة بفاصلة.</p>
+                            <div class="form-group">
+                                <label for="scheduleFinancialNumbers" data-i18n="employeeFinancialNumbers">الأرقام المالية</label>
+                                <input id="scheduleFinancialNumbers" type="text" data-i18n-placeholder="scheduleFinancialNumbersPlaceholder" placeholder="4779, 4780">
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleStart" data-i18n="scheduleStart">بداية العمل</label>
+                                <input id="scheduleStart" type="time">
+                            </div>
+                            <div class="form-group">
+                                <label for="scheduleEnd" data-i18n="scheduleEnd">نهاية العمل</label>
+                                <input id="scheduleEnd" type="time">
+                            </div>
+                            <div class="button-bar">
+                                <button id="saveEmployeeScheduleBtn" class="primary-action" type="button" data-i18n="saveSchedule">حفظ الموعد</button>
+                                <button id="clearEmployeeScheduleBtn" class="ghost" type="button" data-i18n="useLevelSchedule">استخدام موعد المستوى</button>
+                            </div>
+                            <div id="scheduleUpdateResult" class="form-hint"></div>
+                        </div>
+                    </div>
+                    <div class="card" data-permission="ManagePermissions">
+                        <div class="controls stacked-controls">
+                            <h3 data-i18n="resetPasswordTitle">إعادة تعيين كلمة المرور</h3>
+                            <div class="form-group"><label for="resetPasswordUser" data-i18n="selectUser">اختر المستخدم</label><select id="resetPasswordUser"></select></div>
+                            <div class="form-group"><label for="resetPasswordValue" data-i18n="temporaryPassword">كلمة المرور المؤقتة</label><input type="password" id="resetPasswordValue" autocomplete="new-password" minlength="10"></div>
+                            <div class="form-group"><label for="resetPasswordConfirm" data-i18n="confirmPassword">تأكيد كلمة المرور</label><input type="password" id="resetPasswordConfirm" autocomplete="new-password" minlength="10"></div>
+                            <button id="resetPasswordBtn" class="primary-action" type="button" data-i18n="resetPassword">إعادة تعيين كلمة المرور</button>
+                            <p class="form-hint" data-i18n="resetPasswordHint">سيُطلب من المستخدم تغيير كلمة المرور عند تسجيل الدخول التالي.</p>
+                        </div>
+                    </div>
+                </div>
+                <section class="results" id="adminResults" style="display:none;">
+                    <div class="results-header"><h3 data-i18n="adminResults">بيانات الإدارة</h3></div>
+                    <div id="adminResultsContent"></div>
                 </section>
             </section>
 
@@ -241,12 +571,12 @@
                 <p id="errorMessage"></p>
             </section>
             <footer class="app-footer">
-                <span data-i18n="appTitle">منصة الحضور والإجازات</span>
-                <span data-i18n="footerText">تطبيق ويب للموارد البشرية والتقارير التشغيلية</span>
+                <span data-i18n="appTitle">نظام الحضور والإجازات</span>
+                <span data-i18n="departmentName">تكنولوجيا المعلومات</span>
             </footer>
         </main>
     </div>
-    <script src="/js/app.js?v=9"></script>
+    <script src="/js/app.js?v=42"></script>
     <script>
         (function(){
             var el = document.getElementById('todayLabel');

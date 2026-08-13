@@ -15,6 +15,8 @@ public class AppDbContext : DbContext
     public DbSet<DailyAttendance> DailyAttendances => Set<DailyAttendance>();
     public DbSet<LeaveTransaction> LeaveTransactions => Set<LeaveTransaction>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
+    public DbSet<AppUser> AppUsers => Set<AppUser>();
+    public DbSet<AttendanceDaySetting> AttendanceDaySettings => Set<AttendanceDaySetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -25,13 +27,13 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<LeaveBalance>(e =>
         {
-            e.HasIndex(x => new { x.EmployeeFinancialNo, x.Year });
+            e.HasIndex(x => new { x.EmployeeFinancialNo, x.Year }).IsUnique();
             e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeFinancialNo);
         });
 
         modelBuilder.Entity<MonthlyAttendance>(e =>
         {
-            e.HasIndex(x => new { x.EmployeeFinancialNo, x.Year, x.Month, x.Day });
+            e.HasIndex(x => new { x.EmployeeFinancialNo, x.Year, x.Month, x.Day }).IsUnique();
             e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeFinancialNo);
         });
 
@@ -45,6 +47,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LeaveTransaction>(e =>
         {
             e.HasIndex(x => x.EmployeeFinancialNo);
+            e.HasIndex(x => new { x.EmployeeFinancialNo, x.LeaveTypeId, x.FromDate, x.ToDate }).IsUnique();
             e.HasOne(x => x.Employee).WithMany().HasForeignKey(x => x.EmployeeFinancialNo);
             e.HasOne(x => x.LeaveType).WithMany().HasForeignKey(x => x.LeaveTypeId);
         });
@@ -62,6 +65,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SyncState>(e =>
         {
             e.HasIndex(x => x.Key).IsUnique();
+        });
+
+        modelBuilder.Entity<AppUser>(e =>
+        {
+            e.HasIndex(x => x.Username).IsUnique();
+        });
+
+        modelBuilder.Entity<AttendanceDaySetting>(e =>
+        {
+            e.HasIndex(x => x.Date).IsUnique();
         });
     }
 }

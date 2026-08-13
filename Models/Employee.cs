@@ -21,6 +21,12 @@ public class Employee
     [MaxLength(100)]
     public string? Level { get; set; }
 
+    [MaxLength(10)]
+    public string? ScheduleStart { get; set; }
+
+    [MaxLength(10)]
+    public string? ScheduleEnd { get; set; }
+
     [MaxLength(200)]
     public string? WorkLocation { get; set; }
 

@@ -25,7 +25,7 @@ public class ExcelImportService
 
         results.Add(await ImportEmployeesLevelsAsync(Path.Combine(docs, "الرئيسى مستويات.xlsx")));
         results.Add(await ImportLeaveBalancesAsync(Path.Combine(docs, "رصيد 2026.xls")));
-        results.Add(await ImportMonthlyAttendanceAsync(Path.Combine(docs, "Copy of SAYED.xlsx")));
+        results.Add(await ImportMonthlyAttendanceAsync(Path.Combine(docs, "Monthly Attendance Template.xlsx")));
 
         return string.Join("\n", results);
     }
@@ -36,7 +36,7 @@ public class ExcelImportService
         var count = 0;
 
         using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-        using var reader = ExcelReaderFactory.CreateOpenXmlReader(stream);
+        using var reader = ExcelReaderFactory.CreateReader(stream);
         var dataSet = reader.AsDataSet(new ExcelDataSetConfiguration
         {
             ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = false }
@@ -54,17 +54,41 @@ public class ExcelImportService
         for (int s = 0; s < dataSet.Tables.Count && s < 5; s++)
         {
             var table = dataSet.Tables[s];
+            if (IsGuidanceSheet(table.TableName))
+                continue;
+
             var level = levelMap[s];
 
-            for (int r = 2; r < table.Rows.Count; r++)
+            var headerRow = FindHeaderRow(table, "Financial No", "FinancialNo", "PR", "الرقم المالي");
+            var firstDataRow = headerRow >= 0 ? headerRow + 1 : 2;
+            var financialNoColumn = headerRow >= 0
+                ? FindColumn(table, headerRow, "Financial No", "FinancialNo", "PR", "الرقم المالي")
+                : 1;
+            var nameColumn = headerRow >= 0
+                ? FindColumn(table, headerRow, "Name", "الاسم")
+                : 2;
+            var jobTitleColumn = headerRow >= 0
+                ? FindColumn(table, headerRow, "Job Title", "المسمى الوظيفي")
+                : 3;
+            var departmentColumn = headerRow >= 0
+                ? FindColumn(table, headerRow, "Department", "الإدارة")
+                : 5;
+            var levelColumn = headerRow >= 0
+                ? FindColumn(table, headerRow, "Level", "المستوى")
+                : -1;
+
+            for (int r = firstDataRow; r < table.Rows.Count; r++)
             {
                 var row = table.Rows[r];
-                var finNo = row[1]?.ToString()?.Trim() ?? string.Empty;
-                var name = row[2]?.ToString()?.Trim() ?? string.Empty;
+                var finNo = GetCellText(row, financialNoColumn);
+                var name = GetCellText(row, nameColumn);
                 if (string.IsNullOrWhiteSpace(finNo) || string.IsNullOrWhiteSpace(name)) continue;
 
-                var jobTitle = row[3]?.ToString()?.Trim();
-                var dept = row[5]?.ToString()?.Trim();
+                var jobTitle = GetCellText(row, jobTitleColumn);
+                var dept = GetCellText(row, departmentColumn);
+                var importedLevel = GetCellText(row, levelColumn);
+                if (string.IsNullOrWhiteSpace(importedLevel))
+                    importedLevel = level;
 
                 var emp = await db.Employees.FindAsync(finNo);
                 if (emp == null)
@@ -75,18 +99,22 @@ public class ExcelImportService
                         Name = name,
                         JobTitle = jobTitle,
                         Department = dept,
-                        Level = level
+                        Level = importedLevel
                     });
                 }
                 else
                 {
+                    emp.Name = name;
                     if (!string.IsNullOrWhiteSpace(jobTitle)) emp.JobTitle = jobTitle;
                     if (!string.IsNullOrWhiteSpace(dept)) emp.Department = dept;
-                    if (!string.IsNullOrWhiteSpace(level)) emp.Level = level;
+                    if (!string.IsNullOrWhiteSpace(importedLevel)) emp.Level = importedLevel;
                 }
                 count++;
             }
         }
+
+        if (count == 0)
+            throw new InvalidDataException("The employee workbook contains no valid employee rows.");
 
         await db.SaveChangesAsync();
         return $"Imported {count} employees from الرئيسى مستويات.xlsx";
@@ -98,7 +126,7 @@ public class ExcelImportService
         var count = 0;
 
         using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read);
-        using var reader = ExcelReaderFactory.CreateBinaryReader(stream);
+        using var reader = ExcelReaderFactory.CreateReader(stream);
         var dataSet = reader.AsDataSet(new ExcelDataSetConfiguration
         {
             ConfigureDataTable = _ => new ExcelDataTableConfiguration { UseHeaderRow = false }
@@ -106,19 +134,30 @@ public class ExcelImportService
 
         var table = dataSet.Tables[0];
 
-        for (int r = 1; r < table.Rows.Count; r++)
+        var headerRow = FindHeaderRow(table, "Financial No", "FinancialNo", "PR", "الرقم المالي");
+        var firstDataRow = headerRow >= 0 ? headerRow + 1 : 1;
+        var financialNoColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Financial No", "FinancialNo", "PR", "الرقم المالي") : 0;
+        var nameColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Name", "الاسم") : 1;
+        var regularColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Regular Leave", "الإجازة الاعتيادية") : 2;
+        var casualColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Casual Leave", "الإجازة العارضة") : 3;
+        var restColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Rest Allowance", "رصيد الراحة") : 4;
+        var holidayColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Holiday Allowance", "رصيد العطلات") : 5;
+        var locationColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Work Location", "موقع العمل") : 6;
+        var statusColumn = headerRow >= 0 ? FindColumn(table, headerRow, "Job Status", "الحالة الوظيفية") : 7;
+
+        for (int r = firstDataRow; r < table.Rows.Count; r++)
         {
             var row = table.Rows[r];
-            var finNo = row[0]?.ToString()?.Trim() ?? string.Empty;
-            var name = row[1]?.ToString()?.Trim() ?? string.Empty;
+            var finNo = GetCellText(row, financialNoColumn);
+            var name = GetCellText(row, nameColumn);
             if (string.IsNullOrWhiteSpace(finNo) || string.IsNullOrWhiteSpace(name)) continue;
 
-            var regLeave = GetDouble(row[2]);
-            var casualLeave = GetDouble(row[3]);
-            var restAllow = GetDouble(row[4]);
-            var holiAllow = GetDouble(row[5]);
-            var workLoc = row[6]?.ToString()?.Trim();
-            var jobStatus = row[7]?.ToString()?.Trim();
+            var regLeave = GetDouble(GetCell(row, regularColumn));
+            var casualLeave = GetDouble(GetCell(row, casualColumn));
+            var restAllow = GetDouble(GetCell(row, restColumn));
+            var holiAllow = GetDouble(GetCell(row, holidayColumn));
+            var workLoc = GetCellText(row, locationColumn);
+            var jobStatus = GetCellText(row, statusColumn);
 
             var emp = await db.Employees.FindAsync(finNo);
             if (emp == null)
@@ -165,6 +204,9 @@ public class ExcelImportService
 
             count++;
         }
+
+        if (count == 0)
+            throw new InvalidDataException("The balance workbook contains no valid balance rows.");
 
         await db.SaveChangesAsync();
         return $"Imported {count} balances from رصيد 2026.xls";
@@ -246,8 +288,11 @@ public class ExcelImportService
             }
         }
 
+        if (count == 0)
+            throw new InvalidDataException("The monthly attendance workbook contains no valid attendance values.");
+
         await db.SaveChangesAsync();
-        return $"Imported {count} attendance records from Copy of SAYED.xlsx";
+        return $"Imported {count} attendance records from Monthly Attendance Template.xlsx";
     }
 
     private static double GetDouble(object? value)
@@ -257,5 +302,47 @@ public class ExcelImportService
         if (value is int i) return i;
         if (double.TryParse(value?.ToString(), out var result)) return result;
         return 0;
+    }
+
+    private static int FindHeaderRow(System.Data.DataTable table, params string[] names)
+    {
+        for (var row = 0; row < Math.Min(table.Rows.Count, 12); row++)
+        {
+            if (FindColumn(table, row, names) >= 0)
+                return row;
+        }
+
+        return -1;
+    }
+
+    private static bool IsGuidanceSheet(string? sheetName)
+    {
+        return string.Equals(sheetName?.Trim(), "Sample", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(sheetName?.Trim(), "مثال", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int FindColumn(System.Data.DataTable table, int headerRow, params string[] names)
+    {
+        if (headerRow < 0 || headerRow >= table.Rows.Count)
+            return -1;
+
+        for (var column = 0; column < table.Columns.Count; column++)
+        {
+            var value = table.Rows[headerRow][column]?.ToString()?.Trim();
+            if (names.Any(name => string.Equals(value, name, StringComparison.OrdinalIgnoreCase)))
+                return column;
+        }
+
+        return -1;
+    }
+
+    private static object? GetCell(System.Data.DataRow row, int column)
+    {
+        return column >= 0 && column < row.ItemArray.Length ? row[column] : null;
+    }
+
+    private static string GetCellText(System.Data.DataRow row, int column)
+    {
+        return GetCell(row, column)?.ToString()?.Trim() ?? string.Empty;
     }
 }

@@ -125,6 +125,7 @@ public class ZkAttendanceService
             .Where(e => e.IsActive)
             .ToDictionaryAsync(e => e.FinancialNo);
         var rules = await db.ScheduleRules.Where(r => r.IsActive).ToListAsync();
+        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
 
         var processed = 0;
         foreach (var chunk in punchesByDay.Where(p => empDict.ContainsKey(p.Key.EmpNo)).Chunk(chunkSize))
@@ -157,8 +158,14 @@ public class ZkAttendanceService
                         lastUtc = existing.LastPunch.Value;
                 }
 
-                var schedule = GetSchedule(emp.Level, rules);
-                var status = DetermineStatus(firstUtc, lastUtc, schedule, date);
+                var schedule = GetSchedule(emp, rules);
+                var status = AttendanceStatusRules.Calculate(
+                    firstUtc,
+                    lastUtc,
+                    schedule?.StartTime,
+                    schedule?.EndTime,
+                    date,
+                    calendarSettings);
 
                 if (existing == null)
                 {
@@ -237,9 +244,17 @@ public class ZkAttendanceService
         var employees = await db.Employees.Where(e => e.IsActive).ToListAsync();
         var empDict = employees.ToDictionary(e => e.FinancialNo);
         var rules = await db.ScheduleRules.Where(r => r.IsActive).ToListAsync();
+        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
+        var normalizedFrom = fromDate.Date;
+        var normalizedTo = toDate.Date;
+        var existingRows = await db.DailyAttendances
+            .Where(a => a.Date >= normalizedFrom && a.Date <= normalizedTo)
+            .ToListAsync();
+        var existingByEmployeeDate = existingRows
+            .ToDictionary(a => (a.EmployeeFinancialNo, a.Date));
 
         var processed = 0;
-        for (var date = fromDate; date <= toDate; date = date.AddDays(1))
+        for (var date = normalizedFrom; date <= normalizedTo; date = date.AddDays(1))
         {
             foreach (var emp in employees)
             {
@@ -253,15 +268,20 @@ public class ZkAttendanceService
                     lastUtc = p.Last;
                 }
 
-                var schedule = GetSchedule(emp.Level, rules);
-                var status = DetermineStatus(firstUtc, lastUtc, schedule, date);
+                var schedule = GetSchedule(emp, rules);
+                var status = AttendanceStatusRules.Calculate(
+                    firstUtc,
+                    lastUtc,
+                    schedule?.StartTime,
+                    schedule?.EndTime,
+                    date,
+                    calendarSettings);
 
-                var existing = await db.DailyAttendances
-                    .FirstOrDefaultAsync(a => a.EmployeeFinancialNo == emp.FinancialNo && a.Date == date);
+                existingByEmployeeDate.TryGetValue((emp.FinancialNo, date), out var existing);
 
                 if (existing == null)
                 {
-                    db.DailyAttendances.Add(new DailyAttendance
+                    existing = new DailyAttendance
                     {
                         EmployeeFinancialNo = emp.FinancialNo,
                         Date = date,
@@ -270,7 +290,9 @@ public class ZkAttendanceService
                         ScheduledStart = schedule?.StartTime,
                         ScheduledEnd = schedule?.EndTime,
                         Status = status
-                    });
+                    };
+                    db.DailyAttendances.Add(existing);
+                    existingByEmployeeDate[(emp.FinancialNo, date)] = existing;
                 }
                 else
                 {
@@ -289,75 +311,11 @@ public class ZkAttendanceService
         return $"Processed {processed} records from {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
     }
 
-    private static ScheduleRule? GetSchedule(string? level, List<ScheduleRule> rules)
+    private static ScheduleRule? GetSchedule(Employee employee, List<ScheduleRule> rules)
     {
-        if (string.IsNullOrWhiteSpace(level)) return null;
-
-        var levelLower = level.Trim().ToLowerInvariant();
-
-        if (levelLower.Contains("ladies") || levelLower.Contains("سيدات"))
-            return rules.FirstOrDefault(r => r.LevelName == "Ladies");
-
-        if (levelLower.Contains("top") || levelLower.Contains("عليا") || levelLower.Contains("اداره عليا"))
-            return rules.FirstOrDefault(r => r.LevelName == "Top Management");
-
-        if (levelLower.Contains("level 1") || levelLower.Contains("اول") || levelLower.Contains("الأول"))
-            return rules.FirstOrDefault(r => r.LevelName == "Level 1");
-
-        if (levelLower.Contains("level 2") || levelLower.Contains("ثان") || levelLower.Contains("الثانى"))
-            return rules.FirstOrDefault(r => r.LevelName == "Level 2");
-
-        if (levelLower.Contains("level 3") || levelLower.Contains("ثال") || levelLower.Contains("الثالث"))
-            return rules.FirstOrDefault(r => r.LevelName == "Level 3");
-
-        return null;
+        return AttendanceStatusRules.ResolveSchedule(employee, rules);
     }
 
-    private static string DetermineStatus(DateTime? firstPunch, DateTime? lastPunch, ScheduleRule? schedule, DateTime date)
-    {
-        var dayOfWeek = date.DayOfWeek;
-        if (dayOfWeek == DayOfWeek.Friday || dayOfWeek == DayOfWeek.Saturday)
-            return "Weekly Rest";
-
-        if (dayOfWeek == DayOfWeek.Sunday)
-            return "Work From Home";
-
-        if (firstPunch == null)
-            return "Absent";
-
-        lastPunch ??= firstPunch;
-
-        if (schedule == null)
-            return "Present";
-
-        if (!TimeSpan.TryParse(schedule.StartTime, out var startTs))
-            return "Present";
-
-        if (!TimeSpan.TryParse(schedule.EndTime, out var endTs))
-            return "Present";
-
-        var punchUtc = DateTime.SpecifyKind(firstPunch.Value, DateTimeKind.Utc);
-        var punchEgypt = punchUtc.AddHours(2);
-        var startDeadline = date.Date.Add(startTs);
-
-        var lastPunchUtc = DateTime.SpecifyKind(lastPunch.Value, DateTimeKind.Utc);
-        var lastPunchEgypt = lastPunchUtc.AddHours(2);
-        var scheduledEnd = date.Date.Add(endTs);
-
-        var workedMinutes = (lastPunchEgypt - punchEgypt).TotalMinutes;
-        var requiredMinutes = (scheduledEnd - startDeadline).TotalMinutes;
-
-        if (workedMinutes < requiredMinutes * 0.5)
-            return "Absent";
-
-        if (punchEgypt > startDeadline.AddMinutes(5))
-            return "Late";
-
-        if (lastPunchEgypt < scheduledEnd)
-            return "Early Leave";
-
-        return "Present";
-    }
 }
 
 public class SyncResult
