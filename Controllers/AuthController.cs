@@ -14,15 +14,20 @@ namespace AttendanceApp.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private const string AdSelfPermissions = "SelfAttendance,SelfLeave";
+
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
+    private readonly AdDirectoryService _adDirectory;
 
     public AuthController(
         IDbContextFactory<AppDbContext> factory,
-        IPasswordHasher<AppUser> passwordHasher)
+        IPasswordHasher<AppUser> passwordHasher,
+        AdDirectoryService adDirectory)
     {
         _factory = factory;
         _passwordHasher = passwordHasher;
+        _adDirectory = adDirectory;
     }
 
     [AllowAnonymous]
@@ -35,20 +40,41 @@ public class AuthController : ControllerBase
         using var db = await _factory.CreateDbContextAsync();
         var username = request.Username.Trim();
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
-        if (user == null || !user.IsActive || string.IsNullOrWhiteSpace(user.PasswordHash))
-            return Unauthorized(new { error = "Invalid username or password" });
 
-        var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-        if (verification == PasswordVerificationResult.Failed)
-            return Unauthorized(new { error = "Invalid username or password" });
+        var localPasswordOk = false;
+        if (user != null && user.IsActive && !string.IsNullOrWhiteSpace(user.PasswordHash))
+        {
+            var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+            if (verification == PasswordVerificationResult.Failed)
+            {
+                localPasswordOk = false;
+            }
+            else
+            {
+                localPasswordOk = true;
+                if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+                    user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+            }
+        }
 
-        if (verification == PasswordVerificationResult.SuccessRehashNeeded)
-            user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        if (!localPasswordOk)
+        {
+            if (!await _adDirectory.ValidateCredentialsAsync(username, request.Password))
+                return Unauthorized(new { error = "Invalid username or password" });
 
-        user.LastLoginAt = DateTime.Now;
+            user = await EnsureAdUserAsync(db, username);
+            if (user == null)
+                return Unauthorized(new { error = "Your Active Directory account is not linked to an employee record" });
+            if (!user.IsActive)
+                return Unauthorized(new { error = "Your account is disabled" });
+        }
+
+        user!.LastLoginAt = DateTime.Now;
         await db.SaveChangesAsync();
-        await SignInAsync(user, request.RememberMe);
-        return Ok(ToCurrentUser(user));
+
+        var employeeNo = await GetEmployeeNoAsync(db, username);
+        await SignInAsync(user, request.RememberMe, employeeNo);
+        return Ok(ToCurrentUser(user, employeeNo));
     }
 
     [Authorize]
@@ -70,7 +96,9 @@ public class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        return Ok(ToCurrentUser(user));
+        using var db = await _factory.CreateDbContextAsync();
+        var employeeNo = await GetEmployeeNoAsync(db, user.Username);
+        return Ok(ToCurrentUser(user, employeeNo));
     }
 
     [Authorize]
@@ -99,8 +127,52 @@ public class AuthController : ControllerBase
         using var db = await _factory.CreateDbContextAsync();
         db.AppUsers.Update(user);
         await db.SaveChangesAsync();
-        await SignInAsync(user, false);
-        return Ok(ToCurrentUser(user));
+        var employeeNo = await GetEmployeeNoAsync(db, user.Username);
+        await SignInAsync(user, false, employeeNo);
+        return Ok(ToCurrentUser(user, employeeNo));
+    }
+
+    private async Task<AppUser?> EnsureAdUserAsync(AppDbContext db, string username)
+    {
+        var info = await _adDirectory.GetUserInfoAsync(username);
+        if (info == null)
+            return null;
+
+        var isEmployee = await db.Employees.AnyAsync(e => e.FinancialNo == username);
+        if (!isEmployee)
+            return null;
+
+        var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
+        if (user == null)
+        {
+            user = new AppUser
+            {
+                Username = username,
+                DisplayName = info.DisplayName,
+                Role = "Employee",
+                Permissions = AdSelfPermissions,
+                PasswordHash = string.Empty,
+                MustChangePassword = false,
+                IsActive = true
+            };
+            db.AppUsers.Add(user);
+        }
+        else
+        {
+            if (!user.IsActive)
+                return null;
+            user.DisplayName = info.DisplayName;
+            user.Role = "Employee";
+            user.Permissions = AdSelfPermissions;
+        }
+
+        return user;
+    }
+
+    private async Task<string?> GetEmployeeNoAsync(AppDbContext db, string username)
+    {
+        var exists = await db.Employees.AnyAsync(e => e.FinancialNo == username);
+        return exists ? username : null;
     }
 
     private async Task<AppUser?> FindCurrentUserAsync()
@@ -113,7 +185,7 @@ public class AuthController : ControllerBase
         return await db.AppUsers.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
     }
 
-    private async Task SignInAsync(AppUser user, bool persistent)
+    private async Task SignInAsync(AppUser user, bool persistent, string? employeeNo)
     {
         var claims = new List<Claim>
         {
@@ -123,6 +195,8 @@ public class AuthController : ControllerBase
             new("must_change_password", user.MustChangePassword ? "true" : "false"),
             new("session_version", user.SessionVersion.ToString())
         };
+        if (!string.IsNullOrWhiteSpace(employeeNo))
+            claims.Add(new Claim("employee_no", employeeNo));
         claims.AddRange(GetPermissions(user).Select(
             permission => new Claim(AuthConstants.PermissionClaim, permission)));
 
@@ -139,7 +213,7 @@ public class AuthController : ControllerBase
             });
     }
 
-    internal static object ToCurrentUser(AppUser user)
+    internal static object ToCurrentUser(AppUser user, string? employeeNo = null)
     {
         var permissions = GetPermissions(user);
         return new
@@ -152,6 +226,7 @@ public class AuthController : ControllerBase
             user.Role,
             Permissions = permissions,
             IsAdmin = string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase),
+            EmployeeNo = employeeNo,
             user.MustChangePassword
         };
     }

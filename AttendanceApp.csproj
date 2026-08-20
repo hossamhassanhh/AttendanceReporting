@@ -5,14 +5,14 @@
     <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tools\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;DeploymentPackages\**;.codex-*\**;Logs\**;DatabaseBackups\**;outputs\**;tmp\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tools\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;ZkPunchFixPublish\**;ZkPunchFixServerPublish\**;DeploymentPackages\**;.codex-*\**;Logs\**;DatabaseBackups\**;outputs\**;tmp\**</DefaultItemExcludes>
 
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Remove="Tools\**\*.cs" />
-    <Content Remove="Deploy-Package\**;DeploymentPackages\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;tmp\**;outputs\**;.codex-*\**" />
-    <None Remove="Deploy-Package\**;DeploymentPackages\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;tmp\**;outputs\**;.codex-*\**" />
+<Content Remove="Deploy-Package\**;DeploymentPackages\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;ZkPunchFixPublish\**;ZkPunchFixServerPublish\**;tmp\**;outputs\**;.codex-*\**" />
+    <None Remove="Deploy-Package\**;DeploymentPackages\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;ZkPunchFixPublish\**;ZkPunchFixServerPublish\**;tmp\**;outputs\**;.codex-*\**" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +27,7 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="QuestPDF" Version="2024.12.0" />
+    <PackageReference Include="System.DirectoryServices.Protocols" Version="10.0.0" />
     <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.9" />
   </ItemGroup>
 

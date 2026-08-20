@@ -11,7 +11,7 @@ namespace AttendanceApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "Leaves")]
+[Authorize]
 public class LeaveController : ControllerBase
 {
     private readonly LeaveService _leaveService;
@@ -21,6 +21,7 @@ public class LeaveController : ControllerBase
         _leaveService = leaveService;
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("types")]
     public async Task<IActionResult> GetLeaveTypes()
     {
@@ -28,6 +29,7 @@ public class LeaveController : ControllerBase
         return Ok(types);
     }
 
+    [Authorize(Policy = "Leaves")]
     [HttpGet("upload-template")]
     public async Task<IActionResult> DownloadUploadTemplate([FromQuery] string? lang)
     {
@@ -37,6 +39,7 @@ public class LeaveController : ControllerBase
         return File(data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
     }
 
+    [Authorize(Policy = "Leaves")]
     [HttpPost("grant")]
     public async Task<IActionResult> GrantLeave([FromBody] GrantLeaveRequest request)
     {
@@ -60,6 +63,132 @@ public class LeaveController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "LeaveFlow")]
+    [HttpPost("request")]
+    public async Task<IActionResult> RequestLeave([FromBody] RequestLeaveRequest request)
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return BadRequest(new { error = "No employee record is linked to your account" });
+        try
+        {
+            var enteredBy = User.FindFirstValue(ClaimTypes.Name) ?? "employee";
+            var result = await _leaveService.RequestLeaveAsync(
+                employeeNo,
+                request.LeaveTypeId,
+                request.FromDate,
+                request.ToDate,
+                request.Reason,
+                enteredBy);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpPost("{id:int}/approve-manager")]
+    public async Task<IActionResult> ApproveAsManager(int id)
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        try
+        {
+            var result = await _leaveService.ApproveAsManagerAsync(id, employeeNo ?? string.Empty);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveHrFlow")]
+    [HttpPost("{id:int}/approve-hr")]
+    public async Task<IActionResult> ApproveAsHr(int id)
+    {
+        try
+        {
+            var result = await _leaveService.ApproveAsHrAsync(id);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveHrFlow")]
+    [HttpPost("{id:int}/reject")]
+    public async Task<IActionResult> RejectLeave(int id, [FromBody] RejectLeaveRequest request)
+    {
+        try
+        {
+            var rejectedBy = User.FindFirstValue(ClaimTypes.Name)
+                ?? throw new UnauthorizedAccessException("Authenticated username is unavailable");
+            var result = await _leaveService.RejectLeaveAsync(id, rejectedBy, request.Reason);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpGet("pending/manager")]
+    public async Task<IActionResult> GetPendingForManager()
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return Ok(new List<object>());
+        var transactions = await _leaveService.GetPendingForManagerAsync(employeeNo);
+        return Ok(transactions);
+    }
+
+    [Authorize(Policy = "LeaveHrFlow")]
+    [HttpGet("pending/hr")]
+    public async Task<IActionResult> GetPendingForHr()
+    {
+        var transactions = await _leaveService.GetPendingForHrAsync();
+        return Ok(transactions);
+    }
+
+    [Authorize(Policy = "LeaveHrFlow")]
+    [HttpPut("transactions/{id:int}/workflow")]
+    public async Task<IActionResult> UpdateWorkflow(int id, [FromBody] WorkflowUpdateRequest request)
+    {
+        try
+        {
+            var changedBy = User.FindFirstValue(ClaimTypes.Name)
+                ?? throw new UnauthorizedAccessException("Authenticated username is unavailable");
+            var result = await _leaveService.UpdateWorkflowAsync(id, request.Status, request.ManagerFinancialNo, changedBy);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "Leaves")]
     [HttpPut("transactions/{id:int}")]
     public async Task<IActionResult> UpdateTransaction(int id, [FromBody] UpdateLeaveRequest request)
     {
@@ -83,6 +212,7 @@ public class LeaveController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "Leaves")]
     [HttpDelete("transactions/{id:int}")]
     public async Task<IActionResult> DeleteTransaction(int id)
     {
@@ -97,6 +227,7 @@ public class LeaveController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("day-count")]
     public async Task<IActionResult> GetDayCount([FromQuery] DateTime fromDate, [FromQuery] DateTime toDate)
     {
@@ -104,6 +235,7 @@ public class LeaveController : ControllerBase
         return Ok(new { daysCount = days });
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("{financialNo}/transactions")]
     public async Task<IActionResult> GetTransactions(string financialNo)
     {
@@ -111,24 +243,30 @@ public class LeaveController : ControllerBase
         return Ok(transactions);
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("transactions")]
     public async Task<IActionResult> GetAllTransactions([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
     {
-        var transactions = await _leaveService.GetLeaveLogDaysAsync(financialNo, leaveTypeId, fromDate, toDate);
+        var effectiveFinancialNo = CanSeeAll() ? financialNo : User.FindFirstValue("employee_no");
+        var transactions = await _leaveService.GetLeaveLogDaysAsync(effectiveFinancialNo, leaveTypeId, fromDate, toDate);
         return Ok(transactions);
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("all-transactions")]
     public async Task<IActionResult> GetAllTransactionsAlias([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
     {
-        var transactions = await _leaveService.GetLeaveLogDaysAsync(financialNo, leaveTypeId, fromDate, toDate);
+        var effectiveFinancialNo = CanSeeAll() ? financialNo : User.FindFirstValue("employee_no");
+        var transactions = await _leaveService.GetLeaveLogDaysAsync(effectiveFinancialNo, leaveTypeId, fromDate, toDate);
         return Ok(transactions);
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("export/excel")]
     public async Task<IActionResult> ExportExcel([FromQuery] string? financialNo, [FromQuery] int? leaveTypeId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
     {
-        var transactions = await _leaveService.GetLeaveLogDaysAsync(financialNo, leaveTypeId, fromDate, toDate);
+        var effectiveFinancialNo = CanSeeAll() ? financialNo : User.FindFirstValue("employee_no");
+        var transactions = await _leaveService.GetLeaveLogDaysAsync(effectiveFinancialNo, leaveTypeId, fromDate, toDate);
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add("Leave Transactions");
 
@@ -168,6 +306,7 @@ public class LeaveController : ControllerBase
         return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "leave-transactions.xlsx");
     }
 
+    [Authorize(Policy = "LeaveFlow")]
     [HttpGet("export/pdf")]
     public async Task<IActionResult> ExportPdf(
         [FromQuery] string? financialNo,
@@ -177,7 +316,8 @@ public class LeaveController : ControllerBase
         [FromQuery] string? lang)
     {
         QuestPDF.Settings.License = LicenseType.Community;
-        var transactions = await _leaveService.GetLeaveLogDaysAsync(financialNo, leaveTypeId, fromDate, toDate);
+        var effectiveFinancialNo = CanSeeAll() ? financialNo : User.FindFirstValue("employee_no");
+        var transactions = await _leaveService.GetLeaveLogDaysAsync(effectiveFinancialNo, leaveTypeId, fromDate, toDate);
         var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
 
         var pdfBytes = Document.Create(container =>
@@ -233,6 +373,8 @@ public class LeaveController : ControllerBase
 
         return File(pdfBytes, "application/pdf", "leave-transactions.pdf");
     }
+
+    private bool CanSeeAll() => User.HasClaim(AuthConstants.PermissionClaim, "Leaves");
 }
 
 public class GrantLeaveRequest
@@ -242,6 +384,25 @@ public class GrantLeaveRequest
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public string? Reason { get; set; }
+}
+
+public class RequestLeaveRequest
+{
+    public int LeaveTypeId { get; set; }
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public string? Reason { get; set; }
+}
+
+public class RejectLeaveRequest
+{
+    public string? Reason { get; set; }
+}
+
+public class WorkflowUpdateRequest
+{
+    public string? Status { get; set; }
+    public string? ManagerFinancialNo { get; set; }
 }
 
 public class UpdateLeaveRequest

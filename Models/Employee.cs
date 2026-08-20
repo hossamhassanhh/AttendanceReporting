@@ -33,5 +33,8 @@ public class Employee
     [MaxLength(200)]
     public string? JobStatus { get; set; }
 
+    [MaxLength(20)]
+    public string? ManagerFinancialNo { get; set; }
+
     public bool IsActive { get; set; } = true;
 }

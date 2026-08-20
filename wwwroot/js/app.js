@@ -63,16 +63,22 @@
             chipMonthlyReportsDesc: 'Excel / PDF',
             chipTemplates: 'استيراد البيانات',
             chipTemplatesDesc: 'استيراد وتحديث',
-            chooseFile: 'اختيار ملف',
+chooseFile: 'اختيار ملف',
             noFileChosen: 'لم يتم اختيار ملف',
+            excelFileLabel: 'ملف Excel',
+            fileFormatHint: 'صيغة Excel (.xlsx أو .xls)',
+            invalidFileType: 'يرجى اختيار ملف Excel صحيح (.xlsx أو .xls)',
+            importing: 'جارٍ الاستيراد...',
+            clearFile: 'مسح الملف',
+            importComplete: 'اكتمل الاستيراد بنجاح',
             dataFreshPending: 'جارٍ التحقق من حداثة البيانات...',
             dataFreshFailed: 'تعذر فحص حالة البيانات',
             lastUpdate: 'آخر تحديث:',
             attendanceKicker: 'الحضور',
             attendanceTitle: 'تقرير الحضور',
             attendanceDesc: 'استعرض سجلات الحضور والانصراف حسب الفترة وموظف محدد أو جميع الموظفين.',
-            employeeNumbers: 'بحث الموظفين (رقم / اسم)',
-            employeeNumbersPlaceholder: 'مثال: 4779 أو حسام أو 47، واترك الحقل فارغًا لعرض الجميع',
+            employeeNumbers: 'بحث الموظف',
+            employeeNumbersPlaceholder: 'أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع',
             fromDate: 'من تاريخ',
             toDate: 'إلى تاريخ',
             showAttendance: 'عرض الحضور',
@@ -83,18 +89,17 @@
             employeesTitle: 'بيانات الموظفين',
             employeesDesc: 'ابحث في قاعدة بيانات الموظفين أو اعرض كل الموظفين المسجلين.',
             searchNameOrNumber: 'بحث (اسم / رقم مالي)',
-            allEmployeesPlaceholder: 'اكتب جزءًا من الاسم أو الرقم، أو اترك الحقل فارغًا لعرض الجميع',
+            allEmployeesPlaceholder: 'أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع',
             search: 'بحث',
             uploadEmployeesTitle: 'استيراد بيانات الموظفين',
             uploadEmployeesDesc: 'تحديث الأسماء والمسميات الوظيفية والإدارات والمستويات.',
-            clearSelectedFile: 'مسح الملف المختار',
             uploadData: 'استيراد البيانات',
             searchResults: 'نتائج البحث',
             balancesKicker: 'الأرصدة',
             balancesTitle: 'أرصدة الإجازات',
             balancesDesc: 'راجع أرصدة الإجازات السنوية لجميع الموظفين أو لموظف محدد.',
             financialNo: 'رقم مالي',
-            allBalancesPlaceholder: 'اكتب جزءًا من الاسم أو الرقم، أو اترك الحقل فارغًا لعرض الجميع',
+            allBalancesPlaceholder: 'أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع',
             showBalance: 'عرض الرصيد',
             uploadBalancesTitle: 'استيراد أرصدة الإجازات',
             uploadBalancesDesc: 'تحديث أرصدة الإجازات لجميع الموظفين من ملف Excel.',
@@ -103,7 +108,7 @@
             leaveKicker: 'إدارة الإجازات',
             leaveTitle: 'إدارة الإجازات',
             leaveDesc: 'سجّل الإجازات وراجع الحركات واستورد بيانات الإجازات المجمّعة.',
-            leaveFinancialPlaceholder: 'أدخل رقمًا أو اسمًا للبحث، أو الرقم المالي كاملًا لتسجيل إجازة',
+            leaveFinancialPlaceholder: 'أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع',
             leaveType: 'نوع الإجازة',
             daysCount: 'عدد الأيام',
             reason: 'السبب',
@@ -185,14 +190,20 @@
             chipTemplatesDesc: 'Upload and update',
             chooseFile: 'Choose File',
             noFileChosen: 'No file chosen',
+            excelFileLabel: 'Excel file',
+            fileFormatHint: 'Excel format (.xlsx or .xls)',
+            invalidFileType: 'Please choose a valid Excel file (.xlsx or .xls)',
+            importing: 'Importing...',
+            clearFile: 'Clear file',
+            importComplete: 'Import completed successfully',
             dataFreshPending: 'Checking data status...',
             dataFreshFailed: 'Unable to check data status',
             lastUpdate: 'Last update:',
             attendanceKicker: 'Attendance',
             attendanceTitle: 'Attendance Report',
             attendanceDesc: 'Review attendance and departure records by date range and employee, or all employees.',
-            employeeNumbers: 'Employee search (number / name)',
-            employeeNumbersPlaceholder: 'Example: 4779, Hossam, or 47 - leave blank for all',
+            employeeNumbers: 'Employee search',
+            employeeNumbersPlaceholder: 'Enter employee number or name, or leave empty to show all',
             fromDate: 'From date',
             toDate: 'To date',
             showAttendance: 'Show Attendance',
@@ -203,18 +214,17 @@
             employeesTitle: 'Employee Data',
             employeesDesc: 'Search employee records or list all registered employees.',
             searchNameOrNumber: 'Search (name / financial number)',
-            allEmployeesPlaceholder: 'Type part of name or number, or leave blank for all',
+            allEmployeesPlaceholder: 'Enter employee number or name, or leave empty to show all',
             search: 'Search',
             uploadEmployeesTitle: 'Upload Employee Data',
             uploadEmployeesDesc: 'Update names, titles, departments, and levels.',
-            clearSelectedFile: 'Clear selected file',
             uploadData: 'Upload Data',
             searchResults: 'Search Results',
             balancesKicker: 'Balances',
             balancesTitle: 'Leave Balances',
             balancesDesc: 'Review annual leave quotas for all employees or a specific employee.',
             financialNo: 'Financial number',
-            allBalancesPlaceholder: 'Type part of name or number, or leave blank for all',
+            allBalancesPlaceholder: 'Enter employee number or name, or leave empty to show all',
             showBalance: 'Show Balance',
             uploadBalancesTitle: 'Upload Leave Balances',
             uploadBalancesDesc: 'Update leave quotas for all employees from an Excel file.',
@@ -223,7 +233,7 @@
             leaveKicker: 'Leave Management',
             leaveTitle: 'Leave Management',
             leaveDesc: 'Grant leaves, review transactions, and upload bulk leave templates.',
-            leaveFinancialPlaceholder: 'Number/name to search, or full financial number to grant leave',
+            leaveFinancialPlaceholder: 'Enter employee number or name, or leave empty to show all',
             leaveType: 'Leave type',
             daysCount: 'Days count',
             reason: 'Reason',
@@ -276,6 +286,10 @@
     i18n.en.resetPasswordHint = 'The user must change this password at the next sign-in.';
     i18n.ar.filterResults = 'تصفية النتائج';
     i18n.ar.sortResults = 'ترتيب النتائج';
+    i18n.ar.searchMode = 'طريقة البحث';
+    i18n.ar.searchContains = 'يحتوي';
+    i18n.ar.searchExact = 'مطابقة تامة';
+    i18n.ar.searchOneOf = 'أحد الأرقام';
     i18n.ar.sortDateNewest = 'التاريخ: الأحدث أولاً';
     i18n.ar.sortDateOldest = 'التاريخ: الأقدم أولاً';
     i18n.ar.sortEmployee = 'الموظف';
@@ -295,7 +309,6 @@
     i18n.ar.cancel = 'إلغاء';
     i18n.ar.saveChanges = 'حفظ التعديلات';
     i18n.ar.bulkImport = 'استيراد مجمع';
-    i18n.ar.dropExcelFile = 'ملف Excel للإجازات';
     i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.filterCriteria = 'عوامل التصفية والخيارات';
     i18n.ar.attStatusFilter = 'الحالة';
@@ -320,8 +333,46 @@
     i18n.ar.displayNameArPlaceholder = 'اسم المستخدم بالعربية';
     i18n.ar.optional = 'اختياري';
     i18n.ar.scheduleFinancialNumbersPlaceholder = 'مثال: 4779, 4780';
+    i18n.ar.requestLeaveTitle = 'طلب إجازة جديد';
+    i18n.ar.requestLeave = 'إرسال الطلب';
+    i18n.ar.requestLeaveSent = 'تم إرسال طلب الإجازة وسيتم مراجعته';
+    i18n.ar.managerApprovals = 'طلبات بانتظار موافقة المدير';
+    i18n.ar.hrApprovals = 'طلبات بانتظار موافقة الموارد البشرية';
+    i18n.ar.approve = 'موافقة';
+    i18n.ar.reject = 'رفض';
+    i18n.ar.rejectionReasonPrompt = 'أدخل سبب الرفض (اختياري):';
+    i18n.ar.rejectedMsg = 'تم رفض الطلب';
+    i18n.ar.approvedMsg = 'تمت الموافقة على الطلب';
+    i18n.ar.manager = 'المدير';
+    i18n.ar.workflow = 'سير الموافقة';
+    i18n.ar.workflowTitle = 'إدارة سير الموافقات';
+    i18n.ar.workflowStatus = 'حالة سير الموافقة';
+    i18n.ar.managerFinancialNo = 'الرقم المالي للمدير';
+    i18n.ar.managerNoPlaceholder = 'اتركه فارغًا لإلغاء التعيين';
+    i18n.ar.rejectionReason = 'سبب الرفض';
+    i18n.ar.statusPendingManager = 'بانتظار المدير';
+    i18n.ar.statusPendingHR = 'بانتظار الموارد البشرية';
+    i18n.ar.statusApproved = 'معتمد';
+    i18n.ar.statusRejected = 'مرفوض';
+    i18n.ar.adSyncTitle = 'مزامنة Active Directory';
+    i18n.ar.adSyncHint = 'مزامنة الموظفين من خادم Active Directory والحفاظ على تحديث بياناتهم.';
+    i18n.ar.runAdSync = 'مزامنة الآن';
+    i18n.ar.adSyncRunning = 'جارٍ المزامنة...';
+    i18n.ar.adSyncLastRun = 'آخر مزامنة:';
+    i18n.ar.adSyncNeverRun = 'لم يتم تشغيل المزامنة بعد';
+    i18n.ar.managerAssignTitle = 'تعيين مدير لموظف';
+    i18n.ar.saveManager = 'حفظ المدير';
+    i18n.ar.managerSaved = 'تم حفظ المدير';
+    i18n.ar.status = 'الحالة';
+    i18n.ar.noPendingRequests = 'لا توجد طلبات معلقة';
+    i18n.ar.requested = 'تم الطلب';
+    i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
     i18n.en.filterResults = 'Filter results';
     i18n.en.sortResults = 'Sort results';
+    i18n.en.searchMode = 'Search mode';
+    i18n.en.searchContains = 'Contains';
+    i18n.en.searchExact = 'Exact match';
+    i18n.en.searchOneOf = 'One of';
     i18n.en.sortDateNewest = 'Date: newest first';
     i18n.en.sortDateOldest = 'Date: oldest first';
     i18n.en.sortEmployee = 'Employee';
@@ -341,7 +392,6 @@
     i18n.en.cancel = 'Cancel';
     i18n.en.saveChanges = 'Save changes';
     i18n.en.bulkImport = 'Bulk import';
-    i18n.en.dropExcelFile = 'Leave Excel file';
     i18n.en.navDaily = 'Daily Report';
     i18n.en.filterCriteria = 'Filters and options';
     i18n.en.attStatusFilter = 'Status';
@@ -365,7 +415,40 @@
     i18n.en.closeDialog = 'Close dialog';
     i18n.en.displayNameArPlaceholder = 'Arabic display name';
     i18n.en.optional = 'Optional';
-    i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
+i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
+    i18n.en.requestLeaveTitle = 'New Leave Request';
+    i18n.en.requestLeave = 'Submit Request';
+    i18n.en.requestLeaveSent = 'Leave request submitted for review';
+    i18n.en.managerApprovals = 'Awaiting Manager Approval';
+    i18n.en.hrApprovals = 'Awaiting HR Approval';
+    i18n.en.approve = 'Approve';
+    i18n.en.reject = 'Reject';
+    i18n.en.rejectionReasonPrompt = 'Enter rejection reason (optional):';
+    i18n.en.rejectedMsg = 'Request rejected';
+    i18n.en.approvedMsg = 'Request approved';
+    i18n.en.manager = 'Manager';
+    i18n.en.workflow = 'Workflow';
+    i18n.en.workflowTitle = 'Approval Workflow';
+    i18n.en.workflowStatus = 'Workflow status';
+    i18n.en.managerFinancialNo = 'Manager financial number';
+    i18n.en.managerNoPlaceholder = 'Leave empty to clear';
+    i18n.en.rejectionReason = 'Rejection reason';
+    i18n.en.statusPendingManager = 'Pending Manager';
+    i18n.en.statusPendingHR = 'Pending HR';
+    i18n.en.statusApproved = 'Approved';
+    i18n.en.statusRejected = 'Rejected';
+    i18n.en.adSyncTitle = 'Active Directory Sync';
+    i18n.en.adSyncHint = 'Sync employees from the Active Directory server and keep their data up to date.';
+    i18n.en.runAdSync = 'Sync Now';
+    i18n.en.adSyncRunning = 'Syncing...';
+    i18n.en.adSyncLastRun = 'Last sync:';
+    i18n.en.adSyncNeverRun = 'Sync has not run yet';
+    i18n.en.managerAssignTitle = 'Assign Manager to Employee';
+    i18n.en.saveManager = 'Save Manager';
+    i18n.en.managerSaved = 'Manager saved';
+    i18n.en.status = 'Status';
+    i18n.en.noPendingRequests = 'No pending requests';
+    i18n.en.requested = 'Requested';
     i18n.ar.languageSelection = 'اختيار اللغة';
     i18n.ar.mainNavigation = 'التنقل الرئيسي';
     i18n.ar.workspaceSummary = 'ملخص مساحة العمل';
@@ -405,9 +488,14 @@
         MonthlyReports: { ar: 'التقرير الشهري', en: 'Monthly Reports' },
         Imports: { ar: 'رفع البيانات', en: 'Imports' },
         Exports: { ar: 'التصدير', en: 'Exports' },
-        ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
+ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
         ManagePermissions: { ar: 'إدارة الصلاحيات', en: 'Manage Permissions' },
-        CreateUsers: { ar: 'إنشاء المستخدمين', en: 'Create Users' }
+        CreateUsers: { ar: 'إنشاء المستخدمين', en: 'Create Users' },
+        SelfAttendance: { ar: 'بياناتي الشخصية', en: 'My Attendance' },
+        SelfLeave: { ar: 'طلبات الإجازة', en: 'My Leave' },
+        LeaveApproval: { ar: 'موافقات المدير', en: 'Manager Approvals' },
+        LeaveHR: { ar: 'موافقات الموارد البشرية', en: 'HR Approvals' },
+        AdSync: { ar: 'مزامنة Active Directory', en: 'Active Directory Sync' }
     };
 
     function applyLanguage() {
@@ -480,8 +568,14 @@
         if (lastAdminUsers && lastAdminDays && $('adminResults') && $('adminResults').style.display !== 'none') renderAdminTables(lastAdminUsers, lastAdminDays);
     }
 
-    function hasPermission(permission) {
+function hasPermission(permission) {
         return currentUser && Array.isArray(currentUser.permissions) && currentUser.permissions.indexOf(permission) >= 0;
+    }
+
+    function hasAnyPermission(permissions) {
+        return String(permissions || '').split('|').some(function (permission) {
+            return permission.trim() && hasPermission(permission.trim());
+        });
     }
 
     function updateRolePill() {
@@ -528,13 +622,13 @@
         return list.filter(Boolean).map(function (p) { return permissionLabel(p.trim()); }).join(currentLang === 'ar' ? '، ' : ', ');
     }
 
-    function applyPermissions() {
+function applyPermissions() {
         document.querySelectorAll('[data-permission]').forEach(function (el) {
-            var permission = el.getAttribute('data-permission');
-            el.style.display = hasPermission(permission) ? '' : 'none';
+            var permissions = el.getAttribute('data-permission');
+            el.style.display = hasAnyPermission(permissions) ? '' : 'none';
         });
 
-        if (!hasPermission('ManagePermissions') && document.querySelector('.tab.active')?.dataset.tab === 'admin') {
+        if (!hasAnyPermission('ManagePermissions|AdSync') && document.querySelector('.tab.active')?.dataset.tab === 'admin') {
             document.querySelector('[data-tab="attendance"]').click();
         }
     }
@@ -559,18 +653,33 @@
         clearAuthError();
     }
 
-    function showApplication() {
+function showApplication() {
         $('loginScreen').style.display = 'none';
         $('appShell').style.display = '';
         updateCurrentUserDisplay();
         updateRolePill();
         applyPermissions();
+        configureSelfServiceUI();
         restoreActiveTab();
         loadLeaveTypes();
         loadAttendanceFilterOptions();
         loadEmployeeFilterOptions();
         loadExportFilterOptions();
         updateSyncStatus();
+        loadApprovalQueues();
+    }
+
+    function configureSelfServiceUI() {
+        if (!currentUser) return;
+        var selfScoped = hasPermission('SelfAttendance') && !hasPermission('Attendance');
+        if (selfScoped) {
+            var employeeNo = currentUser.employeeNo || '';
+            var attEmp = $('attEmployees');
+            if (attEmp) { attEmp.value = employeeNo; attEmp.disabled = true; }
+            if ($('attMatchMode')) { $('attMatchMode').value = 'exact'; $('attMatchMode').disabled = true; }
+            if ($('balFinNo')) { $('balFinNo').value = employeeNo; $('balFinNo').disabled = true; }
+            if ($('leaveFinNo')) { $('leaveFinNo').value = employeeNo; $('leaveFinNo').disabled = true; }
+        }
     }
 
     function loadCurrentUser() {
@@ -695,18 +804,148 @@
         });
     });
 
+var validExcelExt = /\.(xlsx|xls)$/i;
+    var uploadMeta = {
+        employeesUploadFile: { button: 'uploadEmployeesBtn', url: '/api/import/employees', labelKey: 'uploadData' },
+        balancesUploadFile: { button: 'uploadBalancesBtn', url: '/api/import/balances', labelKey: 'uploadBalances' },
+        leavesUploadFile: { button: 'uploadLeavesBtn', url: '/api/import/leaves', labelKey: 'uploadLeaves' }
+    };
+
+    function formatFileSize(bytes) {
+        if (!bytes) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
     function updateFileLabels() {
         var dict = i18n[currentLang] || i18n.ar;
-        document.querySelectorAll('input[type="file"]').forEach(function (input) {
-            var nameEl = document.querySelector('[data-file-name-for="' + input.id + '"]');
-            if (!nameEl) return;
-            nameEl.textContent = input.files && input.files.length ? input.files[0].name : dict.noFileChosen;
+        Object.keys(uploadMeta).forEach(function (inputId) {
+            var input = $(inputId);
+            if (!input) return;
+            var picker = input.closest('.file-picker');
+            var nameEl = document.querySelector('[data-file-name-for="' + inputId + '"]');
+            var btn = $(uploadMeta[inputId].button);
+            var file = input.files && input.files.length ? input.files[0] : null;
+
+            if (picker) picker.classList.remove('has-file', 'is-invalid');
+            if (file) {
+                var ok = validExcelExt.test(file.name);
+                if (picker) picker.classList.add(ok ? 'has-file' : 'is-invalid');
+                if (nameEl) nameEl.textContent = file.name + (ok ? '  (' + formatFileSize(file.size) + ')' : '');
+                if (btn) btn.disabled = !ok;
+            } else {
+                if (nameEl) nameEl.textContent = dict.noFileChosen;
+                if (btn) btn.disabled = true;
+            }
         });
     }
 
-    document.querySelectorAll('input[type="file"]').forEach(function (input) {
+document.querySelectorAll('input[type="file"]').forEach(function (input) {
         input.addEventListener('change', updateFileLabels);
     });
+
+    document.querySelectorAll('[data-drop-zone]').forEach(function (zone) {
+        ['dragenter', 'dragover'].forEach(function (evt) {
+            zone.addEventListener(evt, function (e) {
+                e.preventDefault();
+                zone.classList.add('is-dragging');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (evt) {
+            zone.addEventListener(evt, function (e) {
+                e.preventDefault();
+                zone.classList.remove('is-dragging');
+            });
+        });
+        zone.addEventListener('drop', function (e) {
+            var input = zone.querySelector('input[type="file"]');
+            if (!input) return;
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (files && files.length) {
+                var dt = new DataTransfer();
+                Array.prototype.forEach.call(files, function (file) { dt.items.add(file); });
+                input.files = dt.files;
+                updateFileLabels();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-clear-file]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = $(btn.getAttribute('data-clear-file'));
+            if (!input) return;
+            input.value = '';
+            updateFileLabels();
+        });
+    });
+
+    function showSuccess(msg) {
+        $('successMessage').textContent = msg;
+        show('success');
+        clearTimeout(showSuccess._timer);
+        showSuccess._timer = setTimeout(function () { hide('success'); }, 8000);
+    }
+
+    function downloadBlobFile(url, fileName) {
+        var sep = url.indexOf('?') >= 0 ? '&' : '?';
+        fetch(url + sep + '_=' + Date.now(), { cache: 'no-store' })
+            .then(function (response) {
+                if (!response.ok) throw new Error(currentLang === 'ar' ? 'تعذر تحميل القالب' : 'Could not download template');
+                return response.blob();
+            })
+            .then(function (blob) {
+                var objectUrl = URL.createObjectURL(blob);
+                var link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(objectUrl);
+            })
+            .catch(function (error) { showError(error.message); });
+    }
+
+    function performUpload(inputId, onSuccess) {
+        var meta = uploadMeta[inputId];
+        var input = $(inputId);
+        var btn = $(meta.button);
+        var file = input.files && input.files.length ? input.files[0] : null;
+        if (!file) {
+            showError(currentLang === 'ar' ? 'يرجى اختيار ملف' : 'Please select a file');
+            return;
+        }
+        if (!validExcelExt.test(file.name)) {
+            showError(i18n[currentLang].invalidFileType);
+            return;
+        }
+
+        btn.classList.add('busy');
+        btn.textContent = i18n[currentLang].importing;
+        btn.disabled = true;
+        hideError();
+
+        var fd = new FormData();
+        fd.append('file', file);
+
+        fetch(meta.url, { method: 'POST', body: fd })
+            .then(readUploadResponse)
+            .then(function (data) {
+                input.value = '';
+                btn.classList.remove('busy');
+                updateFileLabels();
+                btn.textContent = i18n[currentLang][meta.labelKey];
+                showSuccess(uploadSuccessText(data));
+                onSuccess(data);
+            })
+            .catch(function (err) {
+                btn.classList.remove('busy');
+                btn.textContent = i18n[currentLang][meta.labelKey];
+                updateFileLabels();
+                showError(err.message);
+            });
+    }
 
     function $(id) { return document.getElementById(id); }
     function show(id) { var el = $(id); if (el) el.style.display = 'block'; }
@@ -738,6 +977,7 @@
     function showLoading() {
         show('loading');
         hide('error');
+        hide('success');
     }
 
     function hideLoading() { hide('loading'); }
@@ -834,26 +1074,29 @@
         return currentLang === 'ar' ? dh + ' س ' + dm + ' د' : dh + 'h ' + dm + 'm';
     }
 
-    var statusArMap = {
+var statusArMap = {
         'Present': 'حاضر', 'Pending': 'قيد الانتظار', 'Checked In': 'حاضر بدون انصراف', 'Missing Check Out': 'لم يسجل انصراف', 'Late': 'متأخر', 'Early Leave': 'انصراف مبكر', 'Absent': 'غائب',
         'Leave': 'إجازة', 'Holiday': 'عطلة', 'Weekly Rest': 'راحة أسبوعية', 'Work From Home': 'عمل من المنزل',
-        'Mission': 'مأمورية', 'Training': 'دورة تدريب'
+        'Mission': 'مأمورية', 'Training': 'دورة تدريب',
+        'PendingManager': 'بانتظار المدير', 'PendingHR': 'بانتظار الموارد البشرية', 'Approved': 'معتمد', 'Rejected': 'مرفوض'
     };
 
     var statusEnMap = {
         'Present': 'Present', 'Pending': 'Pending', 'Checked In': 'Checked In', 'Missing Check Out': 'Missing Check Out', 'Late': 'Late', 'Early Leave': 'Early Leave', 'Absent': 'Absent',
         'Leave': 'Leave', 'Holiday': 'Holiday', 'Weekly Rest': 'Weekly Rest', 'Work From Home': 'Work From Home',
-        'Mission': 'Mission', 'Training': 'Training'
+        'Mission': 'Mission', 'Training': 'Training',
+        'PendingManager': 'Pending Manager', 'PendingHR': 'Pending HR', 'Approved': 'Approved', 'Rejected': 'Rejected'
     };
 
     function statusLabel(status) {
         return currentLang === 'ar' ? (statusArMap[status] || status) : (statusEnMap[status] || status);
     }
 
-    function badge(status) {
+function badge(status) {
         var map = {
             'Present': 'badge-present', 'Pending': 'badge-late', 'Checked In': 'badge-late', 'Missing Check Out': 'badge-absent', 'Late': 'badge-late', 'Early Leave': 'badge-absent', 'Absent': 'badge-absent',
-            'Leave': 'badge-leave', 'Holiday': 'badge-holiday', 'Weekly Rest': 'badge-holiday', 'Work From Home': 'badge-leave'
+            'Leave': 'badge-leave', 'Holiday': 'badge-holiday', 'Weekly Rest': 'badge-holiday', 'Work From Home': 'badge-leave',
+            'Approved': 'badge-present', 'PendingManager': 'badge-late', 'PendingHR': 'badge-late', 'Rejected': 'badge-absent'
         };
         var cls = map[status] || 'badge-present';
         return '<span class="' + cls + '">' + statusLabel(status) + '</span>';
@@ -866,9 +1109,9 @@
         return '<div class="empty-state"><strong>' + message + '</strong>' + sub + '</div>';
     }
 
-    function uploadSuccessText(data) {
-        if (currentLang === 'ar') return 'تم استيراد الملف ومعالجة البيانات بنجاح.';
-        return data && data.message ? data.message : 'Upload completed successfully.';
+function uploadSuccessText(data) {
+        if (data && data.message) return data.message;
+        return currentLang === 'ar' ? 'تم استيراد الملف ومعالجة البيانات بنجاح.' : 'Upload completed successfully.';
     }
 
     function readUploadResponse(response) {
@@ -884,7 +1127,7 @@
         });
     }
 
-    function renderLeaveTypeOptions() {
+function renderLeaveTypeOptions() {
         var sel = $('leaveTypeId');
         if (!sel) return;
         var selected = sel.value;
@@ -912,6 +1155,19 @@
                 editSelect.appendChild(editOption);
             });
             editSelect.value = editSelected;
+        }
+
+        var requestSelect = $('reqLeaveTypeId');
+        if (requestSelect) {
+            var requestSelected = requestSelect.value;
+            requestSelect.replaceChildren();
+            leaveTypesCache.forEach(function (type) {
+                var requestOption = document.createElement('option');
+                requestOption.value = type.id;
+                requestOption.textContent = (currentLang === 'ar' ? (type.nameAr || type.nameEn) : (type.nameEn || type.nameAr)) + ' (' + type.code + ')';
+                requestSelect.appendChild(requestOption);
+            });
+            requestSelect.value = requestSelected;
         }
     }
 
@@ -1074,6 +1330,7 @@
 
     function resetAttendanceFilters() {
         $('attEmployees').value = '';
+        if ($('attMatchMode')) $('attMatchMode').value = 'contains';
         $('attFrom').valueAsDate = new Date();
         $('attTo').valueAsDate = new Date();
         ['attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
@@ -1171,6 +1428,8 @@
         if (!to) { showError(currentLang === 'ar' ? 'يرجى اختيار تاريخ النهاية' : 'Please select end date'); return null; }
         var params = 'from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
         if (emp) params += '&employees=' + encodeURIComponent(emp);
+        var matchMode = $('attMatchMode') ? $('attMatchMode').value : 'contains';
+        if (matchMode) params += '&matchMode=' + encodeURIComponent(matchMode);
         if ($('attDepartment').value) params += '&department=' + encodeURIComponent($('attDepartment').value);
         if ($('attLevel').value) params += '&level=' + encodeURIComponent($('attLevel').value);
         if ($('attArea').value) params += '&area=' + encodeURIComponent($('attArea').value);
@@ -1368,11 +1627,11 @@
         });
     });
 
-    function activateTab(tabName, clearPrevious) {
+function activateTab(tabName, clearPrevious) {
         var target = document.querySelector('.tab[data-tab="' + tabName + '"]');
         if (!target) return;
-        var permission = target.getAttribute('data-permission');
-        if (permission && !hasPermission(permission)) {
+        var permissions = target.getAttribute('data-permission');
+        if (permissions && !hasAnyPermission(permissions)) {
             tabName = 'attendance';
             target = document.querySelector('.tab[data-tab="attendance"]');
         }
@@ -1401,7 +1660,8 @@
             block: 'nearest',
             inline: 'nearest'
         });
-        if (tabName === 'admin' && currentUser) loadAdminData();
+if (tabName === 'admin' && currentUser) loadAdminData();
+        if (tabName === 'leave' && currentUser) loadApprovalQueues();
     }
 
     function restoreActiveTab() {
@@ -1423,7 +1683,7 @@
     $('exportMonth').value = String(today.getMonth() + 1);
     $('leaveDays').value = '';
     renderAttendanceFilterOptions();
-    ['attEmployees', 'attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
+    ['attEmployees', 'attMatchMode', 'attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
         var el = $(id);
         if (!el) return;
         el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', updateAttendanceActiveFilters);
@@ -1434,23 +1694,78 @@
         if (!el) return;
         el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', updateEmployeeActiveFilters);
     });
-    renderExportFilterOptions();
+renderExportFilterOptions();
     ['exportYear', 'exportMonth', 'exportDept', 'exportLevel', 'exportArea'].forEach(function (id) {
         var el = $(id);
         if (!el) return;
         el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', updateExportActiveFilters);
     });
 
-    function updateLeaveDays() {
-        var from = $('leaveFrom').value;
-        var to = $('leaveTo').value;
+    var autoTimers = {};
+    function scheduleAuto(section, fn, delay) {
+        clearTimeout(autoTimers[section]);
+        autoTimers[section] = setTimeout(function () {
+            if (isResultsVisible(section)) fn();
+        }, delay || 450);
+    }
+    function isResultsVisible(section) {
+        var map = {
+            attendance: 'attResults',
+            employees: 'empResults',
+            balances: 'balResults',
+            leave: 'leaveResults',
+            monthly: 'exportPreview',
+            daily: 'dailyResults'
+        };
+        var el = $(map[section]);
+        return el && el.style.display !== 'none';
+    }
+
+    if ($('attEmployees')) {
+        $('attEmployees').addEventListener('input', function () { scheduleAuto('attendance', function () { fetchAttendance(true); }, 550); });
+    }
+    ['attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { scheduleAuto('attendance', function () { fetchAttendance(true); }, 400); });
+    });
+    if ($('empSearch')) {
+        $('empSearch').addEventListener('input', function () { scheduleAuto('employees', function () { $('searchEmpBtn').click(); }, 550); });
+    }
+    ['empDepartment', 'empLevel', 'empArea', 'empStatus'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { scheduleAuto('employees', function () { $('searchEmpBtn').click(); }, 350); });
+    });
+    if ($('balFinNo')) {
+        $('balFinNo').addEventListener('input', function () { scheduleAuto('balances', function () { $('fetchBalBtn').click(); }, 550); });
+    }
+    if ($('leaveFinNo')) {
+        $('leaveFinNo').addEventListener('input', function () { scheduleAuto('leave', function () { $('fetchLeaveTransBtn').click(); }, 550); });
+    }
+    ['leaveTypeId', 'leaveFrom', 'leaveTo'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { scheduleAuto('leave', function () { $('fetchLeaveTransBtn').click(); }, 400); });
+    });
+    ['exportYear', 'exportMonth', 'exportDept', 'exportLevel', 'exportArea'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { scheduleAuto('monthly', function () { $('exportPreviewBtn').click(); }, 400); });
+    });
+    if ($('dailyDate')) {
+        $('dailyDate').addEventListener('change', function () { scheduleAuto('daily', function () { $('fetchDailyBtn').click(); }, 300); });
+    }
+
+function updateLeaveDays(fromId, toId, daysId) {
+        fromId = fromId || 'leaveFrom';
+        toId = toId || 'leaveTo';
+        daysId = daysId || 'leaveDays';
+        var from = $(fromId).value;
+        var to = $(toId).value;
         var requestId = ++leaveDaysRequestId;
         if (!from || !to) {
-            $('leaveDays').value = '';
+            $(daysId).value = '';
             return Promise.resolve(0);
         }
 
-        $('leaveDays').value = '';
+        $(daysId).value = '';
         return fetch('/api/leave/day-count?fromDate=' + encodeURIComponent(from) + '&toDate=' + encodeURIComponent(to), { cache: 'no-store' })
             .then(function (r) {
                 if (!r.ok) throw new Error(currentLang === 'ar' ? 'تعذر حساب أيام الإجازة' : 'Could not calculate leave days');
@@ -1458,18 +1773,74 @@
             })
             .then(function (data) {
                 var days = data && data.daysCount ? data.daysCount : 0;
-                if (requestId === leaveDaysRequestId) $('leaveDays').value = days;
+                if (requestId === leaveDaysRequestId) $(daysId).value = days;
                 return days;
             })
             .catch(function () {
-                if (requestId === leaveDaysRequestId) $('leaveDays').value = 0;
+                if (requestId === leaveDaysRequestId) $(daysId).value = 0;
                 return 0;
             });
     }
 
-    $('leaveFrom').addEventListener('change', updateLeaveDays);
-    $('leaveTo').addEventListener('change', updateLeaveDays);
-    updateLeaveDays();
+    $('leaveFrom').addEventListener('change', function () { updateLeaveDays('leaveFrom', 'leaveTo', 'leaveDays'); });
+    $('leaveTo').addEventListener('change', function () { updateLeaveDays('leaveFrom', 'leaveTo', 'leaveDays'); });
+    updateLeaveDays('leaveFrom', 'leaveTo', 'leaveDays');
+
+    if ($('reqLeaveFrom')) {
+        $('reqLeaveFrom').addEventListener('change', function () { updateLeaveDays('reqLeaveFrom', 'reqLeaveTo', 'reqLeaveDays'); });
+        $('reqLeaveTo').addEventListener('change', function () { updateLeaveDays('reqLeaveFrom', 'reqLeaveTo', 'reqLeaveDays'); });
+    }
+
+    if ($('requestLeaveBtn')) {
+        $('requestLeaveBtn').addEventListener('click', function () {
+            var leaveTypeId = $('reqLeaveTypeId').value;
+            var fromDate = $('reqLeaveFrom').value;
+            var toDate = $('reqLeaveTo').value;
+            var reason = $('reqLeaveReason').value.trim();
+
+            if (!leaveTypeId) { showError(currentLang === 'ar' ? 'يرجى اختيار نوع الإجازة' : 'Please select leave type'); return; }
+            if (!fromDate || !toDate) { showError(currentLang === 'ar' ? 'يرجى اختيار تاريخ البداية والنهاية' : 'Please select start and end dates'); return; }
+
+            showLoading();
+            hideError();
+
+            updateLeaveDays('reqLeaveFrom', 'reqLeaveTo', 'reqLeaveDays')
+                .then(function (days) {
+                    if (parseFloat(days) <= 0) {
+                        throw new Error(currentLang === 'ar' ? 'الفترة المحددة لا تحتوي على أيام إجازة فعلية' : 'The selected period has no actual leave days');
+                    }
+                    return fetch('/api/leave/request', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            leaveTypeId: parseInt(leaveTypeId, 10),
+                            fromDate: fromDate,
+                            toDate: toDate,
+                            reason: reason || null
+                        })
+                    });
+                })
+                .then(function (r) {
+                    if (!r.ok) return r.json().then(function (e) { throw new Error(e.error); });
+                    return r.json();
+                })
+                .then(function () {
+                    hideLoading();
+                    showSuccess(i18n[currentLang].requestLeaveSent);
+                    $('reqLeaveTypeId').value = '';
+                    $('reqLeaveFrom').value = '';
+                    $('reqLeaveTo').value = '';
+                    $('reqLeaveDays').value = '';
+                    $('reqLeaveReason').value = '';
+                    loadApprovalQueues();
+                    if ($('leaveResults') && $('leaveResults').style.display !== 'none') $('fetchLeaveTransBtn').click();
+                })
+                .catch(function (err) {
+                    hideLoading();
+                    showError(err.message);
+                });
+        });
+    }
 
     document.querySelectorAll('.choice-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
@@ -1745,6 +2116,11 @@
         if (lastAttendanceRecords) fetchAttendance(false);
     });
 
+    if ($('attMatchMode')) $('attMatchMode').addEventListener('change', function () {
+        attendancePage = 1;
+        if (lastAttendanceRecords) fetchAttendance(false);
+    });
+
     $('exportExcelBtn').addEventListener('click', function () {
         var params = getAttQueryParams();
         if (!params) return;
@@ -1766,6 +2142,7 @@
             from: params.get('from'),
             to: params.get('to'),
             employees: params.get('employees'),
+            matchMode: params.get('matchMode'),
             department: params.get('department'),
             level: params.get('level'),
             area: params.get('area'),
@@ -1845,34 +2222,13 @@
     $('exportEmployeesExcelBtn').addEventListener('click', function () { openEmployeeExport('excel'); });
     $('exportEmployeesPdfBtn').addEventListener('click', function () { openEmployeeExport('pdf'); });
 
-    // Employees Upload
+// Employees Upload
     $('uploadEmployeesBtn').addEventListener('click', function () {
-        var fileInput = $('employeesUploadFile');
-        if (!fileInput.files || !fileInput.files.length) {
-            showError(currentLang === 'ar' ? 'يرجى اختيار ملف' : 'Please select a file');
-            return;
-        }
-
-        showLoading();
-        hideError();
-        hide('empResults');
-
-        var fd = new FormData();
-        fd.append('file', fileInput.files[0]);
-
-        fetch('/api/import/employees', { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                hideLoading();
-                lastEmployeeRows = null;
-                var el = $('empResultsContent');
-                el.innerHTML = '<div class="result-card"><div class="emp-header">' + (currentLang === 'ar' ? 'تم الاستيراد بنجاح' : 'Upload successful') + '</div><p>' + uploadSuccessText(data) + '</p></div>';
-                show('empResults');
-            })
-            .catch(function (err) {
-                hideLoading();
-                showError(err.message);
-            });
+        performUpload('employeesUploadFile', function () {
+            lastEmployeeRows = null;
+            hide('empResults');
+            $('searchEmpBtn').click();
+        });
     });
 
     // Balances Tab
@@ -1916,32 +2272,11 @@
 
     // Balances Upload
     $('uploadBalancesBtn').addEventListener('click', function () {
-        var fileInput = $('balancesUploadFile');
-        if (!fileInput.files || !fileInput.files.length) {
-            showError(currentLang === 'ar' ? 'يرجى اختيار ملف' : 'Please select a file');
-            return;
-        }
-
-        showLoading();
-        hideError();
-        hide('balResults');
-
-        var fd = new FormData();
-        fd.append('file', fileInput.files[0]);
-
-        fetch('/api/import/balances', { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                hideLoading();
-                lastBalanceRows = null;
-                var el = $('balResultsContent');
-                el.innerHTML = '<div class="result-card"><div class="emp-header">' + (currentLang === 'ar' ? 'تم الاستيراد بنجاح' : 'Upload successful') + '</div><p>' + uploadSuccessText(data) + '</p></div>';
-                show('balResults');
-            })
-            .catch(function (err) {
-                hideLoading();
-                showError(err.message);
-            });
+        performUpload('balancesUploadFile', function () {
+            lastBalanceRows = null;
+            hide('balResults');
+            $('fetchBalBtn').click();
+        });
     });
 
     // Leave Tab
@@ -2013,7 +2348,7 @@
         return params.length ? '?' + params.join('&') : '';
     }
 
-    function renderLeaveTransactions(data) {
+function renderLeaveTransactions(data) {
         var el = $('leaveResultsContent');
         clear(el);
 
@@ -2027,8 +2362,27 @@
             return;
         }
 
-        var html = '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الموظف' : 'Employee') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'الفترة' : 'Period') + '</th><th>' + (currentLang === 'ar' ? 'أيام العمل' : 'Working Days') + '</th><th>' + (currentLang === 'ar' ? 'السبب' : 'Reason') + '</th><th>' + (currentLang === 'ar' ? 'مدخل الإجازة' : 'Entered By') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ التسجيل' : 'Created') + '</th><th>' + (i18n[currentLang].actions || 'Actions') + '</th></tr></thead><tbody>';
+        var canManage = hasPermission('Leaves');
+        var canWorkflow = hasPermission('Leaves') || hasPermission('LeaveHR');
+        var canExport = canManage;
+        var html = '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الموظف' : 'Employee') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'الفترة' : 'Period') + '</th><th>' + (currentLang === 'ar' ? 'أيام العمل' : 'Working Days') + '</th><th>' + (currentLang === 'ar' ? 'السبب' : 'Reason') + '</th><th>' + (currentLang === 'ar' ? 'مدخل الإجازة' : 'Entered By') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ التسجيل' : 'Created') + '</th><th>' + (i18n[currentLang].status || 'Status') + '</th>' + (canManage || canWorkflow ? '<th>' + (i18n[currentLang].actions || 'Actions') + '</th>' : '') + '</tr></thead><tbody>';
         rows.forEach(function (t, i) {
+            var reasonText = t.reason || '-';
+            if (t.status === 'Rejected' && t.rejectionReason) {
+                reasonText += ' <span class="row-sub">— ' + escapeHtml(String(t.rejectionReason)) + '</span>';
+            }
+            var actions = '';
+            if (canManage || canWorkflow) {
+                actions = '<div class="row-actions">';
+                if (canWorkflow) {
+                    actions += '<button class="row-action" type="button" data-leave-action="workflow" data-transaction-id="' + t.transactionId + '">' + (i18n[currentLang].workflow || 'Workflow') + '</button>';
+                }
+                if (canManage) {
+                    actions += '<button class="row-action edit" type="button" data-leave-action="edit" data-transaction-id="' + t.transactionId + '">' + i18n[currentLang].edit + '</button>';
+                    actions += '<button class="row-action remove" type="button" data-leave-action="remove" data-transaction-id="' + t.transactionId + '">' + i18n[currentLang].remove + '</button>';
+                }
+                actions += '</div>';
+            }
             html += '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
                 '<td>' + t.employeeFinancialNo + '</td>' +
@@ -2036,20 +2390,22 @@
                 '<td>' + (currentLang === 'ar' ? (t.leaveTypeNameAr || t.leaveTypeNameEn || '') : (t.leaveTypeNameEn || t.leaveTypeNameAr || '')) + '</td>' +
                 '<td>' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + '</td>' +
                 '<td>' + t.daysCount + '</td>' +
-                '<td>' + (t.reason || '-') + '</td>' +
+                '<td>' + reasonText + '</td>' +
                 '<td>' + getReadableEnteredBy(t) + '</td>' +
                 '<td>' + fmtDateTime(t.createdAt) + '</td>' +
-                '<td><div class="row-actions">' +
-                '<button class="row-action edit" type="button" data-leave-action="edit" data-transaction-id="' + t.transactionId + '">' + i18n[currentLang].edit + '</button>' +
-                '<button class="row-action remove" type="button" data-leave-action="remove" data-transaction-id="' + t.transactionId + '">' + i18n[currentLang].remove + '</button>' +
-                '</div></td>' +
+                '<td>' + badge(t.status || 'Approved') + '</td>' +
+                (canManage || canWorkflow ? '<td>' + actions + '</td>' : '') +
                 '</tr>';
         });
         html += '</tbody></table>';
         el.innerHTML = html;
         show('leaveResults');
-        $('leaveExportActions').style.display = 'flex';
+        $('leaveExportActions').style.display = canExport ? 'flex' : 'none';
         flashUpdated('leaveResults');
+    }
+
+    function escapeHtml(value) {
+        return String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     function consolidateLeaveTransactions(data) {
@@ -2120,12 +2476,6 @@
         if (lastLeaveTransactions) renderLeaveTransactions(lastLeaveTransactions);
     });
 
-    $('clearEmployeesUploadBtn').addEventListener('click', function () {
-        $('employeesUploadFile').value = '';
-        updateFileLabels();
-        hideError();
-    });
-
     $('exportYear').max = String(new Date().getFullYear());
     $('exportYear').addEventListener('change', renderMonthOptions);
     $('leaveResultSort').addEventListener('change', function () {
@@ -2153,11 +2503,15 @@
         });
     }
 
-    $('leaveResultsContent').addEventListener('click', function (event) {
+$('leaveResultsContent').addEventListener('click', function (event) {
         var button = event.target.closest('[data-leave-action]');
         if (!button) return;
         var transactionId = button.getAttribute('data-transaction-id');
         var transaction = findLeaveTransaction(transactionId);
+        if (button.getAttribute('data-leave-action') === 'workflow') {
+            openWorkflowEditor(transaction);
+            return;
+        }
         if (button.getAttribute('data-leave-action') === 'edit') {
             openLeaveEditor(transaction);
             return;
@@ -2176,8 +2530,44 @@
             .catch(function (error) { showError(error.message); });
     });
 
-    $('closeEditLeaveBtn').addEventListener('click', function () { $('editLeaveDialog').close(); });
+$('closeEditLeaveBtn').addEventListener('click', function () { $('editLeaveDialog').close(); });
     $('cancelEditLeaveBtn').addEventListener('click', function () { $('editLeaveDialog').close(); });
+
+    function openWorkflowEditor(transaction) {
+        if (!transaction) return;
+        $('workflowId').value = transaction.transactionId;
+        $('workflowEmployee').textContent = (transaction.employeeName || transaction.employeeFinancialNo || '-');
+        $('workflowStatus').value = transaction.status || 'PendingHR';
+        $('workflowManager').value = transaction.assignedManager || '';
+        $('workflowRejectReason').value = transaction.rejectionReason || '';
+        $('workflowDialog').showModal();
+    }
+
+    $('closeWorkflowBtn').addEventListener('click', function () { $('workflowDialog').close(); });
+    $('cancelWorkflowBtn').addEventListener('click', function () { $('workflowDialog').close(); });
+    $('workflowForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+        var id = $('workflowId').value;
+        var status = $('workflowStatus').value;
+        var manager = $('workflowManager').value.trim() || null;
+        var rejectReason = $('workflowRejectReason').value.trim() || null;
+        fetch('/api/leave/transactions/' + encodeURIComponent(id) + '/workflow', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                status: status,
+                managerFinancialNo: manager,
+                reason: status === 'Rejected' ? rejectReason : null
+            })
+        }).then(function (response) {
+            if (!response.ok) return response.json().then(function (error) { throw new Error(error.error || 'Workflow update failed'); });
+            return response.json();
+        }).then(function () {
+            $('workflowDialog').close();
+            showSuccess(i18n[currentLang].saveChanges);
+            return loadLeaveTransactions();
+        }).catch(function (error) { showError(error.message); });
+    });
     $('editLeaveForm').addEventListener('submit', function (event) {
         event.preventDefault();
         var id = $('editLeaveId').value;
@@ -2218,8 +2608,103 @@
             });
     }
 
-    $('fetchLeaveTransBtn').addEventListener('click', function () {
+$('fetchLeaveTransBtn').addEventListener('click', function () {
         loadLeaveTransactions();
+    });
+
+    function loadApprovalQueues() {
+        if (!currentUser) return;
+        var showManager = hasAnyPermission('LeaveApproval|LeaveHR|Leaves');
+        var showHr = hasAnyPermission('LeaveHR|Leaves');
+        if (showManager && $('managerApprovalsContent') && $('managerApprovalsCard') && $('managerApprovalsCard').style.display !== 'none') {
+            fetch('/api/leave/pending/manager', { cache: 'no-store', credentials: 'same-origin' })
+                .then(readUploadResponse)
+                .then(function (data) { renderApprovalList($('managerApprovalsContent'), data || [], 'manager'); })
+                .catch(function (err) { renderApprovalError($('managerApprovalsContent'), err); });
+        }
+        if (showHr && $('hrApprovalsContent') && $('hrApprovalsCard') && $('hrApprovalsCard').style.display !== 'none') {
+            fetch('/api/leave/pending/hr', { cache: 'no-store', credentials: 'same-origin' })
+                .then(readUploadResponse)
+                .then(function (data) { renderApprovalList($('hrApprovalsContent'), data || [], 'hr'); })
+                .catch(function (err) { renderApprovalError($('hrApprovalsContent'), err); });
+        }
+    }
+
+    function renderApprovalError(el, err) {
+        if (!el) return;
+        el.innerHTML = '<div class="empty-state"><strong>' + (currentLang === 'ar' ? 'تعذر تحميل الطلبات' : 'Could not load requests') + '</strong><span>' + escapeHtml(err.message) + '</span></div>';
+    }
+
+    function renderApprovalList(el, items, kind) {
+        if (!el) return;
+        if (!items.length) {
+            el.innerHTML = '<div class="empty-state"><strong>' + (i18n[currentLang].noPendingRequests || 'No pending requests') + '</strong></div>';
+            return;
+        }
+        var canReject = kind === 'hr' || hasPermission('LeaveHR') || hasPermission('Leaves');
+        var html = items.map(function (t) {
+            var type = t.leaveType
+                ? (currentLang === 'ar' ? (t.leaveType.nameAr || t.leaveType.nameEn) : (t.leaveType.nameEn || t.leaveType.nameAr))
+                : '';
+            var empName = t.employee ? t.employee.name : '';
+            var actions = '<button type="button" class="success" data-approval-action="approve" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].approve + '</button>';
+            if (canReject) {
+                actions += '<button type="button" class="ghost danger-text" data-approval-action="reject" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].reject + '</button>';
+            }
+            return '<div class="approval-item">' +
+                '<div class="approval-main">' +
+                '<strong>' + escapeHtml(empName || '-') + ' <span class="approval-fin">(' + escapeHtml(t.employeeFinancialNo) + ')</span></strong>' +
+                '<span class="approval-detail">' + escapeHtml(type || '') + ' • ' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + ' • ' + t.daysCount + ' ' + (currentLang === 'ar' ? 'يوم' : 'day(s)') + '</span>' +
+                (t.reason ? '<span class="approval-detail">' + escapeHtml(t.reason) + '</span>' : '') +
+                '<span class="approval-detail">' + (i18n[currentLang].requested || 'Requested') + ': ' + fmtDateTime(t.createdAt) + '</span>' +
+                '</div>' +
+                '<div class="approval-actions">' + actions + '</div>' +
+                '</div>';
+        }).join('');
+        el.innerHTML = html;
+    }
+
+    document.querySelectorAll('.approval-list').forEach(function (container) {
+        container.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-approval-action]');
+            if (!button) return;
+            var id = button.getAttribute('data-transaction-id');
+            var action = button.getAttribute('data-approval-action');
+            var kind = button.getAttribute('data-approval-kind');
+
+            var pendingReason = action === 'reject'
+                ? Promise.resolve(window.prompt(i18n[currentLang].rejectionReasonPrompt, ''))
+                : Promise.resolve(null);
+
+            pendingReason.then(function (reason) {
+                if (action === 'reject' && reason === null) return Promise.reject(new Error('__cancelled__'));
+                var body = action === 'reject' ? { reason: reason || null } : null;
+                var endpoint = '/api/leave/' + encodeURIComponent(id) + '/' + (action === 'approve' ? 'approve-' + kind : 'reject');
+                return fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body ? JSON.stringify(body) : null
+                }).then(function (r) {
+                    if (!r.ok) return r.json().then(function (e) { throw new Error(e.error); });
+                    return r.json();
+                });
+            }).then(function () {
+                showSuccess(action === 'approve' ? i18n[currentLang].approvedMsg : i18n[currentLang].rejectedMsg);
+                loadApprovalQueues();
+                if ($('leaveResults') && $('leaveResults').style.display !== 'none') $('fetchLeaveTransBtn').click();
+            }).catch(function (err) {
+                if (err && err.message === '__cancelled__') return;
+                showError(err.message);
+            });
+        });
+    });
+
+    document.querySelectorAll('[data-refresh-approvals]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            loadApprovalQueues();
+            button.classList.add('is-refreshing');
+            setTimeout(function () { button.classList.remove('is-refreshing'); }, 600);
+        });
     });
 
     $('exportLeaveExcelBtn').addEventListener('click', function () {
@@ -2241,60 +2726,24 @@
             ? '/js/leave-upload-template-ar.js'
             : '/js/leave-upload-template-en.js';
 
-        fetch(templateUrl + '?_=' + Date.now(), { cache: 'no-store' })
-            .then(function (response) {
-                if (!response.ok) throw new Error(language === 'ar' ? 'تعذر تحميل القالب' : 'Could not download template');
-                return response.blob();
-            })
-            .then(function (blob) {
-                var url = URL.createObjectURL(blob);
-                var link = document.createElement('a');
-                link.href = url;
-                link.download = fileName;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
-            })
-            .catch(function (error) { showError(error.message); });
+        downloadBlobFile(templateUrl, fileName);
     });
 
     $('downloadEmployeesTemplateBtn').addEventListener('click', function () {
-        window.open('/api/import/template/employees?lang=' + encodeURIComponent(currentLang), '_blank');
+        downloadBlobFile('/api/import/template/employees?lang=' + encodeURIComponent(currentLang), 'employees-template.xlsx');
     });
 
     $('downloadBalancesTemplateBtn').addEventListener('click', function () {
-        window.open('/api/import/template/balances?lang=' + encodeURIComponent(currentLang), '_blank');
+        downloadBlobFile('/api/import/template/balances?lang=' + encodeURIComponent(currentLang), 'balances-template.xlsx');
     });
 
     // Leaves Upload
     $('uploadLeavesBtn').addEventListener('click', function () {
-        var fileInput = $('leavesUploadFile');
-        if (!fileInput.files || !fileInput.files.length) {
-            showError(currentLang === 'ar' ? 'يرجى اختيار ملف' : 'Please select a file');
-            return;
-        }
-
-        showLoading();
-        hideError();
-        hide('leaveResults');
-
-        var fd = new FormData();
-        fd.append('file', fileInput.files[0]);
-
-        fetch('/api/import/leaves', { method: 'POST', body: fd })
-            .then(readUploadResponse)
-            .then(function (data) {
-                hideLoading();
-                lastLeaveTransactions = null;
-                var el = $('leaveResultsContent');
-                el.innerHTML = '<div class="result-card"><div class="emp-header">' + (currentLang === 'ar' ? 'تم الاستيراد بنجاح' : 'Upload successful') + '</div><p>' + uploadSuccessText(data) + '</p></div>';
-                show('leaveResults');
-            })
-            .catch(function (err) {
-                hideLoading();
-                showError(err.message);
-            });
+        performUpload('leavesUploadFile', function () {
+            lastLeaveTransactions = null;
+            hide('leaveResults');
+            $('fetchLeaveTransBtn').click();
+        });
     });
 
     function getExportParams() {
@@ -2541,10 +2990,86 @@
             lastPermissionsAll = perms.permissions || [];
             lastAdminUsers = users;
             lastAdminDays = days;
-            populateResetPasswordUsers(users);
+populateResetPasswordUsers(users);
             renderPermissions(lastPermissionsAll, role === 'Admin' ? perms.admin : perms.employee);
             renderAdminTables(users, days);
+            loadAdSyncStatus();
         }).catch(function () {});
+    }
+
+    function loadAdSyncStatus() {
+        var card = $('adSyncStatus');
+        if (!card) return;
+        fetch('/api/admin/ad-sync-status', { cache: 'no-store' })
+            .then(function (r) {
+                if (!r.ok) throw new Error('status');
+                return r.json();
+            })
+            .then(function (data) {
+                var text;
+                if (!data || !data.lastRunAt) {
+                    text = (i18n[currentLang].adSyncNeverRun || 'Sync has not run yet');
+                } else {
+                    var result = data.successCount + ' / ' + data.failedCount;
+                    text = (i18n[currentLang].adSyncLastRun || 'Last sync:') + ' ' + fmtDateTime(data.lastRunAt) + ' — ' + result;
+                }
+                card.textContent = text;
+                card.classList.remove('ad-error');
+            })
+            .catch(function () {
+                card.textContent = (i18n[currentLang].adSyncNeverRun || 'Sync has not run yet');
+            });
+    }
+
+    if ($('runAdSyncBtn')) {
+        $('runAdSyncBtn').addEventListener('click', function () {
+            var button = $('runAdSyncBtn');
+            button.disabled = true;
+            button.textContent = i18n[currentLang].adSyncRunning;
+            fetch('/api/admin/ad-sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: '{}'
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || 'Sync failed'); });
+                return r.json();
+            }).then(function (data) {
+                var created = data.created || 0;
+                var updated = data.updated || 0;
+                var failed = data.failed || 0;
+                var skipped = data.skipped || 0;
+                showSuccess('AD: ' + created + ' ' + (currentLang === 'ar' ? 'جديد' : 'created') + ' / ' + updated + ' ' + (currentLang === 'ar' ? 'محدث' : 'updated') + ' / ' + failed + ' ' + (currentLang === 'ar' ? 'فشل' : 'failed') + ' / ' + skipped + ' ' + (currentLang === 'ar' ? 'تخطي' : 'skipped'));
+                loadAdSyncStatus();
+            }).catch(function (err) {
+                showError(err.message);
+            }).finally(function () {
+                button.disabled = false;
+                button.textContent = i18n[currentLang].runAdSync;
+            });
+        });
+    }
+
+    if ($('saveManagerBtn')) {
+        $('saveManagerBtn').addEventListener('click', function () {
+            var employeeNo = $('managerEmpNo').value.trim();
+            var managerNo = $('managerManagerNo').value.trim() || null;
+            if (!employeeNo) { showError(currentLang === 'ar' ? 'الرقم المالي للموظف مطلوب' : 'Employee financial number is required'); return; }
+            hideError();
+            fetch('/api/admin/employees/' + encodeURIComponent(employeeNo) + '/manager', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ managerFinancialNo: managerNo })
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error); });
+                return r.json();
+            }).then(function () {
+                showSuccess(i18n[currentLang].managerSaved);
+                $('managerEmpNo').value = '';
+                $('managerManagerNo').value = '';
+            }).catch(function (err) {
+                showError(err.message);
+            });
+        });
     }
 
     function populateResetPasswordUsers(users) {

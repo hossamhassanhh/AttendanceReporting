@@ -55,13 +55,13 @@
                 </div>
             </div>
             <nav class="tabs" aria-label="التنقل الرئيسي" data-i18n-aria-label="mainNavigation">
-                <button class="tab active" type="button" data-tab="attendance" aria-controls="tab-attendance" aria-current="page" data-i18n="navAttendance"> الحضور</button>
-                <button class="tab" type="button" data-tab="employees" aria-controls="tab-employees" data-i18n="navEmployees"> الموظفون</button>
-                <button class="tab" type="button" data-tab="balances" aria-controls="tab-balances" data-i18n="navBalances"> الأرصدة</button>
-                <button class="tab" type="button" data-tab="leave" aria-controls="tab-leave" data-i18n="navLeave"> الإجازات</button>
-                <button class="tab" type="button" data-tab="export" aria-controls="tab-export" data-i18n="navMonthly"> التقرير الشهري</button>
-                <button class="tab" type="button" data-tab="daily" aria-controls="tab-daily" data-i18n="navDaily"> التقرير اليومي</button>
-                <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-i18n="navAdmin" data-permission="ManagePermissions"> الإدارة</button>
+                <button class="tab active" type="button" data-tab="attendance" aria-controls="tab-attendance" aria-current="page" data-permission="Attendance|SelfAttendance" data-i18n="navAttendance"> الحضور</button>
+                <button class="tab" type="button" data-tab="employees" aria-controls="tab-employees" data-permission="Employees" data-i18n="navEmployees"> الموظفون</button>
+                <button class="tab" type="button" data-tab="balances" aria-controls="tab-balances" data-permission="Balances|SelfAttendance" data-i18n="navBalances"> الأرصدة</button>
+                <button class="tab" type="button" data-tab="leave" aria-controls="tab-leave" data-permission="Leaves|SelfLeave|LeaveApproval|LeaveHR" data-i18n="navLeave"> الإجازات</button>
+                <button class="tab" type="button" data-tab="export" aria-controls="tab-export" data-permission="MonthlyReports" data-i18n="navMonthly"> التقرير الشهري</button>
+                <button class="tab" type="button" data-tab="daily" aria-controls="tab-daily" data-permission="Attendance" data-i18n="navDaily"> التقرير اليومي</button>
+                <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-permission="ManagePermissions|AdSync" data-i18n="navAdmin"> الإدارة</button>
             </nav>
             <div class="sidebar-footer">
                 <span data-i18n="userName">حسام حسن</span>
@@ -116,8 +116,15 @@
                     </div>
                     <div class="controls filter-grid-4">
                         <div class="form-group wide">
-                            <label for="attEmployees" data-i18n="employeeNumbers">أرقام الموظفين (مفصولة بفاصلة)</label>
-                            <input type="text" id="attEmployees" data-i18n-placeholder="employeeNumbersPlaceholder" placeholder="مثال: 4779, 4780 - اتركه فارغاً للكل">
+                            <label for="attEmployees" data-i18n="employeeNumbers">بحث الموظف</label>
+                            <div class="search-mode-row">
+                                <input type="text" id="attEmployees" data-i18n-placeholder="employeeNumbersPlaceholder" placeholder="أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع">
+                                <select id="attMatchMode" data-i18n-aria-label="searchMode" aria-label="طريقة البحث">
+                                    <option value="contains" data-i18n="searchContains">يحتوي</option>
+                                    <option value="exact" data-i18n="searchExact">مطابقة تامة</option>
+                                    <option value="oneof" data-i18n="searchOneOf">أحد الأرقام</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="attFrom" data-i18n="fromDate">من تاريخ</label>
@@ -126,36 +133,6 @@
                         <div class="form-group">
                             <label for="attTo" data-i18n="toDate">إلى تاريخ</label>
                             <input type="date" id="attTo">
-                        </div>
-                        <div class="form-group">
-                            <label for="attDepartment" data-i18n="department">الإدارة</label>
-                            <select id="attDepartment">
-                                <option value="" data-i18n="all">الكل</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="attStatus" data-i18n="attStatusFilter">الحالة</label>
-                            <select id="attStatus">
-                                <option value="" data-i18n="all">الكل</option>
-                            </select>
-                        </div>
-                        <div class="form-group attendance-advanced-filter">
-                            <label for="attLevel" data-i18n="level">المستوى</label>
-                            <select id="attLevel">
-                                <option value="" data-i18n="all">الكل</option>
-                            </select>
-                        </div>
-                        <div class="form-group attendance-advanced-filter">
-                            <label for="attArea" data-i18n="area">المنطقة</label>
-                            <select id="attArea">
-                                <option value="" data-i18n="all">الكل</option>
-                            </select>
-                        </div>
-                        <div class="form-group attendance-advanced-filter">
-                            <label for="attSchedule" data-i18n="shift">الوردية</label>
-                            <select id="attSchedule">
-                                <option value="" data-i18n="all">الكل</option>
-                            </select>
                         </div>
                         <div class="filter-action-row">
                             <div class="query-actions">
@@ -171,12 +148,42 @@
                 <section class="results" id="attResults" style="display:none;">
                     <div class="results-header">
                         <h3 data-i18n="attendanceResults">نتائج الحضور</h3>
-                        <div class="leave-result-tools">
+                        <div class="leave-result-tools attendance-result-tools">
                             <label class="result-tool">
                                 <span data-i18n="sortResults">ترتيب النتائج</span>
                                 <select id="attResultSort">
                                     <option value="fin-no" data-i18n="sortByFinNo">الرقم المالي</option>
                                     <option value="name" data-i18n="sortByName">الاسم</option>
+                                </select>
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="department">الإدارة</span>
+                                <select id="attDepartment">
+                                    <option value="" data-i18n="all">الكل</option>
+                                </select>
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="attStatusFilter">الحالة</span>
+                                <select id="attStatus">
+                                    <option value="" data-i18n="all">الكل</option>
+                                </select>
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="level">المستوى</span>
+                                <select id="attLevel">
+                                    <option value="" data-i18n="all">الكل</option>
+                                </select>
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="area">المنطقة</span>
+                                <select id="attArea">
+                                    <option value="" data-i18n="all">الكل</option>
+                                </select>
+                            </label>
+                            <label class="result-tool">
+                                <span data-i18n="shift">الوردية</span>
+                                <select id="attSchedule">
+                                    <option value="" data-i18n="all">الكل</option>
                                 </select>
                             </label>
                         </div>
@@ -224,7 +231,7 @@
                     <div class="controls emp-controls">
                         <div class="form-group emp-search-wide">
                             <label for="empSearch" data-i18n="searchNameOrNumber">بحث (اسم / رقم مالي)</label>
-                            <input type="text" id="empSearch" data-i18n-placeholder="allEmployeesPlaceholder" placeholder="اتركه فارغاً لعرض كل الموظفين">
+                            <input type="text" id="empSearch" data-i18n-placeholder="allEmployeesPlaceholder" placeholder="أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع">
                         </div>
                         <div class="form-group">
                             <label for="empDepartment" data-i18n="department">الإدارة</label>
@@ -269,16 +276,36 @@
                     </div>
                     <div id="empResultsContent"></div>
                 </section>
-                <div class="card upload-panel secondary-workflow">
-                    <div>
-                        <strong data-i18n="uploadEmployeesTitle">استيراد بيانات الموظفين</strong>
-                        <p data-i18n="uploadEmployeesDesc">تحديث الأسماء، الوظائف، الإدارات، والمستويات.</p>
+                <div class="card upload-panel leave-upload-panel">
+                    <div class="upload-identity">
+                        <span class="upload-mark" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5"></path>
+                                <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <span class="section-kicker" data-i18n="bulkImport">استيراد مجمع</span>
+                            <strong data-i18n="uploadEmployeesTitle">استيراد بيانات الموظفين</strong>
+                            <p data-i18n="uploadEmployeesDesc">تحديث الأسماء، الوظائف، الإدارات، والمستويات.</p>
+                        </div>
                     </div>
-                    <div class="file-picker"><input type="file" id="employeesUploadFile" accept=".xlsx,.xls"><label for="employeesUploadFile" data-i18n="chooseFile">اختيار ملف</label><span data-file-name-for="employeesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span></div>
-                    <div class="button-bar">
-                        <button id="uploadEmployeesBtn" class="secondary" type="button" data-i18n="uploadData">استيراد البيانات</button>
-                        <button id="clearEmployeesUploadBtn" class="ghost" type="button" data-i18n="clearSelectedFile">مسح الملف المختار</button>
-                        <button id="downloadEmployeesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
+                    <div class="leave-upload-workspace">
+                        <div class="file-picker leave-file-picker" data-drop-zone>
+                            <input type="file" id="employeesUploadFile" accept=".xlsx,.xls">
+                            <span class="file-picker-copy">
+                                <strong data-i18n="excelFileLabel">ملف Excel</strong>
+                                <span data-file-name-for="employeesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span>
+                                <span class="file-picker-hint" data-i18n="fileFormatHint">صيغة Excel (.xlsx أو .xls)</span>
+                            </span>
+                            <span class="file-picker-status" aria-hidden="true"></span>
+                            <label for="employeesUploadFile" data-i18n="chooseFile">اختيار ملف</label>
+                            <button type="button" class="file-picker-clear" data-clear-file="employeesUploadFile" data-i18n-aria-label="clearFile" aria-label="مسح الملف" title="مسح الملف" tabindex="-1">×</button>
+                        </div>
+                        <div class="leave-upload-actions">
+                            <button id="downloadEmployeesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
+                            <button id="uploadEmployeesBtn" class="secondary" type="button" data-i18n="uploadData" disabled>استيراد البيانات</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -297,7 +324,7 @@
                         <div class="controls stacked-controls">
                             <div class="form-group">
                                 <label for="balFinNo" data-i18n="financialNo">رقم مالي</label>
-                                <input type="text" id="balFinNo" data-i18n-placeholder="allBalancesPlaceholder" placeholder="اتركه فارغاً لعرض كل الأرصدة">
+                                <input type="text" id="balFinNo" data-i18n-placeholder="allBalancesPlaceholder" placeholder="أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع">
                             </div>
                             <div class="query-actions">
                                 <button id="fetchBalBtn" class="primary-action" type="button" data-i18n="showBalance">عرض الرصيد</button>
@@ -305,15 +332,36 @@
                             </div>
                         </div>
                     </div>
-                    <div class="card upload-panel">
-                        <div>
-                            <strong data-i18n="uploadBalancesTitle">استيراد أرصدة الإجازات</strong>
-                            <p data-i18n="uploadBalancesDesc">تحديث حصص الإجازات لكل الموظفين من ملف إكسيل.</p>
+                    <div class="card upload-panel leave-upload-panel">
+                        <div class="upload-identity">
+                            <span class="upload-mark" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5"></path>
+                                    <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+                                </svg>
+                            </span>
+                            <div>
+                                <span class="section-kicker" data-i18n="bulkImport">استيراد مجمع</span>
+                                <strong data-i18n="uploadBalancesTitle">استيراد أرصدة الإجازات</strong>
+                                <p data-i18n="uploadBalancesDesc">تحديث حصص الإجازات لكل الموظفين من ملف إكسيل.</p>
+                            </div>
                         </div>
-                        <div class="file-picker"><input type="file" id="balancesUploadFile" accept=".xlsx,.xls"><label for="balancesUploadFile" data-i18n="chooseFile">اختيار ملف</label><span data-file-name-for="balancesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span></div>
-                        <div class="button-bar">
-                            <button id="uploadBalancesBtn" class="secondary" type="button" data-i18n="uploadBalances">استيراد الأرصدة</button>
-                            <button id="downloadBalancesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
+                        <div class="leave-upload-workspace">
+                            <div class="file-picker leave-file-picker" data-drop-zone>
+                                <input type="file" id="balancesUploadFile" accept=".xlsx,.xls">
+                                <span class="file-picker-copy">
+                                    <strong data-i18n="excelFileLabel">ملف Excel</strong>
+                                    <span data-file-name-for="balancesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span>
+                                    <span class="file-picker-hint" data-i18n="fileFormatHint">صيغة Excel (.xlsx أو .xls)</span>
+                                </span>
+                                <span class="file-picker-status" aria-hidden="true"></span>
+                                <label for="balancesUploadFile" data-i18n="chooseFile">اختيار ملف</label>
+                                <button type="button" class="file-picker-clear" data-clear-file="balancesUploadFile" data-i18n-aria-label="clearFile" aria-label="مسح الملف" title="مسح الملف" tabindex="-1">×</button>
+                            </div>
+                            <div class="leave-upload-actions">
+                                <button id="downloadBalancesTemplateBtn" class="ghost" type="button" data-i18n="downloadTemplate">تحميل القالب</button>
+                                <button id="uploadBalancesBtn" class="secondary" type="button" data-i18n="uploadBalances" disabled>استيراد الأرصدة</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -338,9 +386,43 @@
                     </div>
                     <button class="refresh-action" type="button" data-refresh="leave" data-i18n="refresh">تحديث</button>
                 </div>
+                <div class="card filter-card leave-request-card" id="leaveRequestCard" data-permission="SelfLeave">
+                    <div class="filter-header">
+                        <div class="filter-header-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                            <span data-i18n="requestLeaveTitle">طلب إجازة جديد</span>
+                        </div>
+                    </div>
+                    <div class="controls leave-grid">
+                        <div class="form-group"><label for="reqLeaveTypeId" data-i18n="leaveType">نوع الإجازة</label><select id="reqLeaveTypeId"></select></div>
+                        <div class="form-group"><label for="reqLeaveFrom" data-i18n="fromDate">من تاريخ</label><input type="date" id="reqLeaveFrom"></div>
+                        <div class="form-group"><label for="reqLeaveTo" data-i18n="toDate">إلى تاريخ</label><input type="date" id="reqLeaveTo"></div>
+                        <div class="form-group"><label for="reqLeaveDays" data-i18n="daysCount">عدد الأيام</label><input type="number" id="reqLeaveDays" min="1" step="1" readonly></div>
+                        <div class="form-group wide"><label for="reqLeaveReason" data-i18n="reason">السبب</label><input type="text" id="reqLeaveReason" data-i18n-placeholder="reasonPlaceholder" placeholder="سبب الإجازة"></div>
+                    </div>
+                    <div class="button-bar">
+                        <button id="requestLeaveBtn" class="primary-action" type="button" data-i18n="requestLeave">إرسال الطلب</button>
+                    </div>
+                </div>
+                <div class="two-column approval-columns">
+                    <div class="card" id="managerApprovalsCard" data-permission="LeaveApproval|LeaveHR|Leaves">
+                        <div class="approval-heading">
+                            <h3 data-i18n="managerApprovals">طلبات بانتظار موافقة المدير</h3>
+                            <button class="refresh-action" type="button" data-refresh-approvals="manager" data-i18n="refresh">تحديث</button>
+                        </div>
+                        <div id="managerApprovalsContent" class="approval-list"></div>
+                    </div>
+                    <div class="card" id="hrApprovalsCard" data-permission="LeaveHR|Leaves">
+                        <div class="approval-heading">
+                            <h3 data-i18n="hrApprovals">طلبات بانتظار موافقة الموارد البشرية</h3>
+                            <button class="refresh-action" type="button" data-refresh-approvals="hr" data-i18n="refresh">تحديث</button>
+                        </div>
+                        <div id="hrApprovalsContent" class="approval-list"></div>
+                    </div>
+                </div>
                 <div class="card filter-card">
                     <div class="controls leave-grid">
-                        <div class="form-group"><label for="leaveFinNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="leaveFinNo" data-i18n-placeholder="leaveFinancialPlaceholder" placeholder="رقم مالي للإضافة، أو اتركه فارغاً لعرض كل السجلات"></div>
+                        <div class="form-group"><label for="leaveFinNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="leaveFinNo" data-i18n-placeholder="leaveFinancialPlaceholder" placeholder="أدخل رقم الموظف أو اسمه، أو اتركه فارغًا لعرض الجميع"></div>
                         <div class="form-group"><label for="leaveTypeId" data-i18n="leaveType">نوع الإجازة</label><select id="leaveTypeId"></select></div>
                         <div class="form-group"><label for="leaveFrom" data-i18n="fromDate">من تاريخ</label><input type="date" id="leaveFrom"></div>
                         <div class="form-group"><label for="leaveTo" data-i18n="toDate">إلى تاريخ</label><input type="date" id="leaveTo"></div>
@@ -348,7 +430,7 @@
                         <div class="form-group wide"><label for="leaveReason" data-i18n="reason">السبب</label><input type="text" id="leaveReason" data-i18n-placeholder="reasonPlaceholder" placeholder="سبب الإجازة"></div>
                     </div>
                     <div class="button-bar">
-                        <button id="grantLeaveBtn" class="primary-action" type="button" data-i18n="grantLeave">منح الإجازة</button>
+                        <button id="grantLeaveBtn" class="primary-action" type="button" data-permission="Leaves" data-i18n="grantLeave">منح الإجازة</button>
                         <button id="fetchLeaveTransBtn" class="secondary" type="button" data-i18n="showLeaveLog">عرض سجل الإجازات</button>
                         <button class="ghost clear-filters-action" type="button" data-clear-query="leave" data-i18n="clearFilters">مسح عوامل التصفية</button>
                     </div>
@@ -368,17 +450,20 @@
                         </div>
                     </div>
                     <div class="leave-upload-workspace">
-                        <div class="file-picker leave-file-picker">
+                        <div class="file-picker leave-file-picker" data-drop-zone>
                             <input type="file" id="leavesUploadFile" accept=".xlsx,.xls">
                             <span class="file-picker-copy">
-                                <strong data-i18n="dropExcelFile">ملف Excel للإجازات</strong>
+                                <strong data-i18n="excelFileLabel">ملف Excel</strong>
                                 <span data-file-name-for="leavesUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span>
+                                <span class="file-picker-hint" data-i18n="fileFormatHint">صيغة Excel (.xlsx أو .xls)</span>
                             </span>
+                            <span class="file-picker-status" aria-hidden="true"></span>
                             <label for="leavesUploadFile" data-i18n="chooseFile">اختيار ملف</label>
+                            <button type="button" class="file-picker-clear" data-clear-file="leavesUploadFile" data-i18n-aria-label="clearFile" aria-label="مسح الملف" title="مسح الملف" tabindex="-1">×</button>
                         </div>
                         <div class="leave-upload-actions">
                             <button id="downloadLeaveTemplateBtn" class="ghost" type="button" data-i18n="downloadLeaveTemplate">تحميل قالب الإجازات</button>
-                            <button id="uploadLeavesBtn" class="secondary" type="button" data-i18n="uploadLeaves">استيراد الإجازات</button>
+                            <button id="uploadLeavesBtn" class="secondary" type="button" data-i18n="uploadLeaves" disabled>استيراد الإجازات</button>
                         </div>
                     </div>
                 </div>
@@ -425,6 +510,38 @@
                         </div>
                         <div class="dialog-actions">
                             <button id="cancelEditLeaveBtn" class="ghost" type="button" data-i18n="cancel">إلغاء</button>
+                            <button class="primary-action" type="submit" data-i18n="saveChanges">حفظ التعديلات</button>
+                        </div>
+                    </form>
+                </dialog>
+                <dialog id="workflowDialog" class="app-dialog">
+                    <form id="workflowForm" method="dialog">
+                        <div class="dialog-heading">
+                            <div>
+                                <span class="section-kicker" data-i18n="workflowTitle">إدارة سير الموافقات</span>
+                                <h3 id="workflowEmployee"></h3>
+                            </div>
+                            <button id="closeWorkflowBtn" class="dialog-close" type="button" aria-label="Close" data-i18n-aria-label="closeDialog">&times;</button>
+                        </div>
+                        <input id="workflowId" type="hidden">
+                        <div class="dialog-grid">
+                            <div class="form-group">
+                                <label for="workflowStatus" data-i18n="workflowStatus">حالة سير الموافقة</label>
+                                <select id="workflowStatus">
+                                    <option value="PendingManager" data-i18n="statusPendingManager">بانتظار المدير</option>
+                                    <option value="PendingHR" data-i18n="statusPendingHR">بانتظار الموارد البشرية</option>
+                                    <option value="Approved" data-i18n="statusApproved">معتمد</option>
+                                    <option value="Rejected" data-i18n="statusRejected">مرفوض</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="workflowManager" data-i18n="managerFinancialNo">الرقم المالي للمدير</label>
+                                <input id="workflowManager" type="text" data-i18n-placeholder="managerNoPlaceholder" placeholder="اتركه فارغًا للمحافظة على المدير الحالي">
+                            </div>
+                            <div class="form-group dialog-wide"><label for="workflowRejectReason" data-i18n="rejectionReason">سبب الرفض</label><input id="workflowRejectReason" type="text"></div>
+                        </div>
+                        <div class="dialog-actions">
+                            <button id="cancelWorkflowBtn" class="ghost" type="button" data-i18n="cancel">إلغاء</button>
                             <button class="primary-action" type="submit" data-i18n="saveChanges">حفظ التعديلات</button>
                         </div>
                     </form>
@@ -519,6 +636,25 @@
                     <button class="refresh-action" type="button" data-refresh="admin" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="two-column">
+                    <div class="card" data-permission="AdSync">
+                        <div class="controls stacked-controls">
+                            <h3 data-i18n="adSyncTitle">مزامنة Active Directory</h3>
+                            <p class="form-hint" data-i18n="adSyncHint">مزامنة الموظفين من خادم Active Directory والحفاظ على تحديث بياناتهم.</p>
+                            <div class="button-bar">
+                                <button id="runAdSyncBtn" class="primary-action" type="button" data-i18n="runAdSync">مزامنة الآن</button>
+                            </div>
+                            <div id="adSyncStatus" class="form-hint" role="status" aria-live="polite"></div>
+                        </div>
+                    </div>
+                    <div class="card" data-permission="Employees">
+                        <div class="controls stacked-controls">
+                            <h3 data-i18n="managerAssignTitle">تعيين مدير لموظف</h3>
+                            <div class="form-group"><label for="managerEmpNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="managerEmpNo"></div>
+                            <div class="form-group"><label for="managerManagerNo" data-i18n="managerFinancialNo">الرقم المالي للمدير</label><input type="text" id="managerManagerNo" data-i18n-placeholder="managerNoPlaceholder" placeholder="اتركه فارغًا لإلغاء التعيين"></div>
+                            <button id="saveManagerBtn" class="primary-action" type="button" data-i18n="saveManager">حفظ المدير</button>
+                            <div id="managerAssignResult" class="form-hint" role="status" aria-live="polite"></div>
+                        </div>
+                    </div>
                     <div class="card" data-permission="CreateUsers">
                         <div class="controls stacked-controls">
                             <div class="form-group"><label for="adminUsername" data-i18n="username">اسم المستخدم</label><input type="text" id="adminUsername" data-i18n-placeholder="usernamePlaceholder" placeholder="اسم المستخدم"></div>
@@ -584,6 +720,9 @@
             </section>
             <section class="error" id="error" style="display:none;">
                 <p id="errorMessage"></p>
+            </section>
+            <section class="feedback-banner success-banner" id="success" style="display:none;">
+                <p id="successMessage"></p>
             </section>
             <footer class="app-footer">
                 <span data-i18n="appTitle">نظام الحضور والإجازات</span>

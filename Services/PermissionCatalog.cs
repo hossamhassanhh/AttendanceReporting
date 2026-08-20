@@ -13,7 +13,12 @@ public static class PermissionCatalog
         "Exports",
         "ManageCalendar",
         "ManagePermissions",
-        "CreateUsers"
+        "CreateUsers",
+        "SelfAttendance",
+        "SelfLeave",
+        "LeaveApproval",
+        "LeaveHR",
+        "AdSync"
     };
 
     public static string AdminPermissions => string.Join(',', All);

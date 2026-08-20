@@ -84,7 +84,8 @@ public class AttendanceTrackerService
         string? level = null,
         string? area = null,
         string? scheduleStart = null,
-        string? scheduleEnd = null)
+        string? scheduleEnd = null,
+        string? matchMode = "contains")
     {
         using var db = await _factory.CreateDbContextAsync();
 
@@ -96,7 +97,7 @@ public class AttendanceTrackerService
 
         if (employeeNos != null && employeeNos.Count > 0)
         {
-            var matchedEmployeeNos = await FindEmployeeNumbersAsync(db, employeeNos);
+            var matchedEmployeeNos = await FindEmployeeNumbersAsync(db, employeeNos, matchMode);
             query = query.Where(d => matchedEmployeeNos.Contains(d.EmployeeFinancialNo));
         }
 
@@ -305,7 +306,8 @@ public class AttendanceTrackerService
         string? level,
         string? area,
         string? scheduleStart,
-        string? scheduleEnd)
+        string? scheduleEnd,
+        string? matchMode = "contains")
     {
         fromDate = fromDate.Date;
         toDate = toDate.Date;
@@ -323,7 +325,7 @@ public class AttendanceTrackerService
 
         if (employeeTerms is { Count: > 0 })
         {
-            var matched = await FindEmployeeNumbersAsync(db, employeeTerms);
+            var matched = await FindEmployeeNumbersAsync(db, employeeTerms, matchMode);
             query = query.Where(record => matched.Contains(record.EmployeeFinancialNo));
         }
         if (!string.IsNullOrWhiteSpace(department))
@@ -410,7 +412,10 @@ public class AttendanceTrackerService
         return new DateTime(utc.Value.Ticks + TimeSpan.TicksPerHour * 2, DateTimeKind.Unspecified);
     }
 
-    private static async Task<List<string>> FindEmployeeNumbersAsync(AppDbContext db, IEnumerable<string> searchTerms)
+    private static async Task<List<string>> FindEmployeeNumbersAsync(
+        AppDbContext db,
+        IEnumerable<string> searchTerms,
+        string? matchMode = "contains")
     {
         var terms = searchTerms
             .Select(t => t.Trim())
@@ -421,6 +426,9 @@ public class AttendanceTrackerService
         if (terms.Count == 0)
             return new List<string>();
 
+        var isExact = string.Equals(matchMode, "exact", StringComparison.OrdinalIgnoreCase);
+        var isOneOf = string.Equals(matchMode, "oneof", StringComparison.OrdinalIgnoreCase);
+
         var employees = await db.Employees
             .AsNoTracking()
             .Select(e => new { e.FinancialNo, e.Name })
@@ -428,9 +436,18 @@ public class AttendanceTrackerService
 
         return employees
             .Where(e => terms.Any(term =>
-                e.FinancialNo.Equals(term, StringComparison.OrdinalIgnoreCase)
-                || e.FinancialNo.Contains(term, StringComparison.OrdinalIgnoreCase)
-                || (!string.IsNullOrWhiteSpace(e.Name) && e.Name.Contains(term, StringComparison.OrdinalIgnoreCase))))
+            {
+                if (isOneOf)
+                    return e.FinancialNo.Equals(term, StringComparison.OrdinalIgnoreCase);
+
+                if (isExact)
+                    return e.FinancialNo.Equals(term, StringComparison.OrdinalIgnoreCase)
+                        || (!string.IsNullOrWhiteSpace(e.Name) && e.Name.Equals(term, StringComparison.OrdinalIgnoreCase));
+
+                return e.FinancialNo.Equals(term, StringComparison.OrdinalIgnoreCase)
+                    || e.FinancialNo.Contains(term, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(e.Name) && e.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }))
             .Select(e => e.FinancialNo)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();

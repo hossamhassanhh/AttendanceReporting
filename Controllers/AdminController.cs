@@ -15,13 +15,16 @@ public class AdminController : ControllerBase
 {
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
+    private readonly AdDirectoryService _adDirectory;
 
     public AdminController(
         IDbContextFactory<AppDbContext> factory,
-        IPasswordHasher<AppUser> passwordHasher)
+        IPasswordHasher<AppUser> passwordHasher,
+        AdDirectoryService adDirectory)
     {
         _factory = factory;
         _passwordHasher = passwordHasher;
+        _adDirectory = adDirectory;
     }
 
     [HttpGet("permissions")]
@@ -289,6 +292,62 @@ public class AdminController : ControllerBase
         return true;
     }
 
+    [Authorize(Policy = "AdSync")]
+    [HttpPost("ad-sync")]
+    public async Task<IActionResult> RunAdSync()
+    {
+        try
+        {
+            var result = await _adDirectory.SyncUsersAsync();
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "AdSync")]
+    [HttpGet("ad-sync-status")]
+    public async Task<IActionResult> GetAdSyncStatus()
+    {
+        var status = await _adDirectory.GetSyncStatusAsync();
+        return Ok(status ?? new { });
+    }
+
+    [Authorize(Policy = "Employees")]
+    [HttpPut("employees/{financialNo}/manager")]
+    public async Task<IActionResult> UpdateEmployeeManager(
+        string financialNo,
+        [FromBody] SaveEmployeeManagerRequest request)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        var employee = await db.Employees.FindAsync(financialNo.Trim());
+        if (employee == null)
+            return NotFound(new { error = "Employee was not found" });
+
+        if (string.IsNullOrWhiteSpace(request.ManagerFinancialNo))
+        {
+            employee.ManagerFinancialNo = null;
+        }
+        else
+        {
+            var managerNo = request.ManagerFinancialNo.Trim();
+            var managerExists = await db.Employees.AnyAsync(e => e.FinancialNo == managerNo);
+            if (!managerExists)
+                return BadRequest(new { error = "The manager financial number does not match an existing employee" });
+            employee.ManagerFinancialNo = managerNo;
+        }
+
+        await db.SaveChangesAsync();
+        return Ok(new
+        {
+            employee.FinancialNo,
+            employee.Name,
+            employee.ManagerFinancialNo
+        });
+    }
+
     private static string NormalizeRole(string? role)
     {
         return string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "Employee";
@@ -351,4 +410,9 @@ public class SaveEmployeeScheduleRequest
 public class BulkEmployeeScheduleRequest : SaveEmployeeScheduleRequest
 {
     public List<string> FinancialNumbers { get; set; } = new();
+}
+
+public class SaveEmployeeManagerRequest
+{
+    public string? ManagerFinancialNo { get; set; }
 }

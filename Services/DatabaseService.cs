@@ -39,7 +39,9 @@ public class DatabaseService
             IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ScheduleStart')
                 ALTER TABLE [Employees] ADD [ScheduleStart] nvarchar(10) NULL;
             IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ScheduleEnd')
-                ALTER TABLE [Employees] ADD [ScheduleEnd] nvarchar(10) NULL;");
+                ALTER TABLE [Employees] ADD [ScheduleEnd] nvarchar(10) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ManagerFinancialNo')
+                ALTER TABLE [Employees] ADD [ManagerFinancialNo] nvarchar(20) NULL;");
 
         if (!await db.ScheduleRules.AnyAsync())
         {
@@ -125,6 +127,55 @@ public class DatabaseService
             BEGIN
                 ALTER TABLE [LeaveTransactions] ADD [EnteredBy] nvarchar(80) NOT NULL CONSTRAINT [DF_LeaveTransactions_EnteredBy] DEFAULT 'admin';
             END";
+        await cmd.ExecuteNonQueryAsync();
+
+        cmd.CommandText = @"
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'ManagerFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [ManagerFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'ManagerApprovedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [ManagerApprovedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'HrApprovedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [HrApprovedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'RejectedBy')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [RejectedBy] nvarchar(80) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'RejectedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [RejectedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'RejectionReason')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [RejectionReason] nvarchar(500) NULL;
+            END";
+        await cmd.ExecuteNonQueryAsync();
+
+        cmd.CommandText = @"
+            UPDATE [LeaveTransactions]
+            SET [ManagerFinancialNo] = e.[ManagerFinancialNo]
+            FROM [LeaveTransactions] AS lt
+            INNER JOIN [Employees] AS e ON e.[FinancialNo] = lt.[EmployeeFinancialNo]
+            WHERE lt.[Status] = 'PendingManager'
+              AND (lt.[ManagerFinancialNo] IS NULL OR LTRIM(RTRIM(lt.[ManagerFinancialNo])) = '')
+              AND e.[ManagerFinancialNo] IS NOT NULL
+              AND LTRIM(RTRIM(e.[ManagerFinancialNo])) <> '';";
         await cmd.ExecuteNonQueryAsync();
 
         cmd.CommandText = @"

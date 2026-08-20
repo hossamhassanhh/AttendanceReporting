@@ -67,6 +67,234 @@ public class LeaveService
         return transaction;
     }
 
+    public async Task<LeaveTransaction> RequestLeaveAsync(
+        string financialNo, int leaveTypeId, DateTime fromDate, DateTime toDate,
+        string? reason, string requestedBy)
+    {
+        if (string.IsNullOrWhiteSpace(requestedBy))
+            throw new UnauthorizedAccessException("Authenticated username is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        await using var dbTransaction = await db.Database.BeginTransactionAsync();
+
+        fromDate = fromDate.Date;
+        toDate = toDate.Date;
+        if (toDate < fromDate)
+            throw new Exception("Leave end date cannot be before start date");
+
+        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
+        var days = CountActualLeaveDays(fromDate, toDate, calendarSettings);
+        if (days <= 0)
+            throw new Exception("Selected range does not include actual leave days");
+
+        var emp = await db.Employees.FindAsync(financialNo)
+            ?? throw new Exception($"Employee {financialNo} not found");
+
+        var leaveType = await db.LeaveTypes.FindAsync(leaveTypeId)
+            ?? throw new Exception($"Leave type {leaveTypeId} not found");
+
+        var duplicate = await db.LeaveTransactions.FirstOrDefaultAsync(item =>
+            item.EmployeeFinancialNo == financialNo
+            && item.LeaveTypeId == leaveTypeId
+            && item.FromDate == fromDate
+            && item.ToDate == toDate);
+        if (duplicate != null)
+        {
+            if (duplicate.Status != "Rejected")
+                throw new InvalidDataException("A leave request already exists for this employee, leave type, and period.");
+            db.LeaveTransactions.Remove(duplicate);
+        }
+
+        var transaction = new LeaveTransaction
+        {
+            EmployeeFinancialNo = financialNo,
+            LeaveTypeId = leaveTypeId,
+            FromDate = fromDate,
+            ToDate = toDate,
+            DaysCount = days,
+            Reason = reason,
+            Status = string.IsNullOrWhiteSpace(emp.ManagerFinancialNo) ? "PendingHR" : "PendingManager",
+            ManagerFinancialNo = emp.ManagerFinancialNo,
+            EnteredBy = requestedBy.Trim(),
+            CreatedAt = DateTime.Now
+        };
+        db.LeaveTransactions.Add(transaction);
+        await db.SaveChangesAsync();
+        await dbTransaction.CommitAsync();
+        return transaction;
+    }
+
+    public async Task<LeaveTransaction> ApproveAsManagerAsync(int id, string managerNo)
+    {
+        if (string.IsNullOrWhiteSpace(managerNo))
+            throw new UnauthorizedAccessException("Authenticated employee number is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .Include(item => item.Employee)
+            .Include(item => item.LeaveType)
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (transaction.Status != "PendingManager")
+            throw new InvalidOperationException("This request is not awaiting manager approval");
+
+        var assignedManager = transaction.ManagerFinancialNo
+            ?? transaction.Employee?.ManagerFinancialNo;
+        if (!string.Equals(assignedManager, managerNo, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("You are not the assigned manager for this request");
+
+        transaction.Status = "PendingHR";
+        transaction.ManagerApprovedAt = DateTime.Now;
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    public async Task<LeaveTransaction> ApproveAsHrAsync(int id)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .Include(item => item.LeaveType)
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (transaction.Status is not ("PendingManager" or "PendingHR"))
+            throw new InvalidOperationException("Only pending requests can be approved");
+
+        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
+        if (transaction.LeaveType != null)
+        {
+            await AdjustBalanceAsync(
+                db, transaction.EmployeeFinancialNo, transaction.LeaveType,
+                transaction.FromDate, transaction.ToDate, calendarSettings, -1);
+        }
+        await ApplyLeaveAttendanceAsync(
+            db, transaction.EmployeeFinancialNo, transaction.LeaveTypeId,
+            transaction.FromDate, transaction.ToDate, transaction.Reason, calendarSettings);
+
+        transaction.Status = "Approved";
+        transaction.HrApprovedAt = DateTime.Now;
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    public async Task<LeaveTransaction> RejectLeaveAsync(int id, string rejectedBy, string? reason)
+    {
+        if (string.IsNullOrWhiteSpace(rejectedBy))
+            throw new UnauthorizedAccessException("Authenticated username is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (transaction.Status is not ("PendingManager" or "PendingHR"))
+            throw new InvalidOperationException("Only pending requests can be rejected");
+
+        transaction.Status = "Rejected";
+        transaction.RejectedBy = rejectedBy.Trim();
+        transaction.RejectedAt = DateTime.Now;
+        transaction.RejectionReason = reason;
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    public async Task<LeaveTransaction> UpdateWorkflowAsync(
+        int id, string? status, string? managerFinancialNo, string changedBy)
+    {
+        if (string.IsNullOrWhiteSpace(changedBy))
+            throw new UnauthorizedAccessException("Authenticated username is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .Include(item => item.LeaveType)
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (!string.IsNullOrWhiteSpace(managerFinancialNo))
+            transaction.ManagerFinancialNo = managerFinancialNo.Trim();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            if (transaction.Status == "Approved" && !string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("An approved request cannot be moved back to a pending state");
+
+            switch (status.Trim())
+            {
+                case "PendingManager":
+                    transaction.Status = "PendingManager";
+                    transaction.ManagerApprovedAt = null;
+                    transaction.HrApprovedAt = null;
+                    transaction.RejectedBy = null;
+                    transaction.RejectedAt = null;
+                    transaction.RejectionReason = null;
+                    break;
+                case "PendingHR":
+                    transaction.Status = "PendingHR";
+                    transaction.HrApprovedAt = null;
+                    transaction.RejectedBy = null;
+                    transaction.RejectedAt = null;
+                    transaction.RejectionReason = null;
+                    break;
+                case "Rejected":
+                    transaction.Status = "Rejected";
+                    transaction.RejectedBy = changedBy.Trim();
+                    transaction.RejectedAt = DateTime.Now;
+                    break;
+                case "Approved":
+                    if (transaction.Status != "Approved")
+                    {
+                        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
+                        if (transaction.LeaveType != null)
+                        {
+                            await AdjustBalanceAsync(
+                                db, transaction.EmployeeFinancialNo, transaction.LeaveType,
+                                transaction.FromDate, transaction.ToDate, calendarSettings, -1);
+                        }
+                        await ApplyLeaveAttendanceAsync(
+                            db, transaction.EmployeeFinancialNo, transaction.LeaveTypeId,
+                            transaction.FromDate, transaction.ToDate, transaction.Reason, calendarSettings);
+                    }
+                    transaction.Status = "Approved";
+                    transaction.ManagerApprovedAt ??= DateTime.Now;
+                    transaction.HrApprovedAt ??= DateTime.Now;
+                    transaction.RejectedBy = null;
+                    transaction.RejectedAt = null;
+                    transaction.RejectionReason = null;
+                    break;
+                default:
+                    throw new InvalidOperationException("Unsupported workflow status");
+            }
+        }
+
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    public async Task<List<LeaveTransaction>> GetPendingForManagerAsync(string managerNo)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        return await db.LeaveTransactions
+            .AsNoTracking()
+            .Include(t => t.LeaveType)
+            .Include(t => t.Employee)
+            .Where(t => t.Status == "PendingManager" && t.ManagerFinancialNo == managerNo)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<List<LeaveTransaction>> GetPendingForHrAsync()
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        return await db.LeaveTransactions
+            .AsNoTracking()
+            .Include(t => t.LeaveType)
+            .Include(t => t.Employee)
+            .Where(t => t.Status == "PendingManager" || t.Status == "PendingHR")
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<LeaveTransaction> UpdateLeaveAsync(
         int id, int leaveTypeId, DateTime fromDate, DateTime toDate, string? reason)
     {
@@ -194,7 +422,7 @@ public class LeaveService
                 ? enteredByUser!.DisplayNameAr!
                 : enteredByUser?.DisplayName ?? transaction.EnteredBy;
 
-            result.Add(new LeaveLogDay
+result.Add(new LeaveLogDay
             {
                 TransactionId = transaction.Id,
                 EmployeeFinancialNo = transaction.EmployeeFinancialNo,
@@ -212,7 +440,13 @@ public class LeaveService
                 EnteredBy = enteredByUser?.DisplayName ?? transaction.EnteredBy,
                 EnteredByAr = enteredByAr,
                 EnteredByEn = enteredByUser?.DisplayNameEn ?? enteredByUser?.DisplayName ?? transaction.EnteredBy,
-                CreatedAt = transaction.CreatedAt
+                CreatedAt = transaction.CreatedAt,
+                AssignedManager = transaction.ManagerFinancialNo ?? transaction.Employee?.ManagerFinancialNo ?? string.Empty,
+                ManagerApprovedAt = transaction.ManagerApprovedAt,
+                HrApprovedAt = transaction.HrApprovedAt,
+                RejectedBy = transaction.RejectedBy ?? string.Empty,
+                RejectedAt = transaction.RejectedAt,
+                RejectionReason = transaction.RejectionReason
             });
         }
 
@@ -522,8 +756,14 @@ public class LeaveLogDay
     public double DaysCount { get; set; }
     public string? Reason { get; set; }
     public string Status { get; set; } = string.Empty;
-    public string EnteredBy { get; set; } = string.Empty;
+public string EnteredBy { get; set; } = string.Empty;
     public string EnteredByAr { get; set; } = string.Empty;
     public string EnteredByEn { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public string AssignedManager { get; set; } = string.Empty;
+    public DateTime? ManagerApprovedAt { get; set; }
+    public DateTime? HrApprovedAt { get; set; }
+    public string RejectedBy { get; set; } = string.Empty;
+    public DateTime? RejectedAt { get; set; }
+    public string? RejectionReason { get; set; }
 }

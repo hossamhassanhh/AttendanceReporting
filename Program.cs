@@ -83,6 +83,29 @@ builder.Services.AddAuthorization(options =>
         options.AddPolicy(permission, policy =>
             policy.RequireClaim(AuthConstants.PermissionClaim, permission));
     }
+
+    options.AddPolicy("LeaveFlow", policy =>
+        policy.RequireAssertion(context =>
+            context.User.HasClaim(AuthConstants.PermissionClaim, "Leaves")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "LeaveHR")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "LeaveApproval")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "SelfLeave")));
+
+    options.AddPolicy("LeaveHrFlow", policy =>
+        policy.RequireAssertion(context =>
+            context.User.HasClaim(AuthConstants.PermissionClaim, "Leaves")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "LeaveHR")));
+
+    options.AddPolicy("LeaveApprovalFlow", policy =>
+        policy.RequireAssertion(context =>
+            context.User.HasClaim(AuthConstants.PermissionClaim, "Leaves")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "LeaveHR")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "LeaveApproval")));
+
+    options.AddPolicy("SelfOrAdmin", policy =>
+        policy.RequireAssertion(context =>
+            context.User.HasClaim(AuthConstants.PermissionClaim, "Attendance")
+            || context.User.HasClaim(AuthConstants.PermissionClaim, "SelfAttendance")));
 });
 
 var connectionString = builder.Configuration.GetConnectionString("PostgreSql");
@@ -121,6 +144,8 @@ else
 }
 
 builder.Services.AddSingleton<DatabaseService>();
+builder.Services.AddSingleton<AdDirectoryService>();
+builder.Services.AddHostedService<AdSyncBackgroundService>();
 builder.Services.AddScoped<ExcelImportService>();
 builder.Services.AddScoped<AttendanceTrackerService>();
 builder.Services.AddScoped<LeaveService>();

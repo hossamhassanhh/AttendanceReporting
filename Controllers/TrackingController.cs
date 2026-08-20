@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AttendanceApp.Services;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
@@ -25,31 +26,42 @@ public class TrackingController : ControllerBase
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    [Authorize(Policy = "Attendance")]
+[Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("{financialNo}")]
     public async Task<IActionResult> GetAttendance(string financialNo, [FromQuery] string? date)
     {
         var d = DateTime.TryParse(date, out var dt) ? dt : DateTime.Today;
-        var results = await _tracker.GetDailyAttendanceAsync(financialNo, d);
+        var effectiveNo = IsSelfScoped() ? SelfEmployeeNo() : financialNo;
+        if (string.IsNullOrWhiteSpace(effectiveNo))
+            return Ok(Array.Empty<object>());
+        var results = await _tracker.GetDailyAttendanceAsync(effectiveNo, d);
         return Ok(results);
     }
 
-    [Authorize(Policy = "Attendance")]
+    [Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("{financialNo}/range")]
     public async Task<IActionResult> GetAttendanceRange(string financialNo, [FromQuery] string? from, [FromQuery] string? to)
     {
         var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today.AddDays(-30);
         var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
-        var results = await _tracker.GetEmployeeAttendanceAsync(financialNo, fromDate, toDate);
+        var effectiveNo = IsSelfScoped() ? SelfEmployeeNo() : financialNo;
+        if (string.IsNullOrWhiteSpace(effectiveNo))
+            return Ok(Array.Empty<object>());
+        var results = await _tracker.GetEmployeeAttendanceAsync(effectiveNo, fromDate, toDate);
         return Ok(results);
     }
 
-    [Authorize(Policy = "Attendance")]
+    [Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("by-date")]
     public async Task<IActionResult> GetByDate([FromQuery] string? date)
     {
         var d = DateTime.TryParse(date, out var dt) ? dt : DateTime.Today;
         var results = await _tracker.GetAllAttendanceAsync(d);
+        if (IsSelfScoped())
+        {
+            var employeeNo = SelfEmployeeNo();
+            results = results.Where(r => r.EmployeeFinancialNo == employeeNo).ToList();
+        }
         return Ok(results);
     }
 
@@ -67,7 +79,7 @@ public class TrackingController : ControllerBase
         return attendance.FirstPunch.Value == attendance.LastPunch.Value ? null : attendance.LastPunch;
     }
 
-    [Authorize(Policy = "Attendance")]
+    [Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("query")]
     public async Task<IActionResult> Query(
         [FromQuery] string? employees,
@@ -79,6 +91,7 @@ public class TrackingController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? scheduleStart,
         [FromQuery] string? scheduleEnd,
+        [FromQuery] string? matchMode,
         [FromQuery] string? sort,
         [FromQuery] int? page,
         [FromQuery] int? pageSize)
@@ -87,8 +100,14 @@ public class TrackingController : ControllerBase
         var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
 
         List<string>? empList = null;
-        if (!string.IsNullOrWhiteSpace(employees))
+        if (IsSelfScoped())
+        {
+            empList = new List<string> { SelfEmployeeNo() ?? string.Empty };
+        }
+        else if (!string.IsNullOrWhiteSpace(employees))
+        {
             empList = employees.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
 
         var results = await _tracker.QueryAttendanceAsync(
             empList,
@@ -98,7 +117,8 @@ public class TrackingController : ControllerBase
             level,
             area,
             scheduleStart,
-            scheduleEnd);
+            scheduleEnd,
+            matchMode);
         var lateAllowance = BuildLateAllowance(results);
 
         var mapped = results.Select(r =>
@@ -228,7 +248,8 @@ public class TrackingController : ControllerBase
         [FromQuery] string? area,
         [FromQuery] string? status,
         [FromQuery] string? scheduleStart,
-        [FromQuery] string? scheduleEnd)
+        [FromQuery] string? scheduleEnd,
+        [FromQuery] string? matchMode)
     {
         var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
         var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
@@ -245,7 +266,8 @@ public class TrackingController : ControllerBase
             level,
             area,
             scheduleStart,
-            scheduleEnd);
+            scheduleEnd,
+            matchMode);
         var lateAllowance = BuildLateAllowance(results);
         var egyptZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
 
@@ -323,6 +345,7 @@ public class TrackingController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? scheduleStart,
         [FromQuery] string? scheduleEnd,
+        [FromQuery] string? matchMode,
         [FromQuery] string? lang)
     {
         var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
@@ -340,7 +363,8 @@ public class TrackingController : ControllerBase
             level,
             area,
             scheduleStart,
-            scheduleEnd);
+            scheduleEnd,
+            matchMode);
         var lateAllowance = BuildLateAllowance(results);
         var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
 
@@ -474,19 +498,25 @@ public class TrackingController : ControllerBase
         int UsedMinutes,
         int RemainingMinutes);
 
-    [Authorize(Policy = "Balances")]
+[Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("{financialNo}/balances")]
     public async Task<IActionResult> GetBalances(string financialNo)
     {
-        var balances = await _tracker.GetLeaveBalancesAsync(financialNo);
+        var effectiveNo = IsSelfScoped() ? SelfEmployeeNo() : financialNo;
+        if (string.IsNullOrWhiteSpace(effectiveNo))
+            return Ok(Array.Empty<object>());
+        var balances = await _tracker.GetLeaveBalancesAsync(effectiveNo);
         return Ok(balances);
     }
 
-    [Authorize(Policy = "Balances")]
+    [Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("balances")]
     public async Task<IActionResult> GetAllBalances([FromQuery] string? financialNo)
     {
-        var balances = await _tracker.GetLeaveBalancesAsync(financialNo);
+        var effectiveNo = IsSelfScoped() ? SelfEmployeeNo() : financialNo;
+        if (IsSelfScoped() && string.IsNullOrWhiteSpace(effectiveNo))
+            return Ok(Array.Empty<object>());
+        var balances = await _tracker.GetLeaveBalancesAsync(effectiveNo);
         return Ok(balances);
     }
 
@@ -545,7 +575,8 @@ public class TrackingController : ControllerBase
                 request.Level,
                 request.Area,
                 request.ScheduleStart,
-                request.ScheduleEnd);
+                request.ScheduleEnd,
+                request.MatchMode);
             return Ok(result);
         }
         catch (ArgumentException exception)
@@ -591,9 +622,17 @@ public class TrackingController : ControllerBase
         return File(data, contentType, $"{fileStem}_{reportDate:yyyyMMdd}.{extension}");
     }
 
-    private static bool IsSupportedExportFormat(string format) =>
+private static bool IsSupportedExportFormat(string format) =>
         string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase)
         || string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase);
+
+    private bool HasPermission(string permission) =>
+        User.HasClaim(AuthConstants.PermissionClaim, permission);
+
+    private string? SelfEmployeeNo() => User.FindFirstValue("employee_no");
+
+    private bool IsSelfScoped() =>
+        HasPermission("SelfAttendance") && !HasPermission("Attendance");
 
     private static string BuildDailyNotes(TopManagementDailyRow row, bool isArabic)
     {
@@ -617,6 +656,7 @@ public class AttendanceRecalculationRequest
     public DateTime From { get; set; }
     public DateTime To { get; set; }
     public string? Employees { get; set; }
+    public string? MatchMode { get; set; }
     public string? Department { get; set; }
     public string? Level { get; set; }
     public string? Area { get; set; }

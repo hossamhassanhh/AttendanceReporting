@@ -29,6 +29,21 @@ public class LeaveTransaction
     [MaxLength(80)]
     public string EnteredBy { get; set; } = "admin";
 
+    [MaxLength(20)]
+    public string? ManagerFinancialNo { get; set; }
+
+    public DateTime? ManagerApprovedAt { get; set; }
+
+    public DateTime? HrApprovedAt { get; set; }
+
+    [MaxLength(80)]
+    public string? RejectedBy { get; set; }
+
+    public DateTime? RejectedAt { get; set; }
+
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.Now;
 
     [ForeignKey(nameof(EmployeeFinancialNo))]
