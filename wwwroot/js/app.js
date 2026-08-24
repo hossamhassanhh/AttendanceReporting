@@ -628,6 +628,14 @@ function applyPermissions() {
             el.style.display = hasAnyPermission(permissions) ? '' : 'none';
         });
 
+        var selfOnly = currentUser && Array.isArray(currentUser.permissions)
+            && currentUser.permissions.every(function (p) { return p === 'SelfAttendance' || p === 'SelfLeave'; });
+        if (selfOnly) {
+            document.querySelectorAll('.filter-card:not(#leaveRequestCard), .search-filter-card, .result-tool').forEach(function (el) {
+                el.style.display = 'none';
+            });
+        }
+
         if (!hasAnyPermission('ManagePermissions|AdSync') && document.querySelector('.tab.active')?.dataset.tab === 'admin') {
             document.querySelector('[data-tab="attendance"]').click();
         }
