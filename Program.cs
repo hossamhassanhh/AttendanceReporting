@@ -155,6 +155,7 @@ builder.Services.AddScoped<LeaveFillService>();
 builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<TabularReportExportService>();
 builder.Services.AddHostedService<WorkScheduleWorkbookImportService>();
+builder.Services.AddHostedService<PendingLeaveHistoryImportService>();
 builder.Services.AddHostedService<UserAccessReportService>();
 
 var app = builder.Build();
