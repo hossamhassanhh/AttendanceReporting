@@ -184,8 +184,9 @@ public class AdDirectoryService
             {
                 // Preserve Arabic names and sheet data for existing employees.
                 // The work-schedule sheet (PendingWorkScheduleImport) is the source of truth for Name/Department/Level.
-                // AD sync should only fill missing data or update placeholders ("Employee {FinancialNo}"), not overwrite Arabic names.
-                var isPlaceholder = employee.Name.StartsWith("Employee ", StringComparison.OrdinalIgnoreCase);
+                // AD sync should only fill missing data or update placeholders ("Employee {FinancialNo}" / "موظف {FinancialNo}"), not overwrite Arabic names.
+                var isPlaceholder = employee.Name.StartsWith("Employee ", StringComparison.OrdinalIgnoreCase)
+                    || employee.Name.StartsWith("موظف ", StringComparison.Ordinal);
                 var hasChanges = false;
 
                 if ((string.IsNullOrWhiteSpace(employee.Name) || isPlaceholder) && !string.IsNullOrWhiteSpace(info.DisplayName))
