@@ -182,22 +182,37 @@ public class AdDirectoryService
             }
             else
             {
-                var hasChanges = !string.Equals(employee.Name, info.DisplayName, StringComparison.Ordinal)
-                    || !string.Equals(employee.Department ?? string.Empty, info.Department ?? string.Empty, StringComparison.Ordinal)
-                    || !string.Equals(employee.JobTitle ?? string.Empty, info.JobTitle ?? string.Empty, StringComparison.Ordinal)
-                    || !string.Equals(employee.WorkLocation ?? string.Empty, info.WorkLocation ?? string.Empty, StringComparison.Ordinal);
-                if (hasChanges)
+                // Preserve Arabic names and sheet data for existing employees.
+                // The work-schedule sheet (PendingWorkScheduleImport) is the source of truth for Name/Department/Level.
+                // AD sync should only fill missing data or update placeholders ("Employee {FinancialNo}"), not overwrite Arabic names.
+                var isPlaceholder = employee.Name.StartsWith("Employee ", StringComparison.OrdinalIgnoreCase);
+                var hasChanges = false;
+
+                if ((string.IsNullOrWhiteSpace(employee.Name) || isPlaceholder) && !string.IsNullOrWhiteSpace(info.DisplayName))
                 {
                     employee.Name = info.DisplayName;
-                    employee.Department = info.Department;
-                    employee.JobTitle = info.JobTitle;
-                    employee.WorkLocation = info.WorkLocation;
-                    updated++;
+                    hasChanges = true;
                 }
-                else
+                if (string.IsNullOrWhiteSpace(employee.Department) && !string.IsNullOrWhiteSpace(info.Department))
                 {
-                    skipped++;
+                    employee.Department = info.Department;
+                    hasChanges = true;
                 }
+                if (string.IsNullOrWhiteSpace(employee.JobTitle) && !string.IsNullOrWhiteSpace(info.JobTitle))
+                {
+                    employee.JobTitle = info.JobTitle;
+                    hasChanges = true;
+                }
+                if (string.IsNullOrWhiteSpace(employee.WorkLocation) && !string.IsNullOrWhiteSpace(info.WorkLocation))
+                {
+                    employee.WorkLocation = info.WorkLocation;
+                    hasChanges = true;
+                }
+
+                if (hasChanges)
+                    updated++;
+                else
+                    skipped++;
             }
         }
 
