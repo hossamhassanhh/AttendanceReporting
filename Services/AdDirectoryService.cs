@@ -169,16 +169,10 @@ public class AdDirectoryService
             var employee = await db.Employees.FindAsync(financialNo);
             if (employee == null)
             {
-                db.Employees.Add(new Employee
-                {
-                    FinancialNo = financialNo,
-                    Name = info.DisplayName,
-                    Department = info.Department,
-                    JobTitle = info.JobTitle,
-                    WorkLocation = info.WorkLocation,
-                    IsActive = true
-                });
-                added++;
+                // Work-schedule sheet is the source of truth for employees.
+                // Do not auto-create employees from AD that are not in the sheet.
+                skipped++;
+                continue;
             }
             else
             {
