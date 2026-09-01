@@ -3768,3 +3768,77 @@ html[dir="ltr"] .search-mode-row select {
 }
 
 .row-sub { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* ===================== FULL-SCREEN SEARCH RESULTS ===================== */
+.results {
+    width: calc(100% + var(--page-gutter) * 2);
+    max-width: none;
+    margin-inline: calc(var(--page-gutter) * -1);
+    padding-inline: var(--page-gutter);
+    box-sizing: border-box;
+}
+
+#attResults,
+#empResults,
+#balResults,
+#leaveResults,
+#exportPreview,
+#exportResults,
+#dailyResults {
+    width: calc(100% + var(--page-gutter) * 2);
+    max-width: none;
+    margin-inline: calc(var(--page-gutter) * -1);
+    padding-inline: var(--page-gutter);
+    box-sizing: border-box;
+}
+
+#attResultsContent,
+#empResultsContent,
+#balResultsContent,
+#leaveResultsContent,
+#exportPreviewContent,
+#exportResultsContent,
+#dailyResultsContent,
+.results .report-wrap,
+.results .monthly-attendance-wrap,
+.results .attendance-table-scroll,
+.results .table-scroll {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 180px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.results table {
+    width: 100%;
+    min-width: 100%;
+}
+
+@media (min-width: 1600px) {
+    .main-panel {
+        max-width: none;
+    }
+}
+
+.results:where([style*="display: block"], [style*="display:block"]) {
+    display: grid !important;
+    gap: 14px;
+}
+
+.results .results-header {
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--bg);
+    padding-block: 8px;
+}
+
+.results .pagination-controls {
+    position: sticky;
+    bottom: 0;
+    background: var(--card-solid);
+    padding-block: 10px;
+    z-index: 2;
+}

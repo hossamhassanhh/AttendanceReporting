@@ -119,7 +119,7 @@ public class TrackingController : ControllerBase
             scheduleStart,
             scheduleEnd,
             matchMode);
-        var lateAllowance = BuildLateAllowance(results);
+        var lateAllowance = await _tracker.BuildMonthlyLateAllowanceAsync(results);
 
         var mapped = results.Select(r =>
         {
@@ -232,8 +232,63 @@ public class TrackingController : ControllerBase
             isArabic ? "التقرير اليومي" : "Daily Report",
             columns,
             rows,
-            isArabic ? "التقرير_اليومي" : "daily_report",
+isArabic ? "التقرير_اليومي" : "daily_report",
             reportDate,
+            isArabic);
+    }
+
+    [Authorize(Policy = "Attendance")]
+    [HttpGet("top-management/overtime")]
+    public async Task<IActionResult> GetTopManagementOvertime([FromQuery] string? from, [FromQuery] string? to)
+    {
+        var fromDate = DateTime.TryParse(from, out var fd) ? fd.Date : DateTime.Today.AddDays(-30);
+        var toDate = DateTime.TryParse(to, out var td) ? td.Date : DateTime.Today;
+        var rows = await _tracker.GetTopManagementOvertimeAsync(fromDate, toDate);
+        return Ok(rows);
+    }
+
+    [Authorize(Policy = "Exports")]
+    [HttpGet("top-management/overtime/export/{format}")]
+    public async Task<IActionResult> ExportTopManagementOvertime(
+        string format,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? lang)
+    {
+        if (!IsSupportedExportFormat(format))
+            return BadRequest(new { error = "Supported formats are excel and pdf." });
+
+        var fromDate = DateTime.TryParse(from, out var fd) ? fd.Date : DateTime.Today.AddDays(-30);
+        var toDate = DateTime.TryParse(to, out var td) ? td.Date : DateTime.Today;
+        var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
+        var rows = await _tracker.GetTopManagementOvertimeAsync(fromDate, toDate);
+
+        var columns = isArabic
+            ? new[] { "الرقم المالي", "الاسم", "المسمى الوظيفي", "الإدارة", "التاريخ", "آخر انصراف", "ساعات العمل الإضافي", "دقائق العمل الإضافي" }
+            : new[] { "Financial No", "Name", "Job Title", "Department", "Date", "Last Punch", "Overtime (H:MM)", "Overtime Minutes" };
+        var dataRows = rows.Select(row => (IReadOnlyList<object?>)new object?[]
+        {
+            row.FinancialNo,
+            row.Name,
+            row.JobTitle,
+            row.Department,
+            row.Date.ToString("yyyy-MM-dd"),
+            row.LastPunch?.ToString("HH:mm:ss") ?? "-",
+            row.OvertimeFormatted,
+            row.OvertimeMinutes
+        }).ToList();
+
+        var title = isArabic ? "تقرير العمل الإضافي للإدارة العليا" : "Top Management Overtime Report";
+        var subtitle = isArabic ? $"من {fromDate:yyyy-MM-dd} إلى {toDate:yyyy-MM-dd}" : $"From {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
+        return CreateTabularExport(
+            format,
+            title,
+            subtitle,
+            isArabic ? "العمل الإضافي" : "Overtime",
+            columns,
+            dataRows,
+            isArabic ? "العمل_الإضافي" : "overtime",
+            fromDate,
             isArabic);
     }
 
@@ -268,7 +323,7 @@ public class TrackingController : ControllerBase
             scheduleStart,
             scheduleEnd,
             matchMode);
-        var lateAllowance = BuildLateAllowance(results);
+        var lateAllowance = await _tracker.BuildMonthlyLateAllowanceAsync(results);
         var egyptZone = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
 
         using var workbook = new XLWorkbook();
@@ -365,7 +420,7 @@ public class TrackingController : ControllerBase
             scheduleStart,
             scheduleEnd,
             matchMode);
-        var lateAllowance = BuildLateAllowance(results);
+        var lateAllowance = await _tracker.BuildMonthlyLateAllowanceAsync(results);
         var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
 
         var doc = Document.Create(container =>
@@ -451,52 +506,15 @@ public class TrackingController : ControllerBase
         return File(ms.ToArray(), "application/pdf", $"attendance_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.pdf");
     }
 
-    private static Dictionary<int, LateAllowanceSnapshot> BuildLateAllowance(
-        IEnumerable<AttendanceApp.Models.DailyAttendance> records)
-    {
-        const int monthlyAllowanceMinutes = 30;
-        var result = new Dictionary<int, LateAllowanceSnapshot>();
-        var usedByEmployeeMonth = new Dictionary<(string FinancialNo, int Year, int Month), int>();
-
-        foreach (var record in records
-            .OrderBy(item => item.EmployeeFinancialNo)
-            .ThenBy(item => item.Date)
-            .ThenBy(item => item.Id))
-        {
-            var dailyMinutes = string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
-                ? CalculateLateMinutes(record)
-                : 0;
-            var key = (record.EmployeeFinancialNo, record.Date.Year, record.Date.Month);
-            var used = usedByEmployeeMonth.GetValueOrDefault(key) + dailyMinutes;
-            usedByEmployeeMonth[key] = used;
-            result[record.Id] = new LateAllowanceSnapshot(
-                dailyMinutes,
-                used,
-                Math.Max(0, monthlyAllowanceMinutes - used));
-        }
-
-        return result;
-    }
-
-    private static int CalculateLateMinutes(AttendanceApp.Models.DailyAttendance record)
-    {
-        return AttendanceStatusRules.GetLateMinutes(record);
-    }
-
     private static string GetEffectiveStatus(
         AttendanceApp.Models.DailyAttendance record,
         LateAllowanceSnapshot allowance)
     {
         return string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
-            && allowance.UsedMinutes <= 30
+            && allowance.UsedMinutes <= AttendanceStatusRules.MonthlyLateAllowanceMinutes
                 ? "Present"
                 : record.Status;
     }
-
-    private sealed record LateAllowanceSnapshot(
-        int DailyMinutes,
-        int UsedMinutes,
-        int RemainingMinutes);
 
 [Authorize(Policy = "SelfOrAdmin")]
     [HttpGet("{financialNo}/balances")]

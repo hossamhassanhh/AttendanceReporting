@@ -126,6 +126,64 @@ public class AttendanceTrackerService
         return records;
     }
 
+    public async Task<Dictionary<int, LateAllowanceSnapshot>> BuildMonthlyLateAllowanceAsync(
+        IReadOnlyCollection<DailyAttendance> queriedRecords)
+    {
+        var snapshots = new Dictionary<int, LateAllowanceSnapshot>();
+        if (queriedRecords.Count == 0)
+            return snapshots;
+
+        var keys = queriedRecords
+            .Select(r => (FinancialNo: r.EmployeeFinancialNo, r.Date.Year, r.Date.Month))
+            .Distinct()
+            .ToList();
+        var employeeNos = keys
+            .Select(k => k.FinancialNo)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var rangeStart = keys.Min(k => new DateTime(k.Year, k.Month, 1));
+        var rangeEnd = keys.Max(k => new DateTime(k.Year, k.Month, 1).AddMonths(1).AddDays(-1));
+
+        List<DailyAttendance> monthRecords;
+        using (var db = await _factory.CreateDbContextAsync())
+        {
+            monthRecords = await db.DailyAttendances
+                .AsNoTracking()
+                .Where(d => d.Date >= rangeStart
+                    && d.Date <= rangeEnd
+                    && employeeNos.Contains(d.EmployeeFinancialNo))
+                .ToListAsync();
+            await RefreshTransientStatusesAsync(db, monthRecords);
+        }
+
+        foreach (var monthGroup in monthRecords.GroupBy(r => new
+                 {
+                     r.EmployeeFinancialNo,
+                     r.Date.Year,
+                     r.Date.Month
+                 }))
+        {
+            var key = (monthGroup.Key.EmployeeFinancialNo, monthGroup.Key.Year, monthGroup.Key.Month);
+            if (!keys.Contains(key))
+                continue;
+
+            var used = 0;
+            foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
+            {
+                var dailyMinutes = string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
+                    ? AttendanceStatusRules.GetLateMinutes(record)
+                    : 0;
+                used += dailyMinutes;
+                snapshots[record.Id] = new LateAllowanceSnapshot(
+                    dailyMinutes,
+                    used,
+                    Math.Max(0, AttendanceStatusRules.MonthlyLateAllowanceMinutes - used));
+            }
+        }
+
+        return snapshots;
+    }
+
     public async Task<List<TopManagementDailyRow>> GetTopManagementDailyAsync(DateTime date)
     {
         using var db = await _factory.CreateDbContextAsync();
@@ -182,6 +240,69 @@ public class AttendanceTrackerService
                 MissingTodayCheckIn = todayRecord == null || !todayRecord.FirstPunch.HasValue,
                 Notes = string.Join(" - ", notes)
             });
+        }
+
+        return rows;
+    }
+
+    public async Task<List<TopManagementOvertimeRow>> GetTopManagementOvertimeAsync(DateTime fromDate, DateTime toDate)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+
+        var employees = await db.Employees
+            .AsNoTracking()
+            .Where(e => e.Level != null && e.Level.Trim() == "اداره عليا")
+            .ToListAsync();
+
+        employees = employees
+            .OrderBy(e => long.TryParse(e.FinancialNo, out var fin) ? fin : long.MaxValue)
+            .ThenBy(e => e.FinancialNo)
+            .ToList();
+
+        var financialNumbers = employees.Select(e => e.FinancialNo).ToList();
+
+        var records = await db.DailyAttendances
+            .AsNoTracking()
+            .Where(d => financialNumbers.Contains(d.EmployeeFinancialNo)
+                && d.Date >= fromDate.Date && d.Date <= toDate.Date)
+            .ToListAsync();
+
+        var overtimeThreshold = TimeSpan.FromHours(15.5); // 15:30
+        var rows = new List<TopManagementOvertimeRow>();
+
+        foreach (var employee in employees)
+        {
+            var empRecords = records
+                .Where(r => r.EmployeeFinancialNo == employee.FinancialNo)
+                .OrderBy(r => r.Date)
+                .ToList();
+
+            foreach (var record in empRecords)
+            {
+                if (record.LastPunch.HasValue)
+                {
+                    var lastPunchEgypt = ToEgyptTime(record.LastPunch.Value);
+                    if (lastPunchEgypt.HasValue)
+                    {
+                        var punchTime = lastPunchEgypt.Value.TimeOfDay;
+                        
+                        if (punchTime > overtimeThreshold)
+                        {
+                            var overtimeMinutes = (int)(punchTime - overtimeThreshold).TotalMinutes;
+                            rows.Add(new TopManagementOvertimeRow
+                            {
+                                FinancialNo = employee.FinancialNo,
+                                Name = employee.Name,
+                                JobTitle = employee.JobTitle,
+                                Department = employee.Department,
+                                Date = record.Date,
+                                LastPunch = lastPunchEgypt,
+                                OvertimeMinutes = overtimeMinutes
+                            });
+                        }
+                    }
+                }
+            }
         }
 
         return rows;
@@ -481,6 +602,23 @@ public class TopManagementDailyRow
     public bool MissingTodayCheckIn { get; set; }
     public string Notes { get; set; } = string.Empty;
 }
+
+public class TopManagementOvertimeRow
+{
+    public string FinancialNo { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? JobTitle { get; set; }
+    public string? Department { get; set; }
+    public DateTime Date { get; set; }
+    public DateTime? LastPunch { get; set; }
+    public int OvertimeMinutes { get; set; }
+    public string OvertimeFormatted => OvertimeMinutes > 0 ? $"{OvertimeMinutes / 60}:{OvertimeMinutes % 60:D2}" : "-";
+}
+
+public sealed record LateAllowanceSnapshot(
+    int DailyMinutes,
+    int UsedMinutes,
+    int RemainingMinutes);
 
 public sealed record AttendanceRecalculationResult(
     int ProcessedCount,

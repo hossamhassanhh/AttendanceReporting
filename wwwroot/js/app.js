@@ -3115,7 +3115,7 @@ populateResetPasswordUsers(users);
 
     if ($('adminRole')) {
         $('adminRole').addEventListener('change', loadAdminData);
-        $('saveUserBtn').addEventListener('click', function () {
+$('saveUserBtn').addEventListener('click', function () {
             var username = $('adminUsername').value.trim();
             if (!username) { showError(currentLang === 'ar' ? 'اسم المستخدم مطلوب' : 'Username is required'); return; }
             hideError();
@@ -3123,7 +3123,14 @@ populateResetPasswordUsers(users);
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: username, password: $('adminPassword').value, displayName: $('adminDisplayNameEn').value.trim() || $('adminDisplayNameAr').value.trim(), displayNameAr: $('adminDisplayNameAr').value.trim(), displayNameEn: $('adminDisplayNameEn').value.trim(), role: $('adminRole').value, permissions: getPermissionSelection(), isActive: true })
-            }).then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'تعذر حفظ المستخدم' : 'Could not save user'); return r.json(); })
+            }).then(function (r) {
+                if (!r.ok) {
+                    return r.json().then(function (e) {
+                        throw new Error(e && e.error ? e.error : (currentLang === 'ar' ? 'تعذر حفظ المستخدم' : 'Could not save user'));
+                    });
+                }
+                return r.json();
+            })
                 .then(loadAdminData)
                 .catch(function (err) { showError(err.message); });
         });
@@ -3150,8 +3157,12 @@ populateResetPasswordUsers(users);
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: password })
-            }).then(function (r) {
-                if (!r.ok) throw new Error(currentLang === 'ar' ? 'تعذر إعادة تعيين كلمة المرور' : 'Could not reset password');
+}).then(function (r) {
+                if (!r.ok) {
+                    return r.json().then(function (e) {
+                        throw new Error(e && e.error ? e.error : (currentLang === 'ar' ? 'تعذر إعادة تعيين كلمة المرور' : 'Could not reset password'));
+                    });
+                }
                 return r.json();
             }).then(function () {
                 $('resetPasswordValue').value = '';

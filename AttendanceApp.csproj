@@ -5,7 +5,7 @@
     <AspNetCoreHostingModel>OutOfProcess</AspNetCoreHostingModel>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <DefaultItemExcludes>$(DefaultItemExcludes);Tools\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;ZkPunchFixPublish\**;ZkPunchFixServerPublish\**;DeploymentPackages\**;.codex-*\**;Logs\**;DatabaseBackups\**;outputs\**;tmp\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Tools\**;IISPublish\**;ServerPublish\**;ServerPublishSelfContained\**;ZkListenerPublish\**;ZkListenerServerPublish\**;ZkPunchFixPublish\**;ZkPunchFixServerPublish\**;DeploymentPackages\**;.codex-*\**;Logs\**;DatabaseBackups\**;outputs\**;tmp\**;tmp_genhash\**</DefaultItemExcludes>
 
   </PropertyGroup>
 
