@@ -3371,6 +3371,34 @@ html[lang="en"] .monthly-attendance-wrap > table {
     align-self: flex-end;
 }
 
+/* Per-report titles inside the Reports tab. Unlike .section-heading
+   (whose text is hidden by the audit remediation above because the
+   workspace brief already shows the tab title), each report keeps its
+   own visible title and definition. */
+.report-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin: 18px 0 12px;
+}
+.report-heading > div {
+    min-width: 0;
+}
+.report-heading h2 {
+    font-size: 22px;
+    color: var(--navy);
+    margin: 4px 0 4px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+.report-heading p {
+    color: var(--muted);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+html[dir="ltr"] .report-heading { text-align: left; }
+
 .recalculate-action {
     color: #7a4b00;
     border-color: rgba(181, 112, 0, 0.32);
