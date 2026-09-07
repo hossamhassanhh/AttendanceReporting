@@ -313,6 +313,8 @@ chooseFile: 'اختيار ملف',
     i18n.ar.bulkImport = 'استيراد مجمع';
 i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.navReports = 'التقارير';
+    i18n.ar.reportsSectionKicker = 'التقارير';
+    i18n.ar.reportsSectionDesc = 'تقارير الإدارة العليا: العمل الإضافي والتقرير اليومي.';
     i18n.ar.reportsKicker = 'تقارير الإدارة العليا';
     i18n.ar.reportsTitle = 'العمل الإضافي للإدارة العليا';
     i18n.ar.reportsDesc = 'تقرير ساعات العمل الإضافي بعد 3:30 مساءً للإدارة العليا.';
@@ -405,6 +407,8 @@ i18n.ar.navDaily = 'التقرير اليومي';
     i18n.en.bulkImport = 'Bulk import';
 i18n.en.navDaily = 'Daily Report';
     i18n.en.navReports = 'Reports';
+    i18n.en.reportsSectionKicker = 'Reports';
+    i18n.en.reportsSectionDesc = 'Top management reports: overtime and daily report.';
     i18n.en.reportsKicker = 'Top Management Reports';
     i18n.en.reportsTitle = 'Top Management Overtime';
     i18n.en.reportsDesc = 'Overtime hours after 3:30 PM for top management.';
@@ -800,7 +804,7 @@ function showApplication() {
             leave: 'leaveTitle',
             export: 'monthlyTitle',
             daily: 'dailyTitle',
-            reports: 'reportsTitle',
+            reports: 'navReports',
             admin: 'adminTitle'
         };
         var descMap = {
@@ -810,7 +814,7 @@ function showApplication() {
             leave: 'leaveDesc',
             export: 'monthlyDesc',
             daily: 'dailyDesc',
-            reports: 'reportsDesc',
+            reports: 'reportsSectionDesc',
             admin: 'adminDesc'
         };
         var dict = i18n[currentLang] || i18n.ar;
