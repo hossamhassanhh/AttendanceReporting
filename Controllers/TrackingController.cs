@@ -264,16 +264,15 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         var rows = await _tracker.GetTopManagementOvertimeAsync(fromDate, toDate);
 
         var columns = isArabic
-            ? new[] { "الرقم المالي", "الاسم", "المسمى الوظيفي", "الإدارة", "التاريخ", "آخر انصراف", "ساعات العمل الإضافي", "دقائق العمل الإضافي" }
-            : new[] { "Financial No", "Name", "Job Title", "Department", "Date", "Last Punch", "Overtime (H:MM)", "Overtime Minutes" };
+            ? new[] { "الرقم المالي", "الاسم", "المسمى الوظيفي", "الإدارة", "عدد أيام العمل الإضافي", "إجمالي ساعات العمل الإضافي", "إجمالي دقائق العمل الإضافي" }
+            : new[] { "Financial No", "Name", "Job Title", "Department", "Overtime Days", "Total Overtime (H:MM)", "Total Overtime Minutes" };
         var dataRows = rows.Select(row => (IReadOnlyList<object?>)new object?[]
         {
             row.FinancialNo,
             row.Name,
             row.JobTitle,
             row.Department,
-            row.Date.ToString("yyyy-MM-dd"),
-            row.LastPunch?.ToString("HH:mm:ss") ?? "-",
+            row.OvertimeDays,
             row.OvertimeFormatted,
             row.OvertimeMinutes
         }).ToList();

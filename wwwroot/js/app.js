@@ -314,12 +314,12 @@ chooseFile: 'اختيار ملف',
 i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.navReports = 'التقارير';
     i18n.ar.reportsKicker = 'تقارير الإدارة العليا';
-    i18n.ar.reportsTitle = 'العمل الإضافي';
+    i18n.ar.reportsTitle = 'العمل الإضافي للإدارة العليا';
     i18n.ar.reportsDesc = 'تقرير ساعات العمل الإضافي بعد 3:30 مساءً للإدارة العليا.';
     i18n.ar.fromDate = 'من تاريخ';
     i18n.ar.toDate = 'إلى تاريخ';
     i18n.ar.showReport = 'عرض التقرير';
-    i18n.ar.overtimeResults = 'نتائج العمل الإضافي';
+    i18n.ar.overtimeResults = 'نتائج العمل الإضافي للإدارة العليا';
     i18n.ar.filterCriteria = 'عوامل التصفية والخيارات';
     i18n.ar.attStatusFilter = 'الحالة';
     i18n.ar.level = 'المستوى';
@@ -405,12 +405,12 @@ i18n.ar.navDaily = 'التقرير اليومي';
 i18n.en.navDaily = 'Daily Report';
     i18n.en.navReports = 'Reports';
     i18n.en.reportsKicker = 'Top Management Reports';
-    i18n.en.reportsTitle = 'Overtime';
+    i18n.en.reportsTitle = 'Top Management Overtime';
     i18n.en.reportsDesc = 'Overtime hours after 3:30 PM for top management.';
     i18n.en.fromDate = 'From Date';
     i18n.en.toDate = 'To Date';
     i18n.en.showReport = 'Show Report';
-    i18n.en.overtimeResults = 'Overtime Results';
+    i18n.en.overtimeResults = 'Top Management Overtime Results';
     i18n.en.filterCriteria = 'Filters and options';
     i18n.en.attStatusFilter = 'Status';
     i18n.en.level = 'Level';
@@ -2067,10 +2067,9 @@ function updateLeaveDays(fromId, toId, daysId) {
             '<th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th>' +
             '<th>' + (currentLang === 'ar' ? 'المسمى الوظيفي' : 'Job Title') + '</th>' +
             '<th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th>' +
-            '<th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th>' +
-            '<th>' + (currentLang === 'ar' ? 'آخر انصراف' : 'Last Punch') + '</th>' +
-            '<th>' + (currentLang === 'ar' ? 'ساعات العمل الإضافي' : 'Overtime (H:MM)') + '</th>' +
-            '<th>' + (currentLang === 'ar' ? 'دقائق العمل الإضافي' : 'Overtime Minutes') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'عدد أيام العمل الإضافي' : 'Overtime Days') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'إجمالي ساعات العمل الإضافي' : 'Total Overtime (H:MM)') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'إجمالي دقائق العمل الإضافي' : 'Total Overtime Minutes') + '</th>' +
             '</tr></thead><tbody>';
 
         data.forEach(function (r, i) {
@@ -2080,8 +2079,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td class="name-cell">' + r.Name + '</td>' +
                 '<td>' + (r.JobTitle || '-') + '</td>' +
                 '<td>' + (r.Department || '-') + '</td>' +
-                '<td>' + (r.Date ? r.Date.split('T')[0] : '-') + '</td>' +
-                '<td class="time-cell">' + (r.LastPunch ? fmtTime(r.LastPunch) : '-') + '</td>' +
+                '<td>' + (r.OvertimeDays || 0) + '</td>' +
                 '<td class="duration">' + (r.OvertimeFormatted || '-') + '</td>' +
                 '<td>' + (r.OvertimeMinutes || 0) + '</td>' +
                 '</tr>';

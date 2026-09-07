@@ -272,37 +272,35 @@ public class AttendanceTrackerService
 
         foreach (var employee in employees)
         {
-            var empRecords = records
-                .Where(r => r.EmployeeFinancialNo == employee.FinancialNo)
-                .OrderBy(r => r.Date)
-                .ToList();
+            var totalMinutes = 0;
+            var overtimeDays = 0;
 
-            foreach (var record in empRecords)
+            foreach (var record in records.Where(r => r.EmployeeFinancialNo == employee.FinancialNo))
             {
-                if (record.LastPunch.HasValue)
+                if (!record.LastPunch.HasValue)
+                    continue;
+
+                var lastPunchEgypt = ToEgyptTime(record.LastPunch.Value);
+                if (!lastPunchEgypt.HasValue)
+                    continue;
+
+                var punchTime = lastPunchEgypt.Value.TimeOfDay;
+                if (punchTime > overtimeThreshold)
                 {
-                    var lastPunchEgypt = ToEgyptTime(record.LastPunch.Value);
-                    if (lastPunchEgypt.HasValue)
-                    {
-                        var punchTime = lastPunchEgypt.Value.TimeOfDay;
-                        
-                        if (punchTime > overtimeThreshold)
-                        {
-                            var overtimeMinutes = (int)(punchTime - overtimeThreshold).TotalMinutes;
-                            rows.Add(new TopManagementOvertimeRow
-                            {
-                                FinancialNo = employee.FinancialNo,
-                                Name = employee.Name,
-                                JobTitle = employee.JobTitle,
-                                Department = employee.Department,
-                                Date = record.Date,
-                                LastPunch = lastPunchEgypt,
-                                OvertimeMinutes = overtimeMinutes
-                            });
-                        }
-                    }
+                    totalMinutes += (int)(punchTime - overtimeThreshold).TotalMinutes;
+                    overtimeDays++;
                 }
             }
+
+            rows.Add(new TopManagementOvertimeRow
+            {
+                FinancialNo = employee.FinancialNo,
+                Name = employee.Name,
+                JobTitle = employee.JobTitle,
+                Department = employee.Department,
+                OvertimeDays = overtimeDays,
+                OvertimeMinutes = totalMinutes
+            });
         }
 
         return rows;
@@ -609,8 +607,7 @@ public class TopManagementOvertimeRow
     public string Name { get; set; } = string.Empty;
     public string? JobTitle { get; set; }
     public string? Department { get; set; }
-    public DateTime Date { get; set; }
-    public DateTime? LastPunch { get; set; }
+    public int OvertimeDays { get; set; }
     public int OvertimeMinutes { get; set; }
     public string OvertimeFormatted => OvertimeMinutes > 0 ? $"{OvertimeMinutes / 60}:{OvertimeMinutes % 60:D2}" : "-";
 }
