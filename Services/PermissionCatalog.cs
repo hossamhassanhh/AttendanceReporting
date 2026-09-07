@@ -18,7 +18,8 @@ public static class PermissionCatalog
         "SelfLeave",
         "LeaveApproval",
         "LeaveHR",
-        "AdSync"
+        "AdSync",
+        "Reports"
     };
 
     public static string AdminPermissions => string.Join(',', All);

@@ -17,21 +17,23 @@
     var employeeFilterOptions = null;
     var exportFilterOptions = null;
     var leaveDaysRequestId = 0;
-    var attendancePage = 1;
+var attendancePage = 1;
     var attendancePageSize = 50;
     var attendanceTotalCount = 0;
     var attendanceTotalPages = 1;
     var attendanceRequestController = null;
+    var overtimeRequestController = null;
 
     var i18n = {
         ar: {
             appTitle: 'نظام الحضور والإجازات',
             general: 'عام',
-            navAttendance: 'الحضور',
+navAttendance: 'الحضور',
             navEmployees: 'الموظفون',
             navBalances: 'الأرصدة',
             navLeave: 'الإجازات',
             navMonthly: 'التقرير الشهري',
+            navReports: 'التقارير',
             navAdmin: 'الإدارة',
             userName: 'حسام حسن',
             departmentName: 'تكنولوجيا المعلومات',
@@ -309,7 +311,15 @@ chooseFile: 'اختيار ملف',
     i18n.ar.cancel = 'إلغاء';
     i18n.ar.saveChanges = 'حفظ التعديلات';
     i18n.ar.bulkImport = 'استيراد مجمع';
-    i18n.ar.navDaily = 'التقرير اليومي';
+i18n.ar.navDaily = 'التقرير اليومي';
+    i18n.ar.navReports = 'التقارير';
+    i18n.ar.reportsKicker = 'تقارير الإدارة العليا';
+    i18n.ar.reportsTitle = 'العمل الإضافي';
+    i18n.ar.reportsDesc = 'تقرير ساعات العمل الإضافي بعد 3:30 مساءً للإدارة العليا.';
+    i18n.ar.fromDate = 'من تاريخ';
+    i18n.ar.toDate = 'إلى تاريخ';
+    i18n.ar.showReport = 'عرض التقرير';
+    i18n.ar.overtimeResults = 'نتائج العمل الإضافي';
     i18n.ar.filterCriteria = 'عوامل التصفية والخيارات';
     i18n.ar.attStatusFilter = 'الحالة';
     i18n.ar.level = 'المستوى';
@@ -392,7 +402,15 @@ chooseFile: 'اختيار ملف',
     i18n.en.cancel = 'Cancel';
     i18n.en.saveChanges = 'Save changes';
     i18n.en.bulkImport = 'Bulk import';
-    i18n.en.navDaily = 'Daily Report';
+i18n.en.navDaily = 'Daily Report';
+    i18n.en.navReports = 'Reports';
+    i18n.en.reportsKicker = 'Top Management Reports';
+    i18n.en.reportsTitle = 'Overtime';
+    i18n.en.reportsDesc = 'Overtime hours after 3:30 PM for top management.';
+    i18n.en.fromDate = 'From Date';
+    i18n.en.toDate = 'To Date';
+    i18n.en.showReport = 'Show Report';
+    i18n.en.overtimeResults = 'Overtime Results';
     i18n.en.filterCriteria = 'Filters and options';
     i18n.en.attStatusFilter = 'Status';
     i18n.en.level = 'Level';
@@ -1522,10 +1540,14 @@ function renderLeaveTypeOptions() {
             hide('monthlyExportActions');
             updateExportActiveFilters();
         }
-        if (tabName === 'daily') {
+if (tabName === 'daily') {
             lastDailyRows = null;
             $('dailyDate').valueAsDate = new Date();
             hide('dailyExportActions');
+        }
+        if (tabName === 'reports') {
+            lastOvertimeRecords = null;
+            hide('reportsExportActions');
         }
         if (tabName === 'admin') {
             lastAdminUsers = null;
@@ -1683,13 +1705,16 @@ if (tabName === 'admin' && currentUser) loadAdminData();
         });
     });
 
-    var today = new Date();
+var today = new Date();
     $('attFrom').valueAsDate = today;
     $('attTo').valueAsDate = today;
     $('dailyDate').valueAsDate = today;
     $('exportYear').value = today.getFullYear();
     $('exportMonth').value = String(today.getMonth() + 1);
     $('leaveDays').value = '';
+    // Reports tab - current month defaults
+    $('reportsFrom').value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+    $('reportsTo').value = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
     renderAttendanceFilterOptions();
     ['attEmployees', 'attMatchMode', 'attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
         var el = $(id);
@@ -1723,7 +1748,8 @@ renderExportFilterOptions();
             balances: 'balResults',
             leave: 'leaveResults',
             monthly: 'exportPreview',
-            daily: 'dailyResults'
+            daily: 'dailyResults',
+            reports: 'reportsResults'
         };
         var el = $(map[section]);
         return el && el.style.display !== 'none';
@@ -1757,8 +1783,30 @@ renderExportFilterOptions();
         var el = $(id);
         if (el) el.addEventListener('change', function () { scheduleAuto('monthly', function () { $('exportPreviewBtn').click(); }, 400); });
     });
-    if ($('dailyDate')) {
+if ($('dailyDate')) {
         $('dailyDate').addEventListener('change', function () { scheduleAuto('daily', function () { $('fetchDailyBtn').click(); }, 300); });
+    }
+    // Reports tab event listeners
+    if ($('fetchReportsBtn')) {
+        $('fetchReportsBtn').addEventListener('click', function () { fetchOvertimeReport(); });
+    }
+    ['reportsFrom', 'reportsTo'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { fetchOvertimeReport(); });
+    });
+    if ($('reportsExportExcelBtn')) {
+        $('reportsExportExcelBtn').addEventListener('click', function () {
+            var from = $('reportsFrom').value, to = $('reportsTo').value;
+            if (!from || !to) return;
+            window.open('/api/tracking/top-management/overtime/export/excel?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), '_blank');
+        });
+    }
+    if ($('reportsExportPdfBtn')) {
+        $('reportsExportPdfBtn').addEventListener('click', function () {
+            var from = $('reportsFrom').value, to = $('reportsTo').value;
+            if (!from || !to) return;
+            window.open('/api/tracking/top-management/overtime/export/pdf?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), '_blank');
+        });
     }
 
 function updateLeaveDays(fromId, toId, daysId) {
@@ -1950,6 +1998,100 @@ function updateLeaveDays(fromId, toId, daysId) {
         show('attExportActions');
         updateAttendancePagination();
         flashUpdated('attResults');
+    }
+
+    var lastOvertimeRecords = null;
+
+    function fetchOvertimeReport() {
+        var from = $('reportsFrom').value;
+        var to = $('reportsTo').value;
+        if (!from || !to) return;
+        var params = 'from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to);
+
+        if (overtimeRequestController) overtimeRequestController.abort();
+        overtimeRequestController = new AbortController();
+        var activeController = overtimeRequestController;
+
+        showLoading();
+        hideError();
+        hide('reportsResults');
+        hide('reportsExportActions');
+
+        fetch('/api/tracking/top-management/overtime?' + params + '&_=' + Date.now(), {
+            cache: 'no-store',
+            signal: activeController.signal
+        })
+            .then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'فشل التحميل' : 'Failed to load'); return r.json(); })
+            .then(function (data) {
+                if (activeController !== overtimeRequestController) return;
+                hideLoading();
+                lastOvertimeRecords = Array.isArray(data) ? data : (data.items || []);
+                renderOvertimeReport(lastOvertimeRecords);
+                show('reportsResults');
+                show('reportsExportActions');
+                flashUpdated('reportsResults');
+                overtimeRequestController = null;
+            })
+            .catch(function (err) {
+                if (err.name === 'AbortError') {
+                    if (!overtimeRequestController || activeController === overtimeRequestController) hideLoading();
+                    return;
+                }
+                hideLoading();
+                showError(err.message);
+                overtimeRequestController = null;
+            });
+    }
+
+    function renderOvertimeReport(data) {
+        var el = $('reportsResultsContent');
+        clear(el);
+
+        if (!data || data.length === 0) {
+            el.innerHTML = emptyState(
+                currentLang === 'ar' ? 'لا توجد بيانات ضمن الفترة المحددة' : 'No records found for the selected range',
+                currentLang === 'ar' ? 'جرّب توسيع الفترة.' : 'Try a wider date range.'
+            );
+            show('reportsResults');
+            hide('reportsExportActions');
+            flashUpdated('reportsResults');
+            return;
+        }
+
+        var tableLabel = i18n[currentLang].overtimeResults;
+        var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
+            '<div class="table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
+            '<table><thead><tr>' +
+            '<th>#</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المسمى الوظيفي' : 'Job Title') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'آخر انصراف' : 'Last Punch') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'ساعات العمل الإضافي' : 'Overtime (H:MM)') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'دقائق العمل الإضافي' : 'Overtime Minutes') + '</th>' +
+            '</tr></thead><tbody>';
+
+        data.forEach(function (r, i) {
+            html += '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + r.FinancialNo + '</td>' +
+                '<td class="name-cell">' + r.Name + '</td>' +
+                '<td>' + (r.JobTitle || '-') + '</td>' +
+                '<td>' + (r.Department || '-') + '</td>' +
+                '<td>' + (r.Date ? r.Date.split('T')[0] : '-') + '</td>' +
+                '<td class="time-cell">' + (r.LastPunch ? fmtTime(r.LastPunch) : '-') + '</td>' +
+                '<td class="duration">' + (r.OvertimeFormatted || '-') + '</td>' +
+                '<td>' + (r.OvertimeMinutes || 0) + '</td>' +
+                '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+        show('reportsResults');
+        show('reportsExportActions');
+        flashUpdated('reportsResults');
     }
 
     function renderEmployees(data) {
