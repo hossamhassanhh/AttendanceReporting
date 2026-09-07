@@ -2866,6 +2866,27 @@ button,
     overflow-x: auto;
 }
 
+/* Scrollbar side per language: Arabic scrollbars sit on the right,
+   English scrollbars sit on the left. The outer scroller carries the
+   scrollbar-side direction while the inner table keeps the content
+   reading direction, so column order is preserved. */
+html[lang="ar"] .table-scroll,
+html[lang="ar"] .monthly-attendance-wrap {
+    direction: ltr;
+}
+html[lang="ar"] .table-scroll > table,
+html[lang="ar"] .monthly-attendance-wrap > table {
+    direction: rtl;
+}
+html[lang="en"] .table-scroll,
+html[lang="en"] .monthly-attendance-wrap {
+    direction: rtl;
+}
+html[lang="en"] .table-scroll > table,
+html[lang="en"] .monthly-attendance-wrap > table {
+    direction: ltr;
+}
+
 @media (max-width: 1023px) {
     .app-shell {
         grid-template-columns: 1fr;
@@ -3303,12 +3324,12 @@ button,
     line-height: 1.55;
 }
 
-#tab-daily .compact-controls {
+#tab-reports .compact-controls {
     grid-template-columns: minmax(220px, 320px) minmax(280px, 1fr);
     align-items: end;
 }
 
-#tab-daily .query-actions {
+#tab-reports .query-actions {
     justify-content: flex-start;
     margin-inline-start: 0;
 }
@@ -3320,7 +3341,7 @@ button,
 }
 
 @media (max-width: 767px) {
-    #tab-daily .compact-controls {
+    #tab-reports .compact-controls {
         grid-template-columns: 1fr;
     }
 

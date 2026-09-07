@@ -60,7 +60,6 @@
                 <button class="tab" type="button" data-tab="balances" aria-controls="tab-balances" data-permission="Balances|SelfAttendance" data-i18n="navBalances"> الأرصدة</button>
                 <button class="tab" type="button" data-tab="leave" aria-controls="tab-leave" data-permission="Leaves|SelfLeave|LeaveApproval|LeaveHR" data-i18n="navLeave"> الإجازات</button>
                 <button class="tab" type="button" data-tab="export" aria-controls="tab-export" data-permission="MonthlyReports" data-i18n="navMonthly"> التقرير الشهري</button>
-                <button class="tab" type="button" data-tab="daily" aria-controls="tab-daily" data-permission="Attendance" data-i18n="navDaily"> التقرير اليومي</button>
                 <button class="tab" type="button" data-tab="reports" aria-controls="tab-reports" data-permission="Reports" data-i18n="navReports"> التقارير</button>
                 <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-permission="ManagePermissions|AdSync" data-i18n="navAdmin"> الإدارة</button>
             </nav>
@@ -594,39 +593,6 @@
                 </section>
             </section>
 
-            <section class="tab-content" id="tab-daily">
-                <div class="section-heading">
-                    <div>
-                        <span class="section-kicker" data-i18n="dailyKicker">الإدارة العليا</span>
-                        <h2 data-i18n="dailyTitle">التقرير اليومي</h2>
-                        <p data-i18n="dailyDesc">بصمات حضور وانصراف الإدارة العليا لليوم والأمس.</p>
-                    </div>
-                    <button class="refresh-action" type="button" data-refresh="daily" data-i18n="refresh">تحديث</button>
-                </div>
-                <div class="card filter-card">
-                    <div class="controls compact-controls">
-                        <div class="form-group">
-                            <label for="dailyDate" data-i18n="dailyDate">تاريخ التقرير</label>
-                            <input type="date" id="dailyDate">
-                        </div>
-                        <div class="query-actions">
-                            <button id="fetchDailyBtn" class="primary-action" type="button" data-i18n="showDaily">عرض التقرير</button>
-                            <button class="ghost clear-filters-action" type="button" data-clear-query="daily" data-i18n="clearFilters">مسح عوامل التصفية</button>
-                        </div>
-                    </div>
-                </div>
-                <section class="results" id="dailyResults" style="display:none;">
-                    <div class="results-header">
-                        <h3 data-i18n="dailyResults">نتائج التقرير اليومي</h3>
-                        <div id="dailyExportActions" class="table-actions" style="display:none;">
-                            <button id="exportDailyExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إلى Excel</button>
-                            <button id="exportDailyPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير إلى PDF</button>
-                        </div>
-                    </div>
-                    <div id="dailyResultsContent"></div>
-                </section>
-            </section>
-
             <section class="tab-content" id="tab-reports">
                 <div class="section-heading">
                     <div>
@@ -669,6 +635,36 @@
                         </div>
                     </div>
                     <div id="reportsResultsContent"></div>
+                </section>
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker" data-i18n="dailyKicker">الإدارة العليا</span>
+                        <h2 data-i18n="dailyTitle">التقرير اليومي للإدارة العليا</h2>
+                        <p data-i18n="dailyDesc">بصمات حضور وانصراف الإدارة العليا لليوم والأمس.</p>
+                    </div>
+                    <button class="refresh-action" type="button" data-refresh="daily" data-i18n="refresh">تحديث</button>
+                </div>
+                <div class="card filter-card">
+                    <div class="controls compact-controls">
+                        <div class="form-group">
+                            <label for="dailyDate" data-i18n="dailyDate">تاريخ التقرير</label>
+                            <input type="date" id="dailyDate">
+                        </div>
+                        <div class="query-actions">
+                            <button id="fetchDailyBtn" class="primary-action" type="button" data-i18n="showDaily">عرض التقرير</button>
+                            <button class="ghost clear-filters-action" type="button" data-clear-query="daily" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                        </div>
+                    </div>
+                </div>
+                <section class="results" id="dailyResults" style="display:none;">
+                    <div class="results-header">
+                        <h3 data-i18n="dailyResults">نتائج التقرير اليومي للإدارة العليا</h3>
+                        <div id="dailyExportActions" class="table-actions" style="display:none;">
+                            <button id="exportDailyExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إلى Excel</button>
+                            <button id="exportDailyPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير إلى PDF</button>
+                        </div>
+                    </div>
+                    <div id="dailyResultsContent"></div>
                 </section>
             </section>
 

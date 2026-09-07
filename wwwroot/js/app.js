@@ -328,11 +328,11 @@ i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.sortByFinNo = 'الرقم المالي';
     i18n.ar.sortByName = 'الاسم';
     i18n.ar.dailyKicker = 'الإدارة العليا';
-    i18n.ar.dailyTitle = 'التقرير اليومي';
+    i18n.ar.dailyTitle = 'التقرير اليومي للإدارة العليا';
     i18n.ar.dailyDesc = 'راجع بصمات حضور وانصراف الإدارة العليا حسب التاريخ المحدد.';
     i18n.ar.dailyDate = 'تاريخ التقرير';
     i18n.ar.showDaily = 'عرض التقرير';
-    i18n.ar.dailyResults = 'نتائج التقرير اليومي';
+    i18n.ar.dailyResults = 'نتائج التقرير اليومي للإدارة العليا';
     i18n.ar.recalculateAttendance = 'إعادة احتساب الحالات';
     i18n.ar.recalculationConfirm = 'سيتم إعادة احتساب حالات الحضور للفترة والموظفين المحددين. هل تريد المتابعة؟';
     i18n.ar.recalculationComplete = 'اكتملت إعادة الاحتساب';
@@ -419,11 +419,11 @@ i18n.en.navDaily = 'Daily Report';
     i18n.en.sortByFinNo = 'Financial number';
     i18n.en.sortByName = 'Name';
     i18n.en.dailyKicker = 'Executive Attendance';
-    i18n.en.dailyTitle = 'Daily Report';
+    i18n.en.dailyTitle = 'Top Management Daily Report';
     i18n.en.dailyDesc = 'Review executive attendance punches for today or the selected date.';
     i18n.en.dailyDate = 'Report date';
     i18n.en.showDaily = 'Show Report';
-    i18n.en.dailyResults = 'Daily Report Results';
+    i18n.en.dailyResults = 'Top Management Daily Report Results';
     i18n.en.recalculateAttendance = 'Recalculate statuses';
     i18n.en.recalculationConfirm = 'Attendance statuses will be recalculated for the selected period and employees. Continue?';
     i18n.en.recalculationComplete = 'Recalculation complete';
@@ -582,6 +582,7 @@ ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
         }
         if (lastMonthlyPreview && $('exportPreview') && $('exportPreview').style.display !== 'none') renderMonthlyPreview(lastMonthlyPreview, lastMonthlyInfo);
         if (lastDailyRows && $('dailyResults') && $('dailyResults').style.display !== 'none') renderDaily(lastDailyRows);
+        if (lastOvertimeRecords && $('reportsResults') && $('reportsResults').style.display !== 'none') renderOvertimeReport(lastOvertimeRecords);
         if (lastPermissionsAll && $('adminPermissions')) renderPermissions(lastPermissionsAll, getPermissionSelection());
         if (lastAdminUsers && lastAdminDays && $('adminResults') && $('adminResults').style.display !== 'none') renderAdminTables(lastAdminUsers, lastAdminDays);
     }
@@ -797,6 +798,7 @@ function showApplication() {
             leave: 'leaveTitle',
             export: 'monthlyTitle',
             daily: 'dailyTitle',
+            reports: 'reportsTitle',
             admin: 'adminTitle'
         };
         var descMap = {
@@ -806,6 +808,7 @@ function showApplication() {
             leave: 'leaveDesc',
             export: 'monthlyDesc',
             daily: 'dailyDesc',
+            reports: 'reportsDesc',
             admin: 'adminDesc'
         };
         var dict = i18n[currentLang] || i18n.ar;
@@ -1658,6 +1661,7 @@ if (tabName === 'daily') {
     });
 
 function activateTab(tabName, clearPrevious) {
+        if (tabName === 'daily') tabName = 'reports';
         var target = document.querySelector('.tab[data-tab="' + tabName + '"]');
         if (!target) return;
         var permissions = target.getAttribute('data-permission');
@@ -2075,13 +2079,13 @@ function updateLeaveDays(fromId, toId, daysId) {
         data.forEach(function (r, i) {
             html += '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
-                '<td>' + r.FinancialNo + '</td>' +
-                '<td class="name-cell">' + r.Name + '</td>' +
-                '<td>' + (r.JobTitle || '-') + '</td>' +
-                '<td>' + (r.Department || '-') + '</td>' +
-                '<td>' + (r.OvertimeDays || 0) + '</td>' +
-                '<td class="duration">' + (r.OvertimeFormatted || '-') + '</td>' +
-                '<td>' + (r.OvertimeMinutes || 0) + '</td>' +
+                '<td>' + r.financialNo + '</td>' +
+                '<td class="name-cell">' + r.name + '</td>' +
+                '<td>' + (r.jobTitle || '-') + '</td>' +
+                '<td>' + (r.department || '-') + '</td>' +
+                '<td>' + (r.overtimeDays || 0) + '</td>' +
+                '<td class="duration">' + (r.overtimeFormatted || '-') + '</td>' +
+                '<td>' + (r.overtimeMinutes || 0) + '</td>' +
                 '</tr>';
         });
 
@@ -2942,12 +2946,12 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
         for (var columnSummary = 0; columnSummary < 9; columnSummary++) html += '<col class="col-summary">';
         html += '<col class="col-department"><col class="col-level"><col class="col-box"></colgroup>';
         html += '<thead>';
-        html += '<tr class="template-title"><th></th><th colspan="44">time sheet periood&nbsp;&nbsp;' + monthLabel + ' ' + info.year + '</th><th colspan="3"></th></tr>';
+        html += '<tr class="template-title"><th></th><th colspan="44">' + labels.caption + '</th><th colspan="3"></th></tr>';
         html += '<tr class="template-meta">';
         html += '<th colspan="2"></th>';
-        html += '<th colspan="8">' + (info.dept || 'جميع الإدارات') + '</th>';
+        html += '<th colspan="8">' + (info.dept || (currentLang === 'ar' ? 'جميع الإدارات' : 'All Departments')) + '</th>';
         html += '<th colspan="2">Dep :</th>';
-        html += '<th colspan="7">Loction : المركز الرئيسى</th>';
+        html += '<th colspan="7">' + (currentLang === 'ar' ? 'Loction : المركز الرئيسى' : 'Location : Main Center') + '</th>';
         html += '<th colspan="29"></th>';
         html += '</tr>';
         var legendRows = [
@@ -2967,26 +2971,26 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
         });
         html += '<tr>';
         html += '<th colspan="36" class="template-header-blank"></th>';
-        html += '<th class="srow-ar">أيام<br> حضور</th>';
-        html += '<th class="srow-ar">اجازة<br> إعتيادى</th>';
-        html += '<th class="srow-ar">أيام<br> مرضى</th>';
-        html += '<th class="srow-ar">أيام<br>عارضه</th>';
-        html += '<th class="srow-ar">غياب</th>';
-        html += '<th class="srow-ar">راحه</th>';
-        html += '<th class="srow-ar">مأمورية<br>خارجية</th>';
-        html += '<th class="srow-ar">مأمورية<br>داخلية</th>';
-        html += '<th class="srow-ar">دورة تدريب</th>';
+        html += '<th class="srow-ar">' + labels.present + '</th>';
+        html += '<th class="srow-ar">' + labels.regular + '</th>';
+        html += '<th class="srow-ar">' + labels.sick + '</th>';
+        html += '<th class="srow-ar">' + labels.casual + '</th>';
+        html += '<th class="srow-ar">' + labels.absent + '</th>';
+        html += '<th class="srow-ar">' + labels.rest + '</th>';
+        html += '<th class="srow-ar">' + labels.extMission + '</th>';
+        html += '<th class="srow-ar">' + labels.intMission + '</th>';
+        html += '<th class="srow-ar">' + labels.training + '</th>';
         html += '<th colspan="3" class="template-header-blank"></th>';
         html += '</tr><tr>';
-        html += '<th>PR</th><th>Name</th><th>Job Title</th>';
+        html += '<th>' + labels.pr + '</th><th>' + labels.name + '</th><th>' + labels.jobTitle + '</th>';
         for (var d = 1; d <= displayDays; d++) {
             var dow = new Date(parseInt(info.year), parseInt(info.month) - 1, d).getDay();
             var cls = (d > daysInMonth || dow === 5 || dow === 6) ? ' class="sday-gray"' : '';
             html += '<th' + cls + '>' + d + '</th>';
         }
-        html += '<th>Total Working Days</th><th>Employee Signature</th>';
+        html += '<th>' + labels.total + '</th><th>' + labels.signature + '</th>';
         html += '<th>X</th><th>A</th><th>S</th><th>C</th><th>B</th><th>E</th><th>DI</th><th>DX</th><th>T</th>';
-        html += '<th>الادارة العامة</th><th>المستوى الوظيفى</th><th>Box</th>';
+        html += '<th>' + labels.department + '</th><th>' + labels.level + '</th><th>' + labels.box + '</th>';
         html += '</tr></thead><tbody>';
 
         data.forEach(function (emp) {
@@ -3350,6 +3354,10 @@ $('saveUserBtn').addEventListener('click', function () {
                 break;
             case 'daily':
                 $('fetchDailyBtn').click();
+                break;
+            case 'reports':
+                if ($('reportsResults') && $('reportsResults').style.display !== 'none') fetchOvertimeReport();
+                if ($('dailyResults') && $('dailyResults').style.display !== 'none') $('fetchDailyBtn').click();
                 break;
             case 'admin':
                 loadAdminData();
