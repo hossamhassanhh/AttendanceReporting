@@ -44,10 +44,10 @@ public class ExcelImportService
 
         var levelMap = new Dictionary<int, string>
         {
-            { 0, "Level 3" },
-            { 1, "Level 2" },
-            { 2, "Level 1" },
-            { 3, "Top Management" },
+            { 0, "المستوى الثالث" },
+            { 1, "المستوى الثانى" },
+            { 2, "المستوى الاول" },
+            { 3, "اداره عليا" },
             { 4, "Ladies" }
         };
 

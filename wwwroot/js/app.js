@@ -323,6 +323,7 @@ i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.filterCriteria = 'عوامل التصفية والخيارات';
     i18n.ar.attStatusFilter = 'الحالة';
     i18n.ar.level = 'المستوى';
+    i18n.ar.standardJobs = 'وظائف نمطية';
     i18n.ar.area = 'المنطقة';
     i18n.ar.shift = 'الوردية';
     i18n.ar.sortByFinNo = 'الرقم المالي';
@@ -414,6 +415,7 @@ i18n.en.navDaily = 'Daily Report';
     i18n.en.filterCriteria = 'Filters and options';
     i18n.en.attStatusFilter = 'Status';
     i18n.en.level = 'Level';
+    i18n.en.standardJobs = 'Standard Jobs';
     i18n.en.area = 'Area';
     i18n.en.shift = 'Schedule';
     i18n.en.sortByFinNo = 'Financial number';
@@ -1276,12 +1278,25 @@ function renderLeaveTypeOptions() {
         sel.value = Array.from(sel.options).some(function (opt) { return opt.value === selected; }) ? selected : '';
     }
 
+    function appendStandardJobsOption(id) {
+        var sel = $(id);
+        if (!sel) return;
+        var dict = i18n[currentLang] || i18n.ar;
+        var selected = sel.value;
+        var opt = document.createElement('option');
+        opt.value = 'وظائف نمطية';
+        opt.textContent = dict.standardJobs || 'وظائف نمطية';
+        sel.appendChild(opt);
+        if (selected === 'وظائف نمطية') sel.value = selected;
+    }
+
     function renderAttendanceFilterOptions() {
         var statusValues = ['Present', 'Pending', 'Checked In', 'Missing Check Out', 'Late', 'Early Leave', 'Absent', 'Leave', 'Holiday', 'Weekly Rest', 'Work From Home', 'Mission', 'Training'];
         setSelectOptions('attStatus', statusValues, statusLabel);
         if (!attendanceFilterOptions) return;
         setSelectOptions('attDepartment', optionList(attendanceFilterOptions, 'departments'));
         setSelectOptions('attLevel', optionList(attendanceFilterOptions, 'levels'));
+        appendStandardJobsOption('attLevel');
         setSelectOptions('attArea', optionList(attendanceFilterOptions, 'areas'));
         setSelectOptions('attSchedule', optionList(attendanceFilterOptions, 'schedules'));
     }
@@ -1306,6 +1321,7 @@ function renderLeaveTypeOptions() {
         if (!employeeFilterOptions) return;
         setSelectOptions('empDepartment', optionList(employeeFilterOptions, 'departments'));
         setSelectOptions('empLevel', optionList(employeeFilterOptions, 'levels'));
+        appendStandardJobsOption('empLevel');
         setSelectOptions('empArea', optionList(employeeFilterOptions, 'areas'));
         setSelectOptions('empStatus', optionList(employeeFilterOptions, 'statuses'));
     }
@@ -1330,6 +1346,7 @@ function renderLeaveTypeOptions() {
         if (!exportFilterOptions) return;
         setSelectOptions('exportDept', optionList(exportFilterOptions, 'departments'));
         setSelectOptions('exportLevel', optionList(exportFilterOptions, 'levels'));
+        appendStandardJobsOption('exportLevel');
         setSelectOptions('exportArea', optionList(exportFilterOptions, 'areas'));
     }
 

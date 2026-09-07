@@ -104,6 +104,7 @@ public class ExportService
         var departmentTerm = department?.Trim();
         var levelTerm = level?.Trim();
         var areaTerm = area?.Trim();
+        var levelIsStandardGroup = AttendanceStatusRules.IsStandardJobLevelsGroup(levelTerm);
         var monthStart = new DateTime(year, month, 1);
         var monthEnd = monthStart.AddMonths(1);
 
@@ -111,7 +112,7 @@ public class ExportService
             .AsNoTracking()
             .Where(e => e.IsActive
                 && (string.IsNullOrWhiteSpace(departmentTerm) || (e.Department != null && e.Department.Contains(departmentTerm)))
-                && (string.IsNullOrWhiteSpace(levelTerm) || (e.Level != null && e.Level == levelTerm))
+                && (string.IsNullOrWhiteSpace(levelTerm) || (e.Level != null && (levelIsStandardGroup ? AttendanceStatusRules.StandardJobLevels.Contains(e.Level!) : e.Level == levelTerm)))
                 && (string.IsNullOrWhiteSpace(areaTerm) || (e.WorkLocation != null && e.WorkLocation == areaTerm)))
             .OrderBy(e => e.FinancialNo)
             .ToListAsync();
@@ -162,6 +163,7 @@ public class ExportService
         var departmentTerm = department?.Trim();
         var levelTerm = level?.Trim();
         var areaTerm = area?.Trim();
+        var levelIsStandardGroup = AttendanceStatusRules.IsStandardJobLevelsGroup(levelTerm);
         var monthStart = new DateTime(year, month, 1);
         var monthEnd = monthStart.AddMonths(1);
 
@@ -169,7 +171,7 @@ public class ExportService
             .AsNoTracking()
             .Where(e => e.IsActive
                 && (string.IsNullOrWhiteSpace(departmentTerm) || (e.Department != null && e.Department.Contains(departmentTerm)))
-                && (string.IsNullOrWhiteSpace(levelTerm) || (e.Level != null && e.Level == levelTerm))
+                && (string.IsNullOrWhiteSpace(levelTerm) || (e.Level != null && (levelIsStandardGroup ? AttendanceStatusRules.StandardJobLevels.Contains(e.Level!) : e.Level == levelTerm)))
                 && (string.IsNullOrWhiteSpace(areaTerm) || (e.WorkLocation != null && e.WorkLocation == areaTerm)))
             .OrderBy(e => e.FinancialNo)
             .ToListAsync();

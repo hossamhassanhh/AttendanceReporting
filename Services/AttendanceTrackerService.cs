@@ -105,7 +105,9 @@ public class AttendanceTrackerService
             query = query.Where(d => d.Employee != null && d.Employee.Department == department);
 
         if (!string.IsNullOrWhiteSpace(level))
-            query = query.Where(d => d.Employee != null && d.Employee.Level == level);
+            query = AttendanceStatusRules.IsStandardJobLevelsGroup(level)
+                ? query.Where(d => d.Employee != null && d.Employee.Level != null && AttendanceStatusRules.StandardJobLevels.Contains(d.Employee.Level))
+                : query.Where(d => d.Employee != null && d.Employee.Level == level);
 
         if (!string.IsNullOrWhiteSpace(area))
             query = query.Where(d => d.Employee != null && d.Employee.WorkLocation == area);
@@ -450,7 +452,9 @@ public class AttendanceTrackerService
         if (!string.IsNullOrWhiteSpace(department))
             query = query.Where(record => record.Employee != null && record.Employee.Department == department);
         if (!string.IsNullOrWhiteSpace(level))
-            query = query.Where(record => record.Employee != null && record.Employee.Level == level);
+            query = AttendanceStatusRules.IsStandardJobLevelsGroup(level)
+                ? query.Where(record => record.Employee != null && record.Employee.Level != null && AttendanceStatusRules.StandardJobLevels.Contains(record.Employee.Level))
+                : query.Where(record => record.Employee != null && record.Employee.Level == level);
         if (!string.IsNullOrWhiteSpace(area))
             query = query.Where(record => record.Employee != null && record.Employee.WorkLocation == area);
         if (!string.IsNullOrWhiteSpace(scheduleStart))

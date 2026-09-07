@@ -109,6 +109,18 @@ public static class AttendanceStatusRules
     public static bool IsAutomaticStatus(string? status) =>
         !string.IsNullOrWhiteSpace(status) && AutomaticStatuses.Contains(status);
 
+    public const string StandardJobLevelsGroupName = "وظائف نمطية";
+
+    public static readonly string[] StandardJobLevels =
+    {
+        "المستوى الاول",
+        "المستوى الثانى",
+        "المستوى الثالث"
+    };
+
+    public static bool IsStandardJobLevelsGroup(string? level) =>
+        string.Equals(level?.Trim(), StandardJobLevelsGroupName, StringComparison.Ordinal);
+
     public static ScheduleRule? ResolveSchedule(
         Employee employee,
         IReadOnlyCollection<ScheduleRule> rules)

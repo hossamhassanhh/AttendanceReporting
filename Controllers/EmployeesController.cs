@@ -149,7 +149,9 @@ public class EmployeesController : ControllerBase
         if (!string.IsNullOrWhiteSpace(department))
             query = query.Where(employee => employee.Department == department);
         if (!string.IsNullOrWhiteSpace(level))
-            query = query.Where(employee => employee.Level == level);
+            query = AttendanceStatusRules.IsStandardJobLevelsGroup(level)
+                ? query.Where(employee => employee.Level != null && AttendanceStatusRules.StandardJobLevels.Contains(employee.Level))
+                : query.Where(employee => employee.Level == level);
         if (!string.IsNullOrWhiteSpace(area))
             query = query.Where(employee => employee.WorkLocation == area);
         if (!string.IsNullOrWhiteSpace(status))
