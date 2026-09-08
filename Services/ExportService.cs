@@ -43,6 +43,7 @@ public class ExportService
         { "C", "C" }, { "Casual", "C" }, { "Casual Leave", "C" },
         { "B", "B" }, { "Absence", "B" },
         { "E", "E" }, { "Rest", "E" }, { "Rest Allowance", "E" },
+        { "H", "E" },
         { "DI", "DI" }, { "External Mission", "DI" },
         { "DX", "DX" }, { "Internal Mission", "DX" },
         { "T", "T" }, { "Training", "T" },
@@ -217,13 +218,13 @@ public class ExportService
             int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
             int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
 
-            var lateCredit = new LateCreditTracker();
+            var permissions = new PermissionTracker();
             for (int d = 1; d <= daysInMonth; d++)
             {
                 var empAtts = attByEmpDate.GetValueOrDefault(emp.FinancialNo);
                 var empMons = monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo);
                 var empLeaves = leaveAtt.GetValueOrDefault(emp.FinancialNo);
-                var code = GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, lateCredit);
+                var code = GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, permissions);
 
                 codes[d - 1] = code;
                 if (!string.IsNullOrEmpty(code))
@@ -518,7 +519,7 @@ public class ExportService
         Dictionary<int, MonthlyAttendance>? monthlyByDay,
         Dictionary<int, string>? leaveByDay,
         IReadOnlyCollection<AttendanceDaySetting>? calendarSettings,
-        LateCreditTracker? credit = null)
+        PermissionTracker? permissions = null)
     {
         if (leaveByDay != null && leaveByDay.TryGetValue(day, out var leaveCode))
             return NormalizeMonthlyCode(leaveCode);
@@ -529,10 +530,18 @@ public class ExportService
 
         if (dailyByDay != null && dailyByDay.TryGetValue(day, out var da))
         {
-            if (credit != null && string.Equals(da.Status, "Late", StringComparison.OrdinalIgnoreCase))
+            if (permissions != null && string.Equals(da.Status, "Late", StringComparison.OrdinalIgnoreCase))
             {
-                credit.Consume(AttendanceStatusRules.GetLateMinutes(da));
-                return credit.IsCovered ? "X" : "B";
+                var lateMinutes = AttendanceStatusRules.GetLateMinutes(da);
+                return permissions.TryConsumeLate(lateMinutes) ? "X1" : "B";
+            }
+
+            if (permissions != null
+                && string.Equals(da.Status, "Early Leave", StringComparison.OrdinalIgnoreCase)
+                && da.LastPunch.HasValue
+                && permissions.TryConsumeEarlyLeave(AttendanceStatusRules.ToEgyptTime(da.LastPunch.Value).TimeOfDay))
+            {
+                return "X2";
             }
 
             return GetCodeFromDaily(da);
@@ -636,14 +645,14 @@ public class ExportService
                 int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
 
                 var dayCodes = new object[1, 31];
-                var lateCredit = new LateCreditTracker();
+                var permissions = new PermissionTracker();
                 for (var d = 1; d <= 31; d++)
                 {
                     var empAtts = attByEmpDate.GetValueOrDefault(emp.FinancialNo);
                     var empMons = monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo);
                     var empLeaves = leaveByEmpDate.GetValueOrDefault(emp.FinancialNo);
                     var code = d <= daysInMonth
-                        ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, null, lateCredit)
+                        ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, null, permissions)
                         : string.Empty;
 
                     dayCodes[0, d - 1] = code;
@@ -841,11 +850,11 @@ public class ExportService
             int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
             int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
             var allCodes = new string[31];
-            var lateCredit = new LateCreditTracker();
+            var permissions = new PermissionTracker();
             for (var d = 1; d <= 31; d++)
             {
                 var code = d <= daysInMonth
-                    ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, lateCredit)
+                    ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, permissions)
                     : string.Empty;
                 allCodes[d - 1] = code;
                 if (!string.IsNullOrEmpty(code))
@@ -990,11 +999,11 @@ public class ExportService
             int presentDays = 0, regLeave = 0, sickDays = 0, casualDays = 0;
             int absenceDays = 0, restDays = 0, extMission = 0, intMission = 0, trainingDays = 0;
 
-            var lateCredit = new LateCreditTracker();
+            var permissions = new PermissionTracker();
             for (var d = 1; d <= 31; d++)
             {
                 var code = d <= daysInMonth
-                    ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, lateCredit)
+                    ? GetMonthlyCode(year, month, d, empAtts, empMons, empLeaves, calendarSettings, permissions)
                     : string.Empty;
 
                 var cell = ws.Cell(row, 3 + d);
@@ -1698,7 +1707,7 @@ public class ExportService
         {
             // Same monthly-code pipeline as the monthly sheet (including the
             // late-credit accrual across the month); present = X-family codes.
-            var lateCredit = new LateCreditTracker();
+            var permissions = new PermissionTracker();
             var presentDays = 0;
             for (int d = 1; d <= daysInMonth; d++)
             {
@@ -1706,7 +1715,7 @@ public class ExportService
                     attByEmpDate.GetValueOrDefault(emp.FinancialNo),
                     monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo),
                     leaveAtt.GetValueOrDefault(emp.FinancialNo),
-                    calendarSettings, lateCredit);
+                    calendarSettings, permissions);
                 if (code == "X" || code == "WH")
                     presentDays++;
             }

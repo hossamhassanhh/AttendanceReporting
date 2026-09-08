@@ -403,7 +403,7 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         ws.Cell(4, 8).Value = "الانصراف";
         ws.Cell(4, 9).Value = "الموعد";
         ws.Cell(4, 10).Value = "دقائق التأخير";
-        ws.Cell(4, 11).Value = "المتبقي من 30 دقيقة";
+        ws.Cell(4, 11).Value = "المتبقي من ساعتين";
 
         var headerRange = ws.Range(4, 1, 4, 11);
         headerRange.Style.Font.Bold = true;

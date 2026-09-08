@@ -5,7 +5,9 @@ namespace AttendanceApp.Services;
 public static class AttendanceStatusRules
 {
     public const int CheckOutGraceMinutes = 30;
-    public const int MonthlyLateAllowanceMinutes = 30;
+    public const int MonthlyLateAllowanceMinutes = 120;
+    public const int EarlyLeavePermissionMonthlyCount = 2;
+    public static readonly TimeSpan EarlyLeavePermissionStart = new(10, 0, 0);
 
     private static readonly HashSet<string> AutomaticStatuses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -157,19 +159,31 @@ public static class AttendanceStatusRules
         var utc = DateTime.SpecifyKind(value, DateTimeKind.Utc);
         return utc.AddHours(2);
     }
+
+    public static DateTime ToEgyptTime(DateTime value) => AsEgyptTime(value);
 }
 
-public sealed class LateCreditTracker
+public sealed class PermissionTracker
 {
-    public const int AllowanceMinutes = AttendanceStatusRules.MonthlyLateAllowanceMinutes;
+    public int LateMinutesUsed { get; private set; }
 
-    public int UsedMinutes { get; private set; }
+    public int EarlyLeavesUsed { get; private set; }
 
-    public void Consume(int minutes)
+    public bool TryConsumeLate(int minutes)
     {
-        if (minutes > 0)
-            UsedMinutes += minutes;
+        if (minutes <= 0)
+            return true;
+        LateMinutesUsed += minutes;
+        return LateMinutesUsed <= AttendanceStatusRules.MonthlyLateAllowanceMinutes;
     }
 
-    public bool IsCovered => UsedMinutes <= AllowanceMinutes;
+    public bool TryConsumeEarlyLeave(TimeSpan checkoutTime)
+    {
+        if (checkoutTime < AttendanceStatusRules.EarlyLeavePermissionStart)
+            return false;
+        if (EarlyLeavesUsed >= AttendanceStatusRules.EarlyLeavePermissionMonthlyCount)
+            return false;
+        EarlyLeavesUsed++;
+        return true;
+    }
 }
