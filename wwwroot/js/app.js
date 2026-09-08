@@ -1141,6 +1141,11 @@ function badge(status) {
 
     function clear(el) { el.innerHTML = ''; }
 
+    function tableScrollOpen(tableLabel) {
+        return '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
+            '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">';
+    }
+
     function emptyState(message, hint) {
         var sub = hint ? '<span>' + hint + '</span>' : '';
         return '<div class="empty-state"><strong>' + message + '</strong>' + sub + '</div>';
@@ -2087,7 +2092,7 @@ function updateLeaveDays(fromId, toId, daysId) {
 
         var tableLabel = i18n[currentLang].overtimeResults;
         var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
-            '<div class="table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
+            '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
             '<table><thead><tr>' +
             '<th>#</th>' +
             '<th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th>' +
@@ -2131,7 +2136,7 @@ function updateLeaveDays(fromId, toId, daysId) {
             return;
         }
 
-        var html = '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الوظيفة' : 'Job Title') + '</th><th>' + (currentLang === 'ar' ? 'المستوى' : 'Level') + '</th><th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th><th>' + (currentLang === 'ar' ? 'الموعد المخصص' : 'Custom schedule') + '</th></tr></thead><tbody>';
+        var html = tableScrollOpen(i18n[currentLang].searchResults) + '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الوظيفة' : 'Job Title') + '</th><th>' + (currentLang === 'ar' ? 'المستوى' : 'Level') + '</th><th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th><th>' + (currentLang === 'ar' ? 'الموعد المخصص' : 'Custom schedule') + '</th></tr></thead><tbody>';
         data.forEach(function (r, i) {
             html += '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
@@ -2143,7 +2148,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td>' + (r.scheduleStart && r.scheduleEnd ? fmtSchedule(r.scheduleStart) + ' - ' + fmtSchedule(r.scheduleEnd) : '-') + '</td>' +
                 '</tr>';
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         el.innerHTML = html;
         show('empResults');
         $('empExportActions').style.display = 'flex';
@@ -2162,11 +2167,11 @@ function updateLeaveDays(fromId, toId, daysId) {
             return;
         }
 
-        var html = '<table><thead><tr><th>' + (currentLang === 'ar' ? 'السنة' : 'Year') + '</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'اعتيادى' : 'Regular') + '</th><th>' + (currentLang === 'ar' ? 'عارضه' : 'Casual') + '</th><th>' + (currentLang === 'ar' ? 'بدل راحه' : 'Rest Allow.') + '</th><th>' + (currentLang === 'ar' ? 'بدل عطله' : 'Holiday Allow.') + '</th></tr></thead><tbody>';
+        var html = tableScrollOpen(i18n[currentLang].balancesTitle) + '<table><thead><tr><th>' + (currentLang === 'ar' ? 'السنة' : 'Year') + '</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'اعتيادى' : 'Regular') + '</th><th>' + (currentLang === 'ar' ? 'عارضه' : 'Casual') + '</th><th>' + (currentLang === 'ar' ? 'بدل راحه' : 'Rest Allow.') + '</th><th>' + (currentLang === 'ar' ? 'بدل عطله' : 'Holiday Allow.') + '</th></tr></thead><tbody>';
         data.forEach(function (b) {
             html += '<tr><td>' + b.year + '</td><td>' + (b.employeeFinancialNo || (b.employee ? b.employee.financialNo : '')) + '</td><td>' + (b.employee ? b.employee.name : '') + '</td><td>' + b.regularLeave + '</td><td>' + b.casualLeave + '</td><td>' + b.restAllowance + '</td><td>' + b.holidayAllowance + '</td></tr>';
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         el.innerHTML = html;
         show('balResults');
         $('balExportActions').style.display = 'flex';
@@ -2198,7 +2203,7 @@ function updateLeaveDays(fromId, toId, daysId) {
         var headers = currentLang === 'ar'
             ? ['#', 'الرقم المالي', 'الاسم', 'المسمى الوظيفي', 'الإدارة', 'انصراف اليوم السابق', 'حضور اليوم', 'ملاحظات']
             : ['#', 'Financial No', 'Name', 'Job Title', 'Department', 'Previous Day Check Out', 'Today Check In', 'Notes'];
-        var html = '<div class="table-scroll"><table><thead><tr>';
+        var html = tableScrollOpen(i18n[currentLang].dailyResults) + '<table><thead><tr>';
         headers.forEach(function (header) { html += '<th>' + header + '</th>'; });
         html += '</tr></thead><tbody>';
         data.forEach(function (row, index) {
@@ -2540,7 +2545,7 @@ function renderLeaveTransactions(data) {
         var canManage = hasPermission('Leaves');
         var canWorkflow = hasPermission('Leaves') || hasPermission('LeaveHR');
         var canExport = canManage;
-        var html = '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الموظف' : 'Employee') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'الفترة' : 'Period') + '</th><th>' + (currentLang === 'ar' ? 'أيام العمل' : 'Working Days') + '</th><th>' + (currentLang === 'ar' ? 'السبب' : 'Reason') + '</th><th>' + (currentLang === 'ar' ? 'مدخل الإجازة' : 'Entered By') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ التسجيل' : 'Created') + '</th><th>' + (i18n[currentLang].status || 'Status') + '</th>' + (canManage || canWorkflow ? '<th>' + (i18n[currentLang].actions || 'Actions') + '</th>' : '') + '</tr></thead><tbody>';
+        var html = tableScrollOpen(i18n[currentLang].transactions) + '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الموظف' : 'Employee') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'الفترة' : 'Period') + '</th><th>' + (currentLang === 'ar' ? 'أيام العمل' : 'Working Days') + '</th><th>' + (currentLang === 'ar' ? 'السبب' : 'Reason') + '</th><th>' + (currentLang === 'ar' ? 'مدخل الإجازة' : 'Entered By') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ التسجيل' : 'Created') + '</th><th>' + (i18n[currentLang].status || 'Status') + '</th>' + (canManage || canWorkflow ? '<th>' + (i18n[currentLang].actions || 'Actions') + '</th>' : '') + '</tr></thead><tbody>';
         rows.forEach(function (t, i) {
             var reasonText = t.reason || '-';
             if (t.status === 'Rejected' && t.rejectionReason) {
@@ -2572,7 +2577,7 @@ function renderLeaveTransactions(data) {
                 (canManage || canWorkflow ? '<td>' + actions + '</td>' : '') +
                 '</tr>';
         });
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
         el.innerHTML = html;
         show('leaveResults');
         $('leaveExportActions').style.display = canExport ? 'flex' : 'none';
