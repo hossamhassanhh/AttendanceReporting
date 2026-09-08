@@ -822,6 +822,8 @@ function showApplication() {
         var desc = $('workspaceDesc');
         if (title && titleMap[module]) title.textContent = dict[titleMap[module]] || dict.workspaceTitle;
         if (desc && descMap[module]) desc.textContent = dict[descMap[module]] || dict.workspaceDesc;
+        var brief = document.querySelector('.workspace-brief');
+        if (brief) brief.classList.toggle('no-chips', module === 'reports');
     }
 
     document.querySelectorAll('.lang-pill').forEach(function (pill) {

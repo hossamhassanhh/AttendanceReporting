@@ -379,6 +379,11 @@ body::after {
     gap: 10px;
     align-content: center;
 }
+/* The Reports tab hides these generic info chips; each report there
+   already carries its own title and definition. */
+.workspace-brief.no-chips .workspace-chips {
+    display: none;
+}
 .info-chip {
     display: grid;
     gap: 4px;
