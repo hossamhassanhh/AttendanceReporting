@@ -41,7 +41,13 @@ public class DatabaseService
             IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ScheduleEnd')
                 ALTER TABLE [Employees] ADD [ScheduleEnd] nvarchar(10) NULL;
             IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ManagerFinancialNo')
-                ALTER TABLE [Employees] ADD [ManagerFinancialNo] nvarchar(20) NULL;");
+                ALTER TABLE [Employees] ADD [ManagerFinancialNo] nvarchar(20) NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'BirthDate')
+                ALTER TABLE [Employees] ADD [BirthDate] date NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'HireDate')
+                ALTER TABLE [Employees] ADD [HireDate] date NULL;
+            IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'ContractType')
+                ALTER TABLE [Employees] ADD [ContractType] nvarchar(100) NULL;");
 
         if (!await db.ScheduleRules.AnyAsync())
         {

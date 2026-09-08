@@ -36,5 +36,12 @@ public class Employee
     [MaxLength(20)]
     public string? ManagerFinancialNo { get; set; }
 
+    public DateTime? BirthDate { get; set; }
+
+    public DateTime? HireDate { get; set; }
+
+    [MaxLength(100)]
+    public string? ContractType { get; set; }
+
     public bool IsActive { get; set; } = true;
 }
