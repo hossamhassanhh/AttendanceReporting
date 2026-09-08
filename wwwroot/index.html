@@ -647,14 +647,22 @@
                     <button class="refresh-action" type="button" data-refresh="daily" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="card filter-card">
-                    <div class="controls compact-controls">
+                    <div class="filter-header">
+                        <div class="filter-header-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            <span data-i18n="filterCriteria">عوامل التصفية</span>
+                        </div>
+                    </div>
+                    <div class="controls filter-grid-3">
                         <div class="form-group">
                             <label for="dailyDate" data-i18n="dailyDate">تاريخ التقرير</label>
                             <input type="date" id="dailyDate">
                         </div>
-                        <div class="query-actions">
-                            <button id="fetchDailyBtn" class="primary-action" type="button" data-i18n="showDaily">عرض التقرير</button>
-                            <button class="ghost clear-filters-action" type="button" data-clear-query="daily" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                        <div class="filter-action-row">
+                            <div class="query-actions">
+                                <button id="fetchDailyBtn" class="primary-action" type="button" data-i18n="showDaily">عرض التقرير</button>
+                                <button class="ghost clear-filters-action" type="button" data-clear-query="daily" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                            </div>
                         </div>
                     </div>
                 </div>
