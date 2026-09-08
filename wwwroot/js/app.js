@@ -2195,7 +2195,7 @@ function updateLeaveDays(fromId, toId, daysId) {
             return;
         }
 
-        var html = tableScrollOpen(i18n[currentLang].searchResults) + '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الوظيفة' : 'Job Title') + '</th><th>' + (currentLang === 'ar' ? 'المستوى' : 'Level') + '</th><th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th><th>' + (currentLang === 'ar' ? 'الموعد المخصص' : 'Custom schedule') + '</th></tr></thead><tbody>';
+        var html = tableScrollOpen(i18n[currentLang].searchResults) + '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الوظيفة' : 'Job Title') + '</th><th>' + (currentLang === 'ar' ? 'المستوى' : 'Level') + '</th><th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th><th>' + (currentLang === 'ar' ? 'موقع العمل' : 'Work Location') + '</th><th>' + (currentLang === 'ar' ? 'الموعد المخصص' : 'Custom schedule') + '</th><th>' + (currentLang === 'ar' ? 'الحالة الوظيفية' : 'Job Status') + '</th><th>' + (currentLang === 'ar' ? 'المدير' : 'Manager') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ الميلاد' : 'Birth Date') + '</th><th>' + (currentLang === 'ar' ? 'تاريخ التعيين' : 'Hire Date') + '</th><th>' + (currentLang === 'ar' ? 'نوع العقد' : 'Contract Type') + '</th><th>' + (currentLang === 'ar' ? 'نشط' : 'Active') + '</th></tr></thead><tbody>';
         data.forEach(function (r, i) {
             html += '<tr>' +
                 '<td>' + (i + 1) + '</td>' +
@@ -2204,7 +2204,14 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td>' + (r.jobTitle || '-') + '</td>' +
                 '<td>' + (r.level || '-') + '</td>' +
                 '<td>' + (r.department || '-') + '</td>' +
+                '<td>' + (r.workLocation || '-') + '</td>' +
                 '<td>' + (r.scheduleStart && r.scheduleEnd ? fmtSchedule(r.scheduleStart) + ' - ' + fmtSchedule(r.scheduleEnd) : '-') + '</td>' +
+                '<td>' + (r.jobStatus || '-') + '</td>' +
+                '<td>' + (r.managerFinancialNo || '-') + '</td>' +
+                '<td>' + (r.birthDate ? fmtDateLocal(r.birthDate) : '-') + '</td>' +
+                '<td>' + (r.hireDate ? fmtDateLocal(r.hireDate) : '-') + '</td>' +
+                '<td>' + (r.contractType || '-') + '</td>' +
+                '<td>' + (r.isActive ? (currentLang === 'ar' ? 'نعم' : 'Yes') : (currentLang === 'ar' ? 'لا' : 'No')) + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
