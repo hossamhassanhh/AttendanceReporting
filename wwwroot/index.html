@@ -668,6 +668,40 @@
                     </div>
                     <div id="dailyResultsContent"></div>
                 </section>
+                <div class="report-heading">
+                    <div>
+                        <span class="section-kicker" data-i18n="wageKicker">الأجر اليومي</span>
+                        <h2 data-i18n="wageTitle">التقرير الثالث: أيام الحضور للأجر اليومي</h2>
+                        <p data-i18n="wageDesc">إجمالي أيام الحضور الشهرية لموظفي الأجر اليومي (مكافأة شاملة يومية).</p>
+                    </div>
+                    <button class="refresh-action" type="button" data-refresh="wage" data-i18n="refresh">تحديث</button>
+                </div>
+                <div class="card filter-card">
+                    <div class="controls compact-controls">
+                        <div class="form-group">
+                            <label for="wageYear" data-i18n="year">السنة</label>
+                            <input type="number" id="wageYear" min="2020" max="2030">
+                        </div>
+                        <div class="form-group">
+                            <label for="wageMonth" data-i18n="month">الشهر</label>
+                            <select id="wageMonth"></select>
+                        </div>
+                        <div class="query-actions">
+                            <button id="fetchWageBtn" class="primary-action" type="button" data-i18n="showReport">عرض التقرير</button>
+                            <button class="ghost clear-filters-action" type="button" data-clear-query="wage" data-i18n="clearFilters">مسح عوامل التصفية</button>
+                        </div>
+                    </div>
+                </div>
+                <section class="results" id="wageResults" style="display:none;">
+                    <div class="results-header">
+                        <h3 data-i18n="wageResults">نتائج الحضور للأجر اليومي</h3>
+                        <div id="wageExportActions" class="table-actions" style="display:none;">
+                            <button id="wageExportExcelBtn" class="success" type="button" data-permission="Exports" data-i18n="exportExcel">تصدير إكسيل</button>
+                            <button id="wageExportPdfBtn" class="secondary" type="button" data-permission="Exports" data-i18n="exportPdf">تصدير بي دي إف</button>
+                        </div>
+                    </div>
+                    <div id="wageResultsContent"></div>
+                </section>
             </section>
 
             <section class="tab-content" id="tab-admin">
@@ -774,7 +808,7 @@
             </footer>
         </main>
     </div>
-    <script src="/js/app.js?v=46"></script>
+    <script src="/js/app.js?v=47"></script>
     <script>
         (function(){
             var el = document.getElementById('todayLabel');

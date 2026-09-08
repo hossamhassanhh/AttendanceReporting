@@ -322,6 +322,10 @@ i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.toDate = 'إلى تاريخ';
     i18n.ar.showReport = 'عرض التقرير';
     i18n.ar.overtimeResults = 'نتائج العمل الإضافي للإدارة العليا';
+    i18n.ar.wageKicker = 'الأجر اليومي';
+    i18n.ar.wageTitle = 'التقرير الثالث: أيام الحضور للأجر اليومي';
+    i18n.ar.wageDesc = 'إجمالي أيام الحضور الشهرية لموظفي الأجر اليومي (مكافأة شاملة يومية).';
+    i18n.ar.wageResults = 'نتائج الحضور للأجر اليومي';
     i18n.ar.filterCriteria = 'عوامل التصفية والخيارات';
     i18n.ar.attStatusFilter = 'الحالة';
     i18n.ar.level = 'المستوى';
@@ -416,6 +420,10 @@ i18n.en.navDaily = 'Daily Report';
     i18n.en.toDate = 'To Date';
     i18n.en.showReport = 'Show Report';
     i18n.en.overtimeResults = 'Top Management Overtime Results';
+    i18n.en.wageKicker = 'Daily Wage';
+    i18n.en.wageTitle = 'Third Report: Daily-Wage Present Days';
+    i18n.en.wageDesc = 'Total monthly present days for daily-wage staff (all-inclusive daily reward).';
+    i18n.en.wageResults = 'Daily-Wage Present Results';
     i18n.en.filterCriteria = 'Filters and options';
     i18n.en.attStatusFilter = 'Status';
     i18n.en.level = 'Level';
@@ -589,6 +597,8 @@ ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
         if (lastMonthlyPreview && $('exportPreview') && $('exportPreview').style.display !== 'none') renderMonthlyPreview(lastMonthlyPreview, lastMonthlyInfo);
         if (lastDailyRows && $('dailyResults') && $('dailyResults').style.display !== 'none') renderDaily(lastDailyRows);
         if (lastOvertimeRecords && $('reportsResults') && $('reportsResults').style.display !== 'none') renderOvertimeReport(lastOvertimeRecords);
+        renderWageMonthOptions();
+        if (lastWageRows && $('wageResults') && $('wageResults').style.display !== 'none') renderWageReport(lastWageRows);
         if (lastPermissionsAll && $('adminPermissions')) renderPermissions(lastPermissionsAll, getPermissionSelection());
         if (lastAdminUsers && lastAdminDays && $('adminResults') && $('adminResults').style.display !== 'none') renderAdminTables(lastAdminUsers, lastAdminDays);
     }
@@ -1576,7 +1586,11 @@ if (tabName === 'daily') {
         }
         if (tabName === 'reports') {
             lastOvertimeRecords = null;
+            lastWageRows = null;
             hide('reportsExportActions');
+            hide('wageExportActions');
+            if (wageRequestController) wageRequestController.abort();
+            wageRequestController = null;
         }
         if (tabName === 'admin') {
             lastAdminUsers = null;
@@ -1678,6 +1692,27 @@ if (tabName === 'daily') {
             hide('dailyExportActions');
             clear($('dailyResultsContent'));
         }
+
+        if (queryName === 'reports') {
+            var nowRep = new Date();
+            $('reportsFrom').value = new Date(nowRep.getFullYear(), nowRep.getMonth(), 1).toISOString().split('T')[0];
+            $('reportsTo').value = new Date(nowRep.getFullYear(), nowRep.getMonth() + 1, 0).toISOString().split('T')[0];
+            lastOvertimeRecords = null;
+            hide('reportsResults');
+            hide('reportsExportActions');
+            clear($('reportsResultsContent'));
+        }
+
+        if (queryName === 'wage') {
+            var nowWage = new Date();
+            $('wageYear').value = nowWage.getFullYear();
+            renderWageMonthOptions();
+            $('wageMonth').value = String(nowWage.getMonth() + 1);
+            lastWageRows = null;
+            hide('wageResults');
+            hide('wageExportActions');
+            clear($('wageResultsContent'));
+        }
     }
 
     document.querySelectorAll('[data-clear-query]').forEach(function (button) {
@@ -1745,6 +1780,8 @@ var today = new Date();
     // Reports tab - current month defaults
     $('reportsFrom').value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
     $('reportsTo').value = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+    $('wageYear').value = today.getFullYear();
+    renderWageMonthOptions();
     renderAttendanceFilterOptions();
     ['attEmployees', 'attMatchMode', 'attDepartment', 'attStatus', 'attLevel', 'attArea', 'attSchedule'].forEach(function (id) {
         var el = $(id);
@@ -1836,6 +1873,28 @@ if ($('dailyDate')) {
             var from = $('reportsFrom').value, to = $('reportsTo').value;
             if (!from || !to) return;
             window.open('/api/tracking/top-management/overtime/export/pdf?from=' + encodeURIComponent(from) + '&to=' + encodeURIComponent(to), '_blank');
+        });
+    }
+    // Daily-wage report listeners
+    if ($('fetchWageBtn')) {
+        $('fetchWageBtn').addEventListener('click', function () { fetchWageReport(); });
+    }
+    ['wageYear', 'wageMonth'].forEach(function (id) {
+        var el = $(id);
+        if (el) el.addEventListener('change', function () { fetchWageReport(); });
+    });
+    if ($('wageExportExcelBtn')) {
+        $('wageExportExcelBtn').addEventListener('click', function () {
+            var params = getWageQueryParams();
+            if (!params) return;
+            window.open('/api/tracking/daily-wage/present-days/export/excel?' + params + '&lang=' + currentLang, '_blank');
+        });
+    }
+    if ($('wageExportPdfBtn')) {
+        $('wageExportPdfBtn').addEventListener('click', function () {
+            var params = getWageQueryParams();
+            if (!params) return;
+            window.open('/api/tracking/daily-wage/present-days/export/pdf?' + params + '&lang=' + currentLang, '_blank');
         });
     }
 
@@ -2031,6 +2090,8 @@ function updateLeaveDays(fromId, toId, daysId) {
     }
 
     var lastOvertimeRecords = null;
+    var lastWageRows = null;
+    var wageRequestController = null;
 
     function fetchOvertimeReport() {
         var from = $('reportsFrom').value;
@@ -2221,6 +2282,111 @@ function updateLeaveDays(fromId, toId, daysId) {
         show('dailyResults');
         $('dailyExportActions').style.display = 'flex';
         flashUpdated('dailyResults');
+    }
+
+    function renderWageMonthOptions() {
+        var sel = $('wageMonth');
+        if (!sel) return;
+        var selected = sel.value || String(new Date().getMonth() + 1);
+        var names = monthNames[currentLang] || monthNames.ar;
+        sel.innerHTML = '';
+        for (var m = 1; m <= 12; m++) {
+            var opt = document.createElement('option');
+            opt.value = String(m);
+            opt.textContent = names[m - 1];
+            sel.appendChild(opt);
+        }
+        sel.value = selected;
+    }
+
+    function getWageQueryParams() {
+        var year = $('wageYear').value, month = $('wageMonth').value;
+        if (!year || !month) {
+            showError(currentLang === 'ar' ? 'يرجى اختيار السنة والشهر' : 'Please select year and month');
+            return null;
+        }
+        return 'year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month);
+    }
+
+    function fetchWageReport() {
+        var params = getWageQueryParams();
+        if (!params) return;
+
+        if (wageRequestController) wageRequestController.abort();
+        wageRequestController = new AbortController();
+        var activeController = wageRequestController;
+
+        showLoading();
+        hideError();
+        hide('wageResults');
+        hide('wageExportActions');
+
+        fetch('/api/tracking/daily-wage/present-days?' + params + '&_=' + Date.now(), {
+            cache: 'no-store',
+            signal: activeController.signal
+        })
+            .then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'فشل التحميل' : 'Failed to load'); return r.json(); })
+            .then(function (data) {
+                if (activeController !== wageRequestController) return;
+                hideLoading();
+                lastWageRows = Array.isArray(data) ? data : [];
+                renderWageReport(lastWageRows);
+                wageRequestController = null;
+            })
+            .catch(function (err) {
+                if (err.name === 'AbortError') {
+                    if (!wageRequestController || activeController === wageRequestController) hideLoading();
+                    return;
+                }
+                hideLoading();
+                showError(err.message);
+                wageRequestController = null;
+            });
+    }
+
+    function renderWageReport(data) {
+        var el = $('wageResultsContent');
+        clear(el);
+
+        if (!data || data.length === 0) {
+            el.innerHTML = emptyState(
+                currentLang === 'ar' ? 'لا توجد بيانات لهذا الشهر' : 'No data for this month',
+                currentLang === 'ar' ? 'جرّب شهرًا آخر.' : 'Try another month.'
+            );
+            show('wageResults');
+            hide('wageExportActions');
+            flashUpdated('wageResults');
+            return;
+        }
+
+        var tableLabel = i18n[currentLang].wageResults;
+        var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
+            '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
+            '<table><thead><tr>' +
+            '<th>#</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المسمى الوظيفي' : 'Job Title') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'أيام الحضور' : 'Present Days') + '</th>' +
+            '</tr></thead><tbody>';
+
+        data.forEach(function (r, i) {
+            html += '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + r.financialNo + '</td>' +
+                '<td class="name-cell">' + r.name + '</td>' +
+                '<td>' + (r.jobTitle || '-') + '</td>' +
+                '<td>' + (r.department || '-') + '</td>' +
+                '<td><strong>' + (r.presentDays || 0) + '</strong></td>' +
+                '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+        show('wageResults');
+        show('wageExportActions');
+        flashUpdated('wageResults');
     }
 
     // Attendance Tab
@@ -3381,9 +3547,13 @@ $('saveUserBtn').addEventListener('click', function () {
             case 'daily':
                 $('fetchDailyBtn').click();
                 break;
+            case 'wage':
+                fetchWageReport();
+                break;
             case 'reports':
                 if ($('reportsResults') && $('reportsResults').style.display !== 'none') fetchOvertimeReport();
                 if ($('dailyResults') && $('dailyResults').style.display !== 'none') $('fetchDailyBtn').click();
+                if ($('wageResults') && $('wageResults').style.display !== 'none') fetchWageReport();
                 break;
             case 'admin':
                 loadAdminData();

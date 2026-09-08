@@ -16,13 +16,16 @@ public class TrackingController : ControllerBase
 {
     private readonly AttendanceTrackerService _tracker;
     private readonly TabularReportExportService _reportExporter;
+    private readonly ExportService _exportService;
 
     public TrackingController(
         AttendanceTrackerService tracker,
-        TabularReportExportService reportExporter)
+        TabularReportExportService reportExporter,
+        ExportService exportService)
     {
         _tracker = tracker;
         _reportExporter = reportExporter;
+        _exportService = exportService;
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
@@ -288,6 +291,64 @@ isArabic ? "التقرير_اليومي" : "daily_report",
             dataRows,
             isArabic ? "العمل_الإضافي" : "overtime",
             fromDate,
+            isArabic);
+    }
+
+    [Authorize(Policy = "Attendance")]
+    [HttpGet("daily-wage/present-days")]
+    public async Task<IActionResult> GetDailyWagePresentDays([FromQuery] int? year, [FromQuery] int? month)
+    {
+        var y = year ?? DateTime.Today.Year;
+        var m = month ?? DateTime.Today.Month;
+        if (m < 1 || m > 12 || y < 2000 || y > 2100)
+            return BadRequest(new { error = "Valid year and month are required" });
+        return Ok(await _exportService.GetDailyWagePresentDaysAsync(y, m));
+    }
+
+    [Authorize(Policy = "Exports")]
+    [HttpGet("daily-wage/present-days/export/{format}")]
+    public async Task<IActionResult> ExportDailyWagePresentDays(
+        string format,
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        [FromQuery] string? lang)
+    {
+        if (!IsSupportedExportFormat(format))
+            return BadRequest(new { error = "Supported formats are excel and pdf." });
+
+        var y = year ?? DateTime.Today.Year;
+        var m = month ?? DateTime.Today.Month;
+        if (m < 1 || m > 12 || y < 2000 || y > 2100)
+            return BadRequest(new { error = "Valid year and month are required" });
+
+        var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
+        var rows = await _exportService.GetDailyWagePresentDaysAsync(y, m);
+
+        var columns = isArabic
+            ? new[] { "الرقم المالي", "الاسم", "المسمى الوظيفي", "الإدارة", "السنة", "الشهر", "إجمالي أيام الحضور" }
+            : new[] { "Financial No", "Name", "Job Title", "Department", "Year", "Month", "Total Present Days" };
+        var dataRows = rows.Select(row => (IReadOnlyList<object?>)new object?[]
+        {
+            row.FinancialNo,
+            row.Name,
+            row.JobTitle,
+            row.Department,
+            row.Year,
+            row.Month,
+            row.PresentDays
+        }).ToList();
+
+        var title = isArabic ? "تقرير أيام الحضور للأجر اليومي" : "Daily-Wage Present Days Report";
+        var subtitle = isArabic ? $"شهر {m:D2} / {y}" : $"Month {m:D2} / {y}";
+        return CreateTabularExport(
+            format,
+            title,
+            subtitle,
+            isArabic ? "الحضور اليومي" : "Daily Wage",
+            columns,
+            dataRows,
+            isArabic ? "الحضور_اليومي" : "daily_wage_present",
+            new DateTime(y, m, 1),
             isArabic);
     }
 

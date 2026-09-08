@@ -1649,6 +1649,93 @@ public class ExportService
 
         return lastWorkDay;
     }
+
+    public async Task<List<DailyWagePresentDaysRow>> GetDailyWagePresentDaysAsync(int year, int month)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+
+        var monthStart = new DateTime(year, month, 1);
+        var monthEndExclusive = monthStart.AddMonths(1);
+        var daysInMonth = DateTime.DaysInMonth(year, month);
+
+        var employees = await db.Employees
+            .AsNoTracking()
+            .Where(e => e.ContractType == "مكافأة شاملة يومية")
+            .ToListAsync();
+        employees = employees
+            .OrderBy(e => long.TryParse(e.FinancialNo, out var fin) ? fin : long.MaxValue)
+            .ThenBy(e => e.FinancialNo)
+            .ToList();
+
+        var dailyAtt = await db.DailyAttendances
+            .AsNoTracking()
+            .Include(d => d.LeaveType)
+            .Where(d => d.Date >= monthStart && d.Date < monthEndExclusive)
+            .ToListAsync();
+
+        var calendarSettings = await db.AttendanceDaySettings
+            .Where(s => s.Date >= monthStart && s.Date < monthEndExclusive)
+            .AsNoTracking()
+            .ToListAsync();
+
+        var leaveAtt = await GetLeaveCodesAsync(db, year, month);
+
+        var monthlyAtt = await db.MonthlyAttendances
+            .AsNoTracking()
+            .Where(a => a.Year == year && a.Month == month)
+            .ToListAsync();
+
+        var attByEmpDate = dailyAtt
+            .GroupBy(d => d.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(d => d.Date.Day));
+
+        var monthlyByEmpDate = monthlyAtt
+            .GroupBy(a => a.EmployeeFinancialNo)
+            .ToDictionary(g => g.Key, g => g.ToDictionary(a => a.Day));
+
+        var rows = new List<DailyWagePresentDaysRow>();
+        foreach (var emp in employees)
+        {
+            // Same monthly-code pipeline as the monthly sheet (including the
+            // late-credit accrual across the month); present = X-family codes.
+            var lateCredit = new LateCreditTracker();
+            var presentDays = 0;
+            for (int d = 1; d <= daysInMonth; d++)
+            {
+                var code = GetMonthlyCode(year, month, d,
+                    attByEmpDate.GetValueOrDefault(emp.FinancialNo),
+                    monthlyByEmpDate.GetValueOrDefault(emp.FinancialNo),
+                    leaveAtt.GetValueOrDefault(emp.FinancialNo),
+                    calendarSettings, lateCredit);
+                if (code == "X" || code == "WH")
+                    presentDays++;
+            }
+
+            rows.Add(new DailyWagePresentDaysRow
+            {
+                FinancialNo = emp.FinancialNo,
+                Name = emp.Name,
+                JobTitle = emp.JobTitle,
+                Department = emp.Department,
+                Year = year,
+                Month = month,
+                PresentDays = presentDays
+            });
+        }
+
+        return rows;
+    }
+}
+
+public class DailyWagePresentDaysRow
+{
+    public string FinancialNo { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? JobTitle { get; set; }
+    public string? Department { get; set; }
+    public int Year { get; set; }
+    public int Month { get; set; }
+    public int PresentDays { get; set; }
 }
 
 public class ExportFilterOptions
