@@ -1,5 +1,9 @@
 (function () {
     var currentLang = 'ar';
+    try {
+        var savedLang = localStorage.getItem('attendance.lang');
+        if (savedLang === 'ar' || savedLang === 'en') currentLang = savedLang;
+    } catch (e) { /* private mode: fall back to Arabic */ }
     var currentUser = null;
     var leaveTypesCache = [];
     var leaveTypesRequest = null;
@@ -837,6 +841,7 @@ function showApplication() {
     document.querySelectorAll('.lang-pill').forEach(function (pill) {
         pill.addEventListener('click', function () {
             currentLang = this.getAttribute('data-lang') || 'ar';
+            try { localStorage.setItem('attendance.lang', currentLang); } catch (e) { /* private mode */ }
             applyLanguage();
         });
     });
