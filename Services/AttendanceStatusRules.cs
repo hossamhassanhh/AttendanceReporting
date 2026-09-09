@@ -5,6 +5,7 @@ namespace AttendanceApp.Services;
 public static class AttendanceStatusRules
 {
     public const int CheckOutGraceMinutes = 30;
+    public const int GraceLateAllowanceMinutes = 30;
     public const int LatePermissionMonthlyHours = 2;
     public const int EarlyLeavePermissionMonthlyCount = 2;
     public static readonly TimeSpan EarlyLeavePermissionStart = new(10, 0, 0);
@@ -165,9 +166,21 @@ public static class AttendanceStatusRules
 
 public sealed class PermissionTracker
 {
+    public int GraceMinutesUsed { get; private set; }
+
     public int LateHoursUsed { get; private set; }
 
     public int EarlyLeavesUsed { get; private set; }
+
+    public bool TryConsumeGraceLate(int minutes)
+    {
+        if (minutes <= 0)
+            return true;
+        if (GraceMinutesUsed + minutes > AttendanceStatusRules.GraceLateAllowanceMinutes)
+            return false;
+        GraceMinutesUsed += minutes;
+        return true;
+    }
 
     public bool TryConsumeLate(int minutes)
     {

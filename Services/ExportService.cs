@@ -533,6 +533,8 @@ public class ExportService
             if (permissions != null && string.Equals(da.Status, "Late", StringComparison.OrdinalIgnoreCase))
             {
                 var lateMinutes = AttendanceStatusRules.GetLateMinutes(da);
+                if (permissions.TryConsumeGraceLate(lateMinutes))
+                    return "X";
                 return permissions.TryConsumeLate(lateMinutes) ? "X1" : "B";
             }
 
