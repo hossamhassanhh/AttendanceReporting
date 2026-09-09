@@ -106,6 +106,9 @@ builder.Services.AddAuthorization(options =>
         policy.RequireAssertion(context =>
             context.User.HasClaim(AuthConstants.PermissionClaim, "Attendance")
             || context.User.HasClaim(AuthConstants.PermissionClaim, "SelfAttendance")));
+
+    options.AddPolicy("SystemOwner", policy =>
+        policy.RequireClaim(ClaimTypes.Role, "SystemOwner"));
 });
 
 var connectionString = builder.Configuration.GetConnectionString("PostgreSql");

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AttendanceApp.Data;
 using AttendanceApp.Models;
 using AttendanceApp.Services;
@@ -78,6 +79,8 @@ public class AdminController : ControllerBase
             return Conflict(new { error = "User already exists" });
 
         var role = NormalizeRole(request.Role);
+        if (role == "Admin" && !IsSystemOwnerCaller())
+            return StatusCode(403, new { error = "Only the system owner can create admin users" });
         var user = new AppUser
         {
             Username = username,
@@ -124,6 +127,8 @@ public class AdminController : ControllerBase
         if (user == null) return NotFound();
 
         var role = NormalizeRole(request.Role);
+        if (!IsSystemOwnerCaller() && (user.Role == "SystemOwner" || (user.Role != "Admin" && role == "Admin")))
+            return StatusCode(403, new { error = "Only the system owner can manage admin users" });
         user.DisplayName = string.IsNullOrWhiteSpace(request.DisplayName) ? user.Username : request.DisplayName.Trim();
         user.DisplayNameAr = string.IsNullOrWhiteSpace(request.DisplayNameAr) ? user.DisplayNameAr : request.DisplayNameAr.Trim();
         user.DisplayNameEn = string.IsNullOrWhiteSpace(request.DisplayNameEn) ? user.DisplayNameEn : request.DisplayNameEn.Trim();
@@ -176,18 +181,29 @@ public class AdminController : ControllerBase
             return BadRequest(new { error = "Invalid day type" });
 
         using var db = await _factory.CreateDbContextAsync();
-        var date = request.Date.Date;
-        var setting = await db.AttendanceDaySettings.FirstOrDefaultAsync(s => s.Date == date);
-        if (setting == null)
-        {
-            setting = new AttendanceDaySetting { Date = date };
-            db.AttendanceDaySettings.Add(setting);
-        }
+        var start = request.Date.Date;
+        var end = request.EndDate?.Date ?? start;
+        if (end < start)
+            return BadRequest(new { error = "End date must be on or after start date" });
+        if ((end - start).TotalDays > 370)
+            return BadRequest(new { error = "Date range is limited to 371 days" });
 
-        setting.DayType = request.DayType;
-        setting.Notes = request.Notes;
+        var saved = new List<AttendanceDaySetting>();
+        for (var date = start; date <= end; date = date.AddDays(1))
+        {
+            var setting = await db.AttendanceDaySettings.FirstOrDefaultAsync(s => s.Date == date);
+            if (setting == null)
+            {
+                setting = new AttendanceDaySetting { Date = date };
+                db.AttendanceDaySettings.Add(setting);
+            }
+
+            setting.DayType = request.DayType;
+            setting.Notes = request.Notes;
+            saved.Add(setting);
+        }
         await db.SaveChangesAsync();
-        return Ok(setting);
+        return Ok(saved);
     }
 
     [Authorize(Policy = "ManageCalendar")]
@@ -348,14 +364,65 @@ public class AdminController : ControllerBase
         });
     }
 
+    [Authorize(Policy = "Employees")]
+    [HttpPut("employees/manager-bulk")]
+    public async Task<IActionResult> BulkUpdateEmployeeManager([FromBody] BulkManagerRequest request)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+
+        string? managerNo = null;
+        if (!string.IsNullOrWhiteSpace(request.ManagerFinancialNo))
+        {
+            managerNo = request.ManagerFinancialNo.Trim();
+            if (!await db.Employees.AnyAsync(e => e.FinancialNo == managerNo))
+                return BadRequest(new { error = "The manager financial number does not match an existing employee" });
+        }
+
+        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (request.FinancialNumbers != null)
+        {
+            foreach (var fin in request.FinancialNumbers)
+            {
+                if (!string.IsNullOrWhiteSpace(fin))
+                    targets.Add(fin.Trim());
+            }
+        }
+        if (!string.IsNullOrWhiteSpace(request.Department))
+        {
+            var department = request.Department.Trim();
+            var deptMembers = await db.Employees
+                .Where(e => e.Department == department)
+                .Select(e => e.FinancialNo)
+                .ToListAsync();
+            foreach (var fin in deptMembers)
+                targets.Add(fin);
+        }
+        if (targets.Count == 0)
+            return BadRequest(new { error = "No employees selected: provide financial numbers or a department" });
+
+        var employees = await db.Employees
+            .Where(e => targets.Contains(e.FinancialNo))
+            .ToListAsync();
+        foreach (var employee in employees)
+            employee.ManagerFinancialNo = managerNo;
+        await db.SaveChangesAsync();
+
+        var missing = targets.Where(fin => employees.All(e => !string.Equals(e.FinancialNo, fin, StringComparison.OrdinalIgnoreCase))).ToList();
+        return Ok(new { updated = employees.Count, missing });
+    }
+
+    private bool IsSystemOwnerCaller() =>
+        string.Equals(User.FindFirst(ClaimTypes.Role)?.Value, "SystemOwner", StringComparison.OrdinalIgnoreCase);
+
     private static string NormalizeRole(string? role)
     {
+        if (string.Equals(role, "SystemOwner", StringComparison.OrdinalIgnoreCase)) return "SystemOwner";
         return string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase) ? "Admin" : "Employee";
     }
 
     private static string NormalizePermissions(string role, IReadOnlyCollection<string>? permissions)
     {
-        if (role == "Admin") return PermissionCatalog.AdminPermissions;
+        if (role == "Admin" || role == "SystemOwner") return PermissionCatalog.AdminPermissions;
         var allowed = PermissionCatalog.All.Where(p => p != "CreateUsers").ToHashSet(StringComparer.OrdinalIgnoreCase);
         var selected = permissions == null || permissions.Count == 0 ? allowed : permissions.Where(allowed.Contains).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return string.Join(',', selected.OrderBy(p => p));
@@ -392,8 +459,16 @@ public class SaveUserRequest
 public class SaveDaySettingRequest
 {
     public DateTime Date { get; set; }
+    public DateTime? EndDate { get; set; }
     public string DayType { get; set; } = string.Empty;
     public string? Notes { get; set; }
+}
+
+public class BulkManagerRequest
+{
+    public string? ManagerFinancialNo { get; set; }
+    public List<string>? FinancialNumbers { get; set; }
+    public string? Department { get; set; }
 }
 
 public class ResetPasswordRequest

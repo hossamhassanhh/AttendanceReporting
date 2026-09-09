@@ -16,6 +16,8 @@ public class AuthController : ControllerBase
 {
     private const string AdSelfPermissions = "SelfAttendance,SelfLeave";
 
+    internal const string SystemOwnerUsername = "4779";
+
     private readonly IDbContextFactory<AppDbContext> _factory;
     private readonly IPasswordHasher<AppUser> _passwordHasher;
     private readonly AdDirectoryService _adDirectory;
@@ -68,6 +70,9 @@ public class AuthController : ControllerBase
             if (!user.IsActive)
                 return Unauthorized(new { error = "Your account is disabled" });
         }
+
+        if (!IsRoleSelectionAllowed(user!, request.Role))
+            return Unauthorized(new { error = "This account is not authorized for the selected role" });
 
         user!.LastLoginAt = DateTime.Now;
         await db.SaveChangesAsync();
@@ -142,6 +147,7 @@ public class AuthController : ControllerBase
         if (!isEmployee)
             return null;
 
+        var isSystemOwner = string.Equals(username, SystemOwnerUsername, StringComparison.OrdinalIgnoreCase);
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
         if (user == null)
         {
@@ -149,8 +155,8 @@ public class AuthController : ControllerBase
             {
                 Username = username,
                 DisplayName = info.DisplayName,
-                Role = "Employee",
-                Permissions = AdSelfPermissions,
+                Role = isSystemOwner ? "SystemOwner" : "Employee",
+                Permissions = isSystemOwner ? PermissionCatalog.AdminPermissions : AdSelfPermissions,
                 PasswordHash = string.Empty,
                 MustChangePassword = false,
                 IsActive = true
@@ -162,8 +168,11 @@ public class AuthController : ControllerBase
             if (!user.IsActive)
                 return null;
             user.DisplayName = info.DisplayName;
-            user.Role = "Employee";
-            user.Permissions = AdSelfPermissions;
+            if (isSystemOwner && !string.Equals(user.Role, "SystemOwner", StringComparison.OrdinalIgnoreCase))
+            {
+                user.Role = "SystemOwner";
+                user.Permissions = PermissionCatalog.AdminPermissions;
+            }
         }
 
         return user;
@@ -213,6 +222,38 @@ public class AuthController : ControllerBase
             });
     }
 
+    internal static bool IsSystemOwner(AppUser user) =>
+        string.Equals(user.Role, "SystemOwner", StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsAdminRole(AppUser user) =>
+        IsSystemOwner(user) || string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static int RoleTier(AppUser user)
+    {
+        if (IsSystemOwner(user)) return 4;
+        if (string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase)) return 3;
+        if (string.Equals(user.Role, "Employee", StringComparison.OrdinalIgnoreCase)
+            && GetPermissions(user).Any(p =>
+                !string.Equals(p, "SelfAttendance", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(p, "SelfLeave", StringComparison.OrdinalIgnoreCase)))
+            return 2;
+        return 1;
+    }
+
+    private static bool IsRoleSelectionAllowed(AppUser user, string? requestedRole)
+    {
+        if (string.IsNullOrWhiteSpace(requestedRole))
+            return true;
+        var requestedTier = requestedRole.Trim().ToLowerInvariant() switch
+        {
+            "systemowner" => 4,
+            "admin" => 3,
+            "hr" or "hremployee" or "hr_employee" => 2,
+            _ => 1
+        };
+        return RoleTier(user) >= requestedTier;
+    }
+
     internal static object ToCurrentUser(AppUser user, string? employeeNo = null)
     {
         var permissions = GetPermissions(user);
@@ -225,7 +266,8 @@ public class AuthController : ControllerBase
             user.DisplayNameEn,
             user.Role,
             Permissions = permissions,
-            IsAdmin = string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase),
+            IsAdmin = IsAdminRole(user),
+            IsSystemOwner = IsSystemOwner(user),
             EmployeeNo = employeeNo,
             user.MustChangePassword
         };
@@ -243,6 +285,7 @@ public class LoginRequest
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public bool RememberMe { get; set; }
+    public string? Role { get; set; }
 }
 
 public class ChangePasswordRequest

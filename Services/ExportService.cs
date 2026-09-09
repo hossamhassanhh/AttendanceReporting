@@ -48,6 +48,8 @@ public class ExportService
         { "DX", "DX" }, { "Internal Mission", "DX" },
         { "T", "T" }, { "Training", "T" },
         { "P", "P" }, { "Permission", "P" },
+        { "PL", "X1" }, { "Late Permission", "X1" },
+        { "PE", "X2" }, { "Early Leave Permission", "X2" },
         { "W", "R" }, { "Weekly Rest", "R" },
     };
 

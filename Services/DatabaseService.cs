@@ -87,6 +87,28 @@ public class DatabaseService
                 BalanceType = null
             });
         }
+
+        if (!await db.LeaveTypes.AnyAsync(type => type.Code == "PL"))
+        {
+            db.LeaveTypes.Add(new LeaveType
+            {
+                Code = "PL",
+                NameAr = "إذن تأخير",
+                NameEn = "Late Permission",
+                BalanceType = null
+            });
+        }
+
+        if (!await db.LeaveTypes.AnyAsync(type => type.Code == "PE"))
+        {
+            db.LeaveTypes.Add(new LeaveType
+            {
+                Code = "PE",
+                NameAr = "إذن انصراف مبكر",
+                NameEn = "Early Leave Permission",
+                BalanceType = null
+            });
+        }
         {
             var improvedArabicNames = new Dictionary<string, string>
             {

@@ -3372,6 +3372,17 @@ html[lang="en"] .monthly-attendance-wrap > table {
     align-self: flex-end;
 }
 
+.admin-section-head {
+    grid-column: 1 / -1;
+    margin: 18px 0 2px;
+}
+.admin-section-head h3 {
+    font-size: 17px;
+    color: var(--navy);
+    margin: 2px 0 0;
+    font-weight: 700;
+}
+
 /* Per-report titles inside the Reports tab. Unlike .section-heading
    (whose text is hidden by the audit remediation above because the
    workspace brief already shows the tab title), each report keeps its

@@ -26,6 +26,13 @@
                     <input id="loginUsername" name="username" autocomplete="username" required>
                     <label for="loginPassword" data-i18n="password">كلمة المرور</label>
                     <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+                    <label for="loginRole" data-i18n="loginRole">الدور</label>
+                    <select id="loginRole" name="role">
+                        <option value="employee" data-i18n="loginRoleEmployee">موظف</option>
+                        <option value="hr" data-i18n="loginRoleHr">موظف موارد بشرية</option>
+                        <option value="admin" data-i18n="loginRoleAdmin">مدير النظام</option>
+                        <option value="systemowner" data-i18n="loginRoleOwner">مالك النظام</option>
+                    </select>
                     <label class="remember-field"><input id="loginRemember" type="checkbox"> <span data-i18n="rememberMe">تذكرني</span></label>
                     <button type="submit" class="primary-action" data-i18n="login">دخول</button>
                 </form>
@@ -61,7 +68,7 @@
                 <button class="tab" type="button" data-tab="leave" aria-controls="tab-leave" data-permission="Leaves|SelfLeave|LeaveApproval|LeaveHR" data-i18n="navLeave"> الإجازات</button>
                 <button class="tab" type="button" data-tab="export" aria-controls="tab-export" data-permission="MonthlyReports" data-i18n="navMonthly"> التقرير الشهري</button>
                 <button class="tab" type="button" data-tab="reports" aria-controls="tab-reports" data-permission="Reports" data-i18n="navReports"> التقارير</button>
-                <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-permission="ManagePermissions|AdSync" data-i18n="navAdmin"> الإدارة</button>
+                <button class="tab" type="button" data-tab="admin" aria-controls="tab-admin" data-permission="CreateUsers" data-i18n="navAdmin"> الإدارة</button>
             </nav>
             <div class="sidebar-footer">
                 <span data-i18n="userName">حسام حسن</span>
@@ -730,6 +737,7 @@
                     <button class="refresh-action" type="button" data-refresh="admin" data-i18n="refresh">تحديث</button>
                 </div>
                 <div class="two-column">
+                    <div class="admin-section-head"><span class="section-kicker" data-i18n="adminKicker">الإدارة</span><h3 data-i18n="adminEmployeesSection">الموظفون والمزامنة</h3></div>
                     <div class="card" data-permission="AdSync">
                         <div class="controls stacked-controls">
                             <h3 data-i18n="adSyncTitle">مزامنة Active Directory</h3>
@@ -743,14 +751,32 @@
                     <div class="card" data-permission="Employees">
                         <div class="controls stacked-controls">
                             <h3 data-i18n="managerAssignTitle">تعيين مدير لموظف</h3>
-                            <div class="form-group"><label for="managerEmpNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="managerEmpNo"></div>
+                            <div class="form-group"><label for="managerMode" data-i18n="managerMode">طريقة التعيين</label><select id="managerMode"><option value="single" data-i18n="managerModeSingle">موظف واحد</option><option value="bulk" data-i18n="managerModeBulk">مجموعة موظفين</option></select></div>
+                            <div id="managerSingleInputs">
+                                <div class="form-group"><label for="managerEmpNo" data-i18n="financialNo">رقم مالي</label><input type="text" id="managerEmpNo"></div>
+                            </div>
+                            <div id="managerBulkInputs" style="display:none;">
+                                <div class="form-group"><label for="managerBulkNumbers" data-i18n="managerBulkNumbers">الأرقام المالية (سطر لكل رقم أو مفصولة بفاصلة)</label><textarea id="managerBulkNumbers" rows="3"></textarea></div>
+                                <div class="form-group"><label for="managerBulkDept" data-i18n="managerBulkDept">أو اختر الإدارة لتشمل كل موظفيها</label><select id="managerBulkDept"></select></div>
+                            </div>
                             <div class="form-group"><label for="managerManagerNo" data-i18n="managerFinancialNo">الرقم المالي للمدير</label><input type="text" id="managerManagerNo" data-i18n-placeholder="managerNoPlaceholder" placeholder="اتركه فارغًا لإلغاء التعيين"></div>
-                            <button id="saveManagerBtn" class="primary-action" type="button" data-i18n="saveManager">حفظ المدير</button>
+                            <div class="button-bar">
+                                <button id="saveManagerBtn" class="primary-action" type="button" data-i18n="saveManager">حفظ المدير</button>
+                                <button id="saveManagerBulkBtn" class="primary-action" type="button" data-i18n="saveManagerBulk" style="display:none;">حفظ للجميع</button>
+                            </div>
                             <div id="managerAssignResult" class="form-hint" role="status" aria-live="polite"></div>
+                            <div id="managerBulkResult" class="form-hint" role="status" aria-live="polite"></div>
                         </div>
                     </div>
+                    <div class="admin-section-head"><span class="section-kicker" data-i18n="adminKicker">الإدارة</span><h3 data-i18n="adminUsersSection">المستخدمون والصلاحيات</h3></div>
                     <div class="card" data-permission="CreateUsers">
                         <div class="controls stacked-controls">
+                            <h3 data-i18n="userFormTitle">بيانات المستخدم</h3>
+                            <div class="form-group"><label for="editUserSelect" data-i18n="editUser">تعديل مستخدم موجود</label><select id="editUserSelect"></select></div>
+                            <div class="button-bar">
+                                <button id="editUserBtn" class="ghost" type="button" data-i18n="loadUser">تحميل بيانات المستخدم</button>
+                                <button id="cancelEditUserBtn" class="ghost" type="button" data-i18n="cancelEdit" style="display:none;">إلغاء التعديل</button>
+                            </div>
                             <div class="form-group"><label for="adminUsername" data-i18n="username">اسم المستخدم</label><input type="text" id="adminUsername" data-i18n-placeholder="usernamePlaceholder" placeholder="اسم المستخدم"></div>
                             <div class="form-group"><label for="adminDisplayNameAr" data-i18n="displayNameAr">الاسم العربي</label><input type="text" id="adminDisplayNameAr" data-i18n-placeholder="displayNameArPlaceholder" placeholder="اسم المستخدم بالعربية"></div>
                             <div class="form-group"><label for="adminDisplayNameEn" data-i18n="displayNameEn">الاسم الإنجليزي</label><input type="text" id="adminDisplayNameEn" data-i18n-placeholder="displayNameEnPlaceholder" placeholder="الاسم باللغة الإنجليزية"></div>
@@ -760,9 +786,11 @@
                         </div>
                         <div id="adminPermissions" class="permission-list"></div>
                     </div>
+                    <div class="admin-section-head"><span class="section-kicker" data-i18n="adminKicker">الإدارة</span><h3 data-i18n="adminCalendarSection">التقويم والمواعيد</h3></div>
                     <div class="card" data-permission="ManageCalendar">
                         <div class="controls stacked-controls">
                             <div class="form-group"><label for="calendarDate" data-i18n="calendarDate">التاريخ</label><input type="date" id="calendarDate"></div>
+                            <div class="form-group"><label for="calendarEndDate" data-i18n="calendarEndDate">إلى تاريخ (لنطاق زمني)</label><input type="date" id="calendarEndDate"></div>
                             <div class="form-group"><label for="calendarDayType" data-i18n="dayType">نوع اليوم</label><select id="calendarDayType"><option value="Weekly Rest">راحة أسبوعية</option><option value="Work From Home">عمل منزلي</option><option value="Holiday">عطلة رسمية</option></select></div>
                             <div class="form-group"><label for="calendarNotes" data-i18n="notes">ملاحظات</label><input type="text" id="calendarNotes" data-i18n-placeholder="optional" placeholder="اختياري"></div>
                             <button id="saveCalendarDayBtn" class="primary-action" type="button" data-i18n="saveDay">حفظ اليوم</button>

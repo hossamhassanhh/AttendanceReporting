@@ -384,6 +384,27 @@ i18n.ar.navDaily = 'التقرير اليومي';
     i18n.ar.managerAssignTitle = 'تعيين مدير لموظف';
     i18n.ar.saveManager = 'حفظ المدير';
     i18n.ar.managerSaved = 'تم حفظ المدير';
+    i18n.ar.managerMode = 'طريقة التعيين';
+    i18n.ar.managerModeSingle = 'موظف واحد';
+    i18n.ar.managerModeBulk = 'مجموعة موظفين';
+    i18n.ar.managerBulkNumbers = 'الأرقام المالية (سطر لكل رقم أو مفصولة بفاصلة)';
+    i18n.ar.managerBulkDept = 'أو اختر الإدارة لتشمل كل موظفيها';
+    i18n.ar.saveManagerBulk = 'حفظ للجميع';
+    i18n.ar.calendarEndDate = 'إلى تاريخ (لنطاق زمني)';
+    i18n.ar.userFormTitle = 'بيانات المستخدم';
+    i18n.ar.editUser = 'تعديل مستخدم موجود';
+    i18n.ar.loadUser = 'تحميل بيانات المستخدم';
+    i18n.ar.cancelEdit = 'إلغاء التعديل';
+    i18n.ar.editingUser = 'وضع التعديل: عدّل البيانات ثم احفظ';
+    i18n.ar.adminUsersSection = 'المستخدمون والصلاحيات';
+    i18n.ar.adminEmployeesSection = 'الموظفون والمزامنة';
+    i18n.ar.adminCalendarSection = 'التقويم والمواعيد';
+    i18n.ar.loginRole = 'الدور';
+    i18n.ar.loginRoleOwner = 'مالك النظام';
+    i18n.ar.loginRoleAdmin = 'مدير النظام';
+    i18n.ar.loginRoleHr = 'موظف موارد بشرية';
+    i18n.ar.loginRoleEmployee = 'موظف';
+    i18n.ar.roleSystemOwner = 'مالك النظام';
     i18n.ar.status = 'الحالة';
     i18n.ar.noPendingRequests = 'لا توجد طلبات معلقة';
     i18n.ar.requested = 'تم الطلب';
@@ -482,6 +503,27 @@ i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
     i18n.en.managerAssignTitle = 'Assign Manager to Employee';
     i18n.en.saveManager = 'Save Manager';
     i18n.en.managerSaved = 'Manager saved';
+    i18n.en.managerMode = 'Assignment mode';
+    i18n.en.managerModeSingle = 'Single employee';
+    i18n.en.managerModeBulk = 'Bulk employees';
+    i18n.en.managerBulkNumbers = 'Financial numbers (one per line or comma-separated)';
+    i18n.en.managerBulkDept = 'Or select a department to include all its employees';
+    i18n.en.saveManagerBulk = 'Save for All';
+    i18n.en.calendarEndDate = 'End date (for a range)';
+    i18n.en.userFormTitle = 'User Details';
+    i18n.en.editUser = 'Edit existing user';
+    i18n.en.loadUser = 'Load User';
+    i18n.en.cancelEdit = 'Cancel Edit';
+    i18n.en.editingUser = 'Edit mode: update the details then save';
+    i18n.en.adminUsersSection = 'Users & Permissions';
+    i18n.en.adminEmployeesSection = 'Employees & Sync';
+    i18n.en.adminCalendarSection = 'Calendar & Schedules';
+    i18n.en.loginRole = 'Role';
+    i18n.en.loginRoleOwner = 'System Owner';
+    i18n.en.loginRoleAdmin = 'Administrator';
+    i18n.en.loginRoleHr = 'HR Employee';
+    i18n.en.loginRoleEmployee = 'Employee';
+    i18n.en.roleSystemOwner = 'System Owner';
     i18n.en.status = 'Status';
     i18n.en.noPendingRequests = 'No pending requests';
     i18n.en.requested = 'Requested';
@@ -632,6 +674,7 @@ function hasPermission(permission) {
     function getUserDisplayName(user) {
         if (!user) return '-';
         if (currentLang === 'ar') {
+            if (user.role === 'SystemOwner' || user.isSystemOwner) return (i18n.ar || {}).roleSystemOwner || 'مالك النظام';
             if (user.role === 'Admin' || user.isAdmin) return (i18n.ar || {}).roleAdmin || 'مدير النظام';
             if (isReadableDisplayName(user.displayNameAr)) return user.displayNameAr;
             return user.displayName || user.displayNameEn || user.username || '-';
@@ -647,6 +690,7 @@ function hasPermission(permission) {
 
     function roleLabel(role, isAdmin) {
         var dict = i18n[currentLang] || i18n.ar;
+        if (role === 'SystemOwner') return dict.roleSystemOwner || 'System Owner';
         return isAdmin || role === 'Admin' ? dict.roleAdmin : dict.roleEmployee;
     }
 
@@ -758,7 +802,8 @@ function showApplication() {
             body: JSON.stringify({
                 username: $('loginUsername').value.trim(),
                 password: password,
-                rememberMe: $('loginRemember').checked
+                rememberMe: $('loginRemember').checked,
+                role: $('loginRole') ? $('loginRole').value : 'employee'
             })
         }).then(function (r) {
             if (!r.ok) return r.json().then(function (x) { throw new Error(x.error || 'Login failed'); });
@@ -1264,17 +1309,17 @@ function renderLeaveTypeOptions() {
         var sel = $('adminRole');
         if (!sel) return;
         var selected = sel.value || 'Employee';
+        var canCreateAdmin = !!(currentUser && (currentUser.isSystemOwner || currentUser.role === 'SystemOwner'));
         sel.innerHTML = '';
-        [
-            { value: 'Admin', label: roleLabel('Admin', true) },
-            { value: 'Employee', label: roleLabel('Employee', false) }
-        ].forEach(function (role) {
+        var roles = [{ value: 'Employee', label: roleLabel('Employee', false) }];
+        if (canCreateAdmin) roles.unshift({ value: 'Admin', label: roleLabel('Admin', true) });
+        roles.forEach(function (role) {
             var opt = document.createElement('option');
             opt.value = role.value;
             opt.textContent = role.label;
             sel.appendChild(opt);
         });
-        sel.value = selected;
+        sel.value = roles.some(function (role) { return role.value === selected; }) ? selected : 'Employee';
     }
 
     function optionList(source, name) {
@@ -1601,11 +1646,16 @@ if (tabName === 'daily') {
             lastAdminUsers = null;
             lastAdminDays = null;
             lastPermissionsAll = null;
+            editingUserId = null;
             $('adminUsername').value = '';
+            $('adminUsername').disabled = false;
             $('adminDisplayNameAr').value = '';
             $('adminDisplayNameEn').value = '';
             $('adminPassword').value = '';
             $('adminRole').value = 'Admin';
+            $('saveUserBtn').textContent = i18n[currentLang].saveUser;
+            if ($('cancelEditUserBtn')) $('cancelEditUserBtn').style.display = 'none';
+            if ($('calendarEndDate')) $('calendarEndDate').value = '';
             $('adminPermissions').replaceChildren();
             $('calendarDate').value = '';
             $('calendarDayType').value = 'Weekly Rest';
@@ -3348,6 +3398,8 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
             lastAdminUsers = users;
             lastAdminDays = days;
 populateResetPasswordUsers(users);
+            populateEditUserSelect(users);
+            loadManagerDepartments();
             renderPermissions(lastPermissionsAll, role === 'Admin' ? perms.admin : perms.employee);
             renderAdminTables(users, days);
             loadAdSyncStatus();
@@ -3429,6 +3481,56 @@ populateResetPasswordUsers(users);
         });
     }
 
+    function loadManagerDepartments() {
+        var sel = $('managerBulkDept');
+        if (!sel) return;
+        fetch('/api/tracking/filter-options', { cache: 'no-store' })
+            .then(function (r) { if (!r.ok) throw new Error('filters'); return r.json(); })
+            .then(function (options) {
+                setSelectOptions('managerBulkDept', optionList(options, 'departments'));
+            })
+            .catch(function () {});
+    }
+
+    if ($('managerMode')) {
+        $('managerMode').addEventListener('change', function () {
+            var bulk = $('managerMode').value === 'bulk';
+            $('managerSingleInputs').style.display = bulk ? 'none' : '';
+            $('managerBulkInputs').style.display = bulk ? '' : 'none';
+            $('saveManagerBtn').style.display = bulk ? 'none' : '';
+            $('saveManagerBulkBtn').style.display = bulk ? '' : 'none';
+        });
+    }
+
+    if ($('saveManagerBulkBtn')) {
+        $('saveManagerBulkBtn').addEventListener('click', function () {
+            var managerNo = $('managerManagerNo').value.trim() || null;
+            var numbers = $('managerBulkNumbers').value.split(/[\n,]+/).map(function (v) { return v.trim(); }).filter(Boolean);
+            var department = $('managerBulkDept').value;
+            if (!numbers.length && !department) { showError(currentLang === 'ar' ? 'أدخل أرقامًا مالية أو اختر إدارة' : 'Enter financial numbers or select a department'); return; }
+            hideError();
+            showLoading();
+            fetch('/api/admin/employees/manager-bulk', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ managerFinancialNo: managerNo, financialNumbers: numbers, department: department || null })
+            }).then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error); });
+                return r.json();
+            }).then(function (result) {
+                hideLoading();
+                var message = (currentLang === 'ar' ? 'تم تعيين المدير لـ ' : 'Manager assigned to ') + result.updated + (currentLang === 'ar' ? ' موظف' : ' employee(s)');
+                if (result.missing && result.missing.length) message += (currentLang === 'ar' ? ' - غير موجود: ' : ' - Not found: ') + result.missing.join(', ');
+                $('managerBulkResult').textContent = message;
+                showSuccess(message);
+                $('managerBulkNumbers').value = '';
+            }).catch(function (err) {
+                hideLoading();
+                showError(err.message);
+            });
+        });
+    }
+
     function populateResetPasswordUsers(users) {
         var select = $('resetPasswordUser');
         if (!select) return;
@@ -3449,7 +3551,7 @@ populateResetPasswordUsers(users);
         var html = '<div class="two-column admin-tables">';
         html += '<div><h4>' + (currentLang === 'ar' ? 'المستخدمون' : 'Users') + '</h4><table><thead><tr><th>' + (currentLang === 'ar' ? 'المعرف' : 'ID') + '</th><th>' + (currentLang === 'ar' ? 'المستخدم' : 'User') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الدور' : 'Role') + '</th><th>' + (currentLang === 'ar' ? 'الصلاحيات' : 'Permissions') + '</th></tr></thead><tbody>';
         users.forEach(function (u) {
-            html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + getUserDisplayName(u) + '</td><td>' + roleLabel(u.role, u.role === 'Admin') + '</td><td>' + permissionListLabel(u.permissions) + '</td></tr>';
+            html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + getUserDisplayName(u) + '</td><td>' + roleLabel(u.role, u.role === 'Admin' || u.role === 'SystemOwner') + '</td><td>' + permissionListLabel(u.permissions) + '</td></tr>';
         });
         html += '</tbody></table></div>';
         html += '<div><h4>' + (currentLang === 'ar' ? 'إعدادات الأيام' : 'Day Settings') + '</h4><table><thead><tr><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'ملاحظات' : 'Notes') + '</th></tr></thead><tbody>';
@@ -3462,16 +3564,85 @@ populateResetPasswordUsers(users);
         flashUpdated('adminResults');
     }
 
+    var editingUserId = null;
+
+    function resetUserForm() {
+        editingUserId = null;
+        $('adminUsername').value = '';
+        $('adminUsername').disabled = false;
+        $('adminDisplayNameAr').value = '';
+        $('adminDisplayNameEn').value = '';
+        $('adminPassword').value = '';
+        $('adminRole').value = 'Employee';
+        $('saveUserBtn').textContent = i18n[currentLang].saveUser;
+        var cancelBtn = $('cancelEditUserBtn');
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        renderAdminRoleOptions();
+    }
+
+    function populateEditUserSelect(users) {
+        var select = $('editUserSelect');
+        if (!select) return;
+        var selectedId = select.value;
+        select.replaceChildren();
+        var emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.textContent = currentLang === 'ar' ? '— مستخدم جديد —' : '— New user —';
+        select.appendChild(emptyOpt);
+        (users || []).forEach(function (user) {
+            var option = document.createElement('option');
+            option.value = String(user.id);
+            option.textContent = getUserDisplayName(user) + ' (' + user.username + ')';
+            select.appendChild(option);
+        });
+        if (selectedId) select.value = selectedId;
+    }
+
+    if ($('editUserBtn')) {
+        $('editUserBtn').addEventListener('click', function () {
+            var userId = $('editUserSelect').value;
+            if (!userId || !lastAdminUsers) return;
+            var user = lastAdminUsers.filter(function (u) { return String(u.id) === String(userId); })[0];
+            if (!user) return;
+            hideError();
+            editingUserId = user.id;
+            $('adminUsername').value = user.username;
+            $('adminUsername').disabled = true;
+            $('adminDisplayNameAr').value = user.displayNameAr || '';
+            $('adminDisplayNameEn').value = user.displayNameEn || '';
+            $('adminPassword').value = '';
+            $('adminRole').value = user.role === 'Admin' || user.role === 'SystemOwner' ? 'Admin' : 'Employee';
+            renderPermissions(lastPermissionsAll, (user.permissions || '').split(',').map(function (p) { return p.trim(); }).filter(Boolean));
+            $('saveUserBtn').textContent = i18n[currentLang].saveChanges;
+            $('cancelEditUserBtn').style.display = '';
+            showSuccess(i18n[currentLang].editingUser);
+        });
+    }
+
+    if ($('cancelEditUserBtn')) {
+        $('cancelEditUserBtn').addEventListener('click', function () {
+            hideError();
+            resetUserForm();
+            loadAdminData();
+        });
+    }
+
     if ($('adminRole')) {
         $('adminRole').addEventListener('change', loadAdminData);
 $('saveUserBtn').addEventListener('click', function () {
             var username = $('adminUsername').value.trim();
             if (!username) { showError(currentLang === 'ar' ? 'اسم المستخدم مطلوب' : 'Username is required'); return; }
+            var passwordValue = $('adminPassword').value;
+            if (!editingUserId && passwordValue.length < 10) { showError(currentLang === 'ar' ? 'يجب ألا تقل كلمة المرور عن 10 أحرف' : 'Password must contain at least 10 characters'); return; }
+            if (editingUserId && passwordValue && passwordValue.length < 10) { showError(currentLang === 'ar' ? 'يجب ألا تقل كلمة المرور عن 10 أحرف' : 'Password must contain at least 10 characters'); return; }
             hideError();
-            fetch('/api/admin/users', {
-                method: 'POST',
+            var payload = { username: username, displayName: $('adminDisplayNameEn').value.trim() || $('adminDisplayNameAr').value.trim(), displayNameAr: $('adminDisplayNameAr').value.trim(), displayNameEn: $('adminDisplayNameEn').value.trim(), role: $('adminRole').value, permissions: getPermissionSelection(), isActive: true };
+            if (passwordValue) payload.password = passwordValue;
+            var url = editingUserId ? '/api/admin/users/' + encodeURIComponent(editingUserId) : '/api/admin/users';
+            fetch(url, {
+                method: editingUserId ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: username, password: $('adminPassword').value, displayName: $('adminDisplayNameEn').value.trim() || $('adminDisplayNameAr').value.trim(), displayNameAr: $('adminDisplayNameAr').value.trim(), displayNameEn: $('adminDisplayNameEn').value.trim(), role: $('adminRole').value, permissions: getPermissionSelection(), isActive: true })
+                body: JSON.stringify(payload)
             }).then(function (r) {
                 if (!r.ok) {
                     return r.json().then(function (e) {
@@ -3480,7 +3651,7 @@ $('saveUserBtn').addEventListener('click', function () {
                 }
                 return r.json();
             })
-                .then(loadAdminData)
+                .then(function () { resetUserForm(); loadAdminData(); })
                 .catch(function (err) { showError(err.message); });
         });
 
@@ -3522,14 +3693,23 @@ $('saveUserBtn').addEventListener('click', function () {
 
         $('saveCalendarDayBtn').addEventListener('click', function () {
             var date = $('calendarDate').value;
+            var endDate = $('calendarEndDate') ? $('calendarEndDate').value : '';
             if (!date) { showError(currentLang === 'ar' ? 'يرجى اختيار التاريخ' : 'Please select a date'); return; }
+            if (endDate && endDate < date) { showError(currentLang === 'ar' ? 'يجب أن يكون تاريخ النهاية بعد تاريخ البداية' : 'End date must be on or after start date'); return; }
             hideError();
+            var payload = { date: date, dayType: $('calendarDayType').value, notes: $('calendarNotes').value.trim() };
+            if (endDate) payload.endDate = endDate;
             fetch('/api/admin/day-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: date, dayType: $('calendarDayType').value, notes: $('calendarNotes').value.trim() })
+                body: JSON.stringify(payload)
             }).then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'تعذر حفظ اليوم' : 'Could not save day'); return r.json(); })
-                .then(loadAdminData)
+                .then(function (result) {
+                    var count = Array.isArray(result) ? result.length : 1;
+                    showSuccess((currentLang === 'ar' ? 'تم حفظ ' : 'Saved ') + count + (currentLang === 'ar' ? ' يوم' : ' day(s)'));
+                    $('calendarEndDate').value = '';
+                    loadAdminData();
+                })
                 .catch(function (err) { showError(err.message); });
         });
 
