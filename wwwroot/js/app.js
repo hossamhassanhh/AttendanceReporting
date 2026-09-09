@@ -2063,7 +2063,7 @@ function updateLeaveDays(fromId, toId, daysId) {
         var tableLabel = i18n[currentLang].attendanceResults;
         var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
             '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
-            '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'ساعات التأخير' : 'Late hours') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th></tr></thead><tbody>';
+            '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'ساعات التأخير' : 'Late hours') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th></tr></thead><tbody>';
         data.forEach(function (r, i) {
             var duration = '-';
             if (r.firstPunch && r.lastPunch) {
@@ -2083,6 +2083,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td class="duration">' + duration + '</td>' +
                 '<td class="schedule-cell">' + fmtSchedule(r.scheduledStart) + ' - ' + fmtSchedule(r.scheduledEnd) + '</td>' +
                 '<td>' + (r.lateHours || 0) + '</td>' +
+                '<td>' + (r.remainingGraceMinutes || 0) + '</td>' +
                 '<td><strong>' + (r.remainingHours || 0) + '</strong></td>' +
                 '</tr>';
         });

@@ -170,17 +170,26 @@ public class AttendanceTrackerService
                 continue;
 
             var used = 0;
+            var graceUsed = 0;
             foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
             {
                 var dailyLateMinutes = string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
                     ? AttendanceStatusRules.GetLateMinutes(record)
                     : 0;
                 var dailyHours = dailyLateMinutes > 0 ? (dailyLateMinutes + 59) / 60 : 0;
-                used += dailyHours;
+                if (dailyLateMinutes > 0)
+                {
+                    if (graceUsed + dailyLateMinutes <= AttendanceStatusRules.GraceLateAllowanceMinutes)
+                        graceUsed += dailyLateMinutes;
+                    else
+                        used += dailyHours;
+                }
                 snapshots[record.Id] = new LateAllowanceSnapshot(
                     dailyHours,
                     used,
-                    Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - used));
+                    Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - used),
+                    graceUsed,
+                    Math.Max(0, AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed));
             }
         }
 
@@ -620,7 +629,9 @@ public class TopManagementOvertimeRow
 public sealed record LateAllowanceSnapshot(
     int DailyHours,
     int UsedHours,
-    int RemainingHours);
+    int RemainingHours,
+    int GraceUsedMinutes,
+    int GraceRemainingMinutes);
 
 public sealed record AttendanceRecalculationResult(
     int ProcessedCount,
