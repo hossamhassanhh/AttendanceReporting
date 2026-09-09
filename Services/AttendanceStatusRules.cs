@@ -5,7 +5,7 @@ namespace AttendanceApp.Services;
 public static class AttendanceStatusRules
 {
     public const int CheckOutGraceMinutes = 30;
-    public const int MonthlyLateAllowanceMinutes = 120;
+    public const int LatePermissionMonthlyHours = 2;
     public const int EarlyLeavePermissionMonthlyCount = 2;
     public static readonly TimeSpan EarlyLeavePermissionStart = new(10, 0, 0);
 
@@ -165,7 +165,7 @@ public static class AttendanceStatusRules
 
 public sealed class PermissionTracker
 {
-    public int LateMinutesUsed { get; private set; }
+    public int LateHoursUsed { get; private set; }
 
     public int EarlyLeavesUsed { get; private set; }
 
@@ -173,8 +173,8 @@ public sealed class PermissionTracker
     {
         if (minutes <= 0)
             return true;
-        LateMinutesUsed += minutes;
-        return LateMinutesUsed <= AttendanceStatusRules.MonthlyLateAllowanceMinutes;
+        LateHoursUsed += (minutes + 59) / 60;
+        return LateHoursUsed <= AttendanceStatusRules.LatePermissionMonthlyHours;
     }
 
     public bool TryConsumeEarlyLeave(TimeSpan checkoutTime)

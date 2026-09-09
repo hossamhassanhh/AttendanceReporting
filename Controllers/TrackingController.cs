@@ -143,9 +143,9 @@ public class TrackingController : ControllerBase
                 Status = effectiveStatus,
                 RawStatus = r.Status,
                 StatusAr = AttendanceTrackerService.GetStatusArabic(effectiveStatus),
-                LateMinutes = lateAllowance[r.Id].DailyMinutes,
-                MonthlyLateMinutes = lateAllowance[r.Id].UsedMinutes,
-                RemainingLateMinutes = lateAllowance[r.Id].RemainingMinutes
+                LateHours = lateAllowance[r.Id].DailyHours,
+                MonthlyLateHours = lateAllowance[r.Id].UsedHours,
+                RemainingLateHours = lateAllowance[r.Id].RemainingHours
             };
         }).ToList();
 
@@ -402,7 +402,7 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         ws.Cell(4, 7).Value = "الحضور";
         ws.Cell(4, 8).Value = "الانصراف";
         ws.Cell(4, 9).Value = "الموعد";
-        ws.Cell(4, 10).Value = "دقائق التأخير";
+        ws.Cell(4, 10).Value = "ساعات التأخير";
         ws.Cell(4, 11).Value = "المتبقي من ساعتين";
 
         var headerRange = ws.Range(4, 1, 4, 11);
@@ -433,8 +433,8 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                 ? "-"
                 : $"{r.Employee.ScheduleStart} - {r.Employee.ScheduleEnd}";
             ws.Cell(row, 9).Value = masterSchedule;
-            ws.Cell(row, 10).Value = lateAllowance[r.Id].DailyMinutes;
-            ws.Cell(row, 11).Value = lateAllowance[r.Id].RemainingMinutes;
+                ws.Cell(row, 10).Value = lateAllowance[r.Id].DailyHours;
+                ws.Cell(row, 11).Value = lateAllowance[r.Id].RemainingHours;
 
             ws.Range(row, 1, row, 11).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
             ws.Range(row, 1, row, 11).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
@@ -516,8 +516,8 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                     table.Header(header =>
                     {
                         var headers = isArabic
-                            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "التاريخ", "الحالة", "الحضور", "الانصراف", "الموعد", "دقائق التأخير", "المتبقي" }
-                            : new[] { "Financial No", "Name", "Department", "Level", "Date", "Status", "Check In", "Check Out", "Schedule", "Late Min.", "Remaining" };
+                            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "التاريخ", "الحالة", "الحضور", "الانصراف", "الموعد", "ساعات التأخير", "المتبقي" }
+                            : new[] { "Financial No", "Name", "Department", "Level", "Date", "Status", "Check In", "Check Out", "Schedule", "Late Hrs.", "Remaining" };
                         foreach (var label in headers)
                             header.Cell()
                                 .Background("#1A2744")
@@ -554,8 +554,8 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(firstStr).FontSize(8);
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lastStr).FontSize(8);
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(schedStr).FontSize(8);
-                        table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].DailyMinutes.ToString()).FontSize(8);
-                        table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].RemainingMinutes.ToString()).FontSize(8);
+                        table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].DailyHours.ToString()).FontSize(8);
+                        table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].RemainingHours.ToString()).FontSize(8);
                     }
                 });
             });
@@ -571,7 +571,7 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         LateAllowanceSnapshot allowance)
     {
         return string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
-            && allowance.UsedMinutes <= AttendanceStatusRules.MonthlyLateAllowanceMinutes
+            && allowance.UsedHours <= AttendanceStatusRules.LatePermissionMonthlyHours
                 ? "Present"
                 : record.Status;
     }
