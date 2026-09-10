@@ -660,6 +660,18 @@ body::after {
     width: auto;
     max-width: 100%;
 }
+/* Cap box widths so inputs stay compact even inside wide grid cells;
+   wide search/reason fields get a larger cap. */
+.form-group input,
+.form-group select,
+.form-group textarea {
+    max-width: 340px;
+}
+.form-group.wide input,
+.form-group.wide select,
+.form-group.wide textarea {
+    max-width: 640px;
+}
 .form-group select {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233d8abf' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
     background-repeat: no-repeat;
