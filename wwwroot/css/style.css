@@ -197,6 +197,7 @@ body::after {
     font-size: 12px;
 }
 .sidebar-footer strong { color: var(--muted); font-size: 11px; }
+.sidebar-footer small { color: var(--muted); font-size: 11px; }
 
 /* ===================== MAIN PANEL ===================== */
 .main-panel { padding: 0 48px 30px; min-width: 0; }

@@ -43,34 +43,56 @@ public class AuthController : ControllerBase
         var username = NormalizeUsername(request.Username);
         if (string.IsNullOrWhiteSpace(username))
             return BadRequest(new { error = "Username and password are required" });
-        var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
 
-        var localPasswordOk = false;
-        if (user != null && user.IsActive && !string.IsNullOrWhiteSpace(user.PasswordHash))
-        {
-            var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
-            if (verification == PasswordVerificationResult.Failed)
-            {
-                localPasswordOk = false;
-            }
-            else
-            {
-                localPasswordOk = true;
-                if (verification == PasswordVerificationResult.SuccessRehashNeeded)
-                    user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
-            }
-        }
+        // Elevated roles (HR / Admin / System Owner) authenticate strictly
+        // against the AppUsers account password. The Employee role accepts
+        // the AppUsers password first, then falls back to Exchange (AD).
+        var elevatedLogin = RequestedTier(request.Role) >= 2;
+        AdUserInfo? adInfo = null;
+        AppUser? user;
 
-        if (!localPasswordOk)
+        if (elevatedLogin)
         {
-            if (!await _adDirectory.ValidateCredentialsAsync(username, request.Password))
+            user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
+            PasswordVerificationResult? verification = null;
+            if (user != null && user.IsActive && !string.IsNullOrWhiteSpace(user.PasswordHash))
+                verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+            if (verification is null || verification == PasswordVerificationResult.Failed)
                 return Unauthorized(new { error = "Invalid username or password" });
+            if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+                user!.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+        }
+        else
+        {
+            user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
 
-            user = await EnsureAdUserAsync(db, username);
-            if (user == null)
-                return Unauthorized(new { error = "Your Active Directory account is not linked to an employee record" });
-            if (!user.IsActive)
-                return Unauthorized(new { error = "Your account is disabled" });
+            var localPasswordOk = false;
+            if (user != null && user.IsActive && !string.IsNullOrWhiteSpace(user.PasswordHash))
+            {
+                var verification = _passwordHasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
+                if (verification == PasswordVerificationResult.Failed)
+                {
+                    localPasswordOk = false;
+                }
+                else
+                {
+                    localPasswordOk = true;
+                    if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+                        user.PasswordHash = _passwordHasher.HashPassword(user, request.Password);
+                }
+            }
+
+            if (!localPasswordOk)
+            {
+                if (!await _adDirectory.ValidateCredentialsAsync(username, request.Password))
+                    return Unauthorized(new { error = "Invalid username or password" });
+
+                (user, adInfo) = await EnsureAdUserAsync(db, username);
+                if (user == null)
+                    return Unauthorized(new { error = "Your Active Directory account is not linked to an employee record" });
+                if (!user.IsActive)
+                    return Unauthorized(new { error = "Your account is disabled" });
+            }
         }
 
         if (!IsRoleSelectionAllowed(user!, request.Role))
@@ -81,8 +103,10 @@ public class AuthController : ControllerBase
 
         var employeeNo = await GetEmployeeNoAsync(db, username);
         var session = ResolveSession(user, RequestedTier(request.Role));
-        await SignInAsync(user, request.RememberMe, employeeNo, session.Role, session.Permissions, request.Role);
-        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
+        await SignInAsync(user, request.RememberMe, employeeNo, session.Role, session.Permissions, request.Role,
+            adInfo?.JobTitle, adInfo?.Department);
+        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions,
+            adInfo?.JobTitle, adInfo?.Department));
     }
 
     [Authorize]
@@ -107,7 +131,8 @@ public class AuthController : ControllerBase
         using var db = await _factory.CreateDbContextAsync();
         var employeeNo = await GetEmployeeNoAsync(db, user.Username);
         var session = ResolveSession(user, SelectedSessionTier());
-        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
+        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions,
+            User.FindFirstValue("position"), User.FindFirstValue("department")));
     }
 
     [Authorize]
@@ -143,15 +168,15 @@ public class AuthController : ControllerBase
         return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
     }
 
-    private async Task<AppUser?> EnsureAdUserAsync(AppDbContext db, string username)
+    private async Task<(AppUser? User, AdUserInfo? Info)> EnsureAdUserAsync(AppDbContext db, string username)
     {
         var info = await _adDirectory.GetUserInfoAsync(username);
         if (info == null)
-            return null;
+            return (null, null);
 
         var isEmployee = await db.Employees.AnyAsync(e => e.FinancialNo == username);
         if (!isEmployee)
-            return null;
+            return (null, null);
 
         var isSystemOwner = string.Equals(username, SystemOwnerUsername, StringComparison.OrdinalIgnoreCase);
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
@@ -172,7 +197,7 @@ public class AuthController : ControllerBase
         else
         {
             if (!user.IsActive)
-                return null;
+                return (null, null);
             // Keep the stored display name (AppUsers data is authoritative for
             // existing accounts, e.g. manually set names must survive AD login).
             if (isSystemOwner && !string.Equals(user.Role, "SystemOwner", StringComparison.OrdinalIgnoreCase))
@@ -182,7 +207,7 @@ public class AuthController : ControllerBase
             }
         }
 
-        return user;
+        return (user, info);
     }
 
     private async Task<string?> GetEmployeeNoAsync(AppDbContext db, string username)
@@ -213,7 +238,9 @@ public class AuthController : ControllerBase
         string? employeeNo,
         string? effectiveRole = null,
         string[]? effectivePermissions = null,
-        string? loginRole = null)
+        string? loginRole = null,
+        string? position = null,
+        string? department = null)
     {
         var claims = new List<Claim>
         {
@@ -225,6 +252,10 @@ public class AuthController : ControllerBase
         };
         if (!string.IsNullOrWhiteSpace(loginRole))
             claims.Add(new Claim("login_role", loginRole.Trim()));
+        if (!string.IsNullOrWhiteSpace(position))
+            claims.Add(new Claim("position", position.Trim()));
+        if (!string.IsNullOrWhiteSpace(department))
+            claims.Add(new Claim("department", department.Trim()));
         if (!string.IsNullOrWhiteSpace(employeeNo))
             claims.Add(new Claim("employee_no", employeeNo));
         claims.AddRange((effectivePermissions ?? GetPermissions(user)).Select(
@@ -318,7 +349,9 @@ public class AuthController : ControllerBase
         AppUser user,
         string? employeeNo = null,
         string? effectiveRole = null,
-        string[]? effectivePermissions = null)
+        string[]? effectivePermissions = null,
+        string? position = null,
+        string? department = null)
     {
         var role = effectiveRole ?? user.Role;
         var permissions = effectivePermissions ?? GetPermissions(user);
@@ -336,6 +369,8 @@ public class AuthController : ControllerBase
             IsAdmin = isAdmin,
             IsSystemOwner = isSystemOwner,
             EmployeeNo = employeeNo,
+            Position = position,
+            Department = department,
             user.MustChangePassword
         };
     }

@@ -670,6 +670,18 @@ function hasPermission(permission) {
         if (!currentUser || !currentUser.displayName) return;
         var userLabel = document.querySelector('[data-i18n="userName"]');
         if (userLabel) userLabel.textContent = getUserDisplayName(currentUser);
+        var deptEl = document.querySelector('[data-i18n="departmentName"]');
+        if (deptEl && currentUser.department) deptEl.textContent = currentUser.department;
+        var posEl = $('userPosition');
+        if (posEl) {
+            if (currentUser.position) {
+                posEl.textContent = currentUser.position;
+                posEl.style.display = '';
+            } else {
+                posEl.textContent = '';
+                posEl.style.display = 'none';
+            }
+        }
     }
 
     function getUserDisplayName(user) {
