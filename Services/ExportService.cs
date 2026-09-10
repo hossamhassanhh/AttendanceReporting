@@ -37,7 +37,7 @@ public class ExportService
     };
 
     private static readonly Dictionary<string, string> LeaveTypeCodeMap = new(StringComparer.OrdinalIgnoreCase)
-    {
+{
         { "A", "A" }, { "Regular", "A" }, { "Regular Leave", "A" },
         { "S", "S" }, { "Sick", "S" }, { "Sick Leave", "S" },
         { "C", "C" }, { "Casual", "C" }, { "Casual Leave", "C" },
@@ -49,7 +49,7 @@ public class ExportService
         { "T", "T" }, { "Training", "T" },
         { "P", "P" }, { "Permission", "P" },
         { "PL", "X1" }, { "Late Permission", "X1" },
-        { "PE", "X2" }, { "Early Leave Permission", "X2" },
+        { "PE", "X1" }, { "Early Leave Permission", "X1" },
         { "W", "R" }, { "Weekly Rest", "R" },
     };
 
@@ -440,6 +440,7 @@ public class ExportService
             var c when c.StartsWith("X2") => "#00B0F0",
             var c when c.StartsWith("X3") => "#5B9BD5",
             var c when c.StartsWith("X4") => "#7030A0",
+            var c when c.StartsWith("X") => "#DDEBF7", // Default for X1, X2, X3, etc.
             _ => null
         };
 
@@ -534,10 +535,16 @@ public class ExportService
         {
             if (permissions != null && string.Equals(da.Status, "Late", StringComparison.OrdinalIgnoreCase))
             {
-                var lateMinutes = AttendanceStatusRules.GetLateMinutes(da);
-                if (permissions.TryConsumeGraceLate(lateMinutes))
+                var lateMins = AttendanceStatusRules.GetLateMinutes(da);
+                if (permissions.TryConsumeGraceLate(lateMins))
                     return "X";
-                return permissions.TryConsumeLate(lateMinutes) ? "X1" : "B";
+                if (permissions.TryConsumeLate(lateMins))
+                {
+                    // Return X{hours} based on hours consumed for this day (min X1)
+                    var hoursConsumed = Math.Max(1, (lateMins + 59) / 60);
+                    return $"X{hoursConsumed}";
+                }
+                return "B";
             }
 
             if (permissions != null
@@ -545,7 +552,7 @@ public class ExportService
                 && da.LastPunch.HasValue
                 && permissions.TryConsumeEarlyLeave(AttendanceStatusRules.ToEgyptTime(da.LastPunch.Value).TimeOfDay))
             {
-                return "X2";
+                return "X1";
             }
 
             return GetCodeFromDaily(da);
@@ -1062,6 +1069,7 @@ public class ExportService
             var c when c.StartsWith("X2") => XLColor.FromHtml("#00B0F0"),
             var c when c.StartsWith("X3") => XLColor.FromHtml("#5B9BD5"),
             var c when c.StartsWith("X4") => XLColor.FromHtml("#7030A0"),
+            var c when c.StartsWith("X") => XLColor.FromHtml("#DDEBF7"),
             _ => null
         };
 
@@ -1224,7 +1232,7 @@ public class ExportService
 
         var normalized = code.Trim().ToUpperInvariant();
 
-        if (normalized.StartsWith("B")) return ExcelColor(255, 0, 0);
+if (normalized.StartsWith("B")) return ExcelColor(255, 0, 0);
         if (normalized.StartsWith("S")) return ExcelColor(0, 176, 80);
         if (normalized.StartsWith("C")) return ExcelColor(255, 192, 0);
         if (normalized.StartsWith("A")) return ExcelColor(255, 255, 0);
@@ -1236,6 +1244,7 @@ public class ExportService
         if (normalized.StartsWith("X2")) return ExcelColor(0, 176, 240);
         if (normalized.StartsWith("X3")) return ExcelColor(91, 155, 213);
         if (normalized.StartsWith("X4")) return ExcelColor(112, 48, 160);
+        if (normalized.StartsWith("X")) return ExcelColor(221, 235, 247); // Default for X1, X2, etc.
 
         return null;
     }

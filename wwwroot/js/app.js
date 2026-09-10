@@ -45,6 +45,7 @@ navAttendance: 'الحضور',
             langEn: 'الإنجليزية',
             roleEmployee: 'موظف موارد بشرية',
             roleAdmin: 'مدير النظام',
+            roleSystemOwner: 'مالك النظام',
             loginTitle: 'تسجيل الدخول',
             loginDesc: 'أدخل اسم المستخدم وكلمة المرور.',
             password: 'كلمة المرور',
@@ -170,6 +171,7 @@ chooseFile: 'اختيار ملف',
             langEn: 'English',
             roleEmployee: 'HR Employee',
             roleAdmin: 'Administrator',
+            roleSystemOwner: 'System Owner',
             loginTitle: 'Sign in',
             loginDesc: 'Enter your username and password.',
             password: 'Password',
@@ -625,7 +627,6 @@ ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
         renderMonthOptions();
         renderLeaveTypeOptions();
         renderCalendarDayTypeOptions();
-        renderAdminRoleOptions();
         renderAttendanceFilterOptions();
         renderEmployeeFilterOptions();
         renderExportFilterOptions();
@@ -758,6 +759,7 @@ function showApplication() {
         loadExportFilterOptions();
         updateSyncStatus();
         loadApprovalQueues();
+        renderAdminRoleOptions();
     }
 
     function configureSelfServiceUI() {
@@ -1313,6 +1315,10 @@ function renderLeaveTypeOptions() {
         sel.innerHTML = '';
         var roles = [{ value: 'Employee', label: roleLabel('Employee', false) }];
         if (canCreateAdmin) roles.unshift({ value: 'Admin', label: roleLabel('Admin', true) });
+        // SystemOwner can only be assigned by SystemOwner (not via dropdown)
+        if (currentUser && currentUser.isSystemOwner) {
+            roles.unshift({ value: 'SystemOwner', label: roleLabel('SystemOwner', true) });
+        }
         roles.forEach(function (role) {
             var opt = document.createElement('option');
             opt.value = role.value;

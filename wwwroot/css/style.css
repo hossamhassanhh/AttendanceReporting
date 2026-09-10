@@ -562,6 +562,13 @@ body::after {
     gap: 16px;
     align-items: start;
 }
+.two-column.single-column {
+    grid-template-columns: minmax(0, 1fr);
+}
+.two-column.single-column > * {
+    grid-column: 1 / -1;
+    min-width: 0;
+}
 
 .filter-action-row {
     grid-column: 1 / -1;
