@@ -40,7 +40,9 @@ public class AuthController : ControllerBase
             return BadRequest(new { error = "Username and password are required" });
 
         using var db = await _factory.CreateDbContextAsync();
-        var username = request.Username.Trim();
+        var username = NormalizeUsername(request.Username);
+        if (string.IsNullOrWhiteSpace(username))
+            return BadRequest(new { error = "Username and password are required" });
         var user = await db.AppUsers.FirstOrDefaultAsync(u => u.Username == username);
 
         var localPasswordOk = false;
@@ -78,8 +80,9 @@ public class AuthController : ControllerBase
         await db.SaveChangesAsync();
 
         var employeeNo = await GetEmployeeNoAsync(db, username);
-        await SignInAsync(user, request.RememberMe, employeeNo);
-        return Ok(ToCurrentUser(user, employeeNo));
+        var session = ResolveSession(user, RequestedTier(request.Role));
+        await SignInAsync(user, request.RememberMe, employeeNo, session.Role, session.Permissions, request.Role);
+        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
     }
 
     [Authorize]
@@ -103,7 +106,8 @@ public class AuthController : ControllerBase
 
         using var db = await _factory.CreateDbContextAsync();
         var employeeNo = await GetEmployeeNoAsync(db, user.Username);
-        return Ok(ToCurrentUser(user, employeeNo));
+        var session = ResolveSession(user, SelectedSessionTier());
+        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
     }
 
     [Authorize]
@@ -133,8 +137,10 @@ public class AuthController : ControllerBase
         db.AppUsers.Update(user);
         await db.SaveChangesAsync();
         var employeeNo = await GetEmployeeNoAsync(db, user.Username);
-        await SignInAsync(user, false, employeeNo);
-        return Ok(ToCurrentUser(user, employeeNo));
+        var preservedRole = User.FindFirstValue("login_role");
+        var session = ResolveSession(user, string.IsNullOrWhiteSpace(preservedRole) ? null : (int?)RequestedTier(preservedRole));
+        await SignInAsync(user, false, employeeNo, session.Role, session.Permissions, preservedRole);
+        return Ok(ToCurrentUser(user, employeeNo, session.Role, session.Permissions));
     }
 
     private async Task<AppUser?> EnsureAdUserAsync(AppDbContext db, string username)
@@ -167,7 +173,8 @@ public class AuthController : ControllerBase
         {
             if (!user.IsActive)
                 return null;
-            user.DisplayName = info.DisplayName;
+            // Keep the stored display name (AppUsers data is authoritative for
+            // existing accounts, e.g. manually set names must survive AD login).
             if (isSystemOwner && !string.Equals(user.Role, "SystemOwner", StringComparison.OrdinalIgnoreCase))
             {
                 user.Role = "SystemOwner";
@@ -184,6 +191,12 @@ public class AuthController : ControllerBase
         return exists ? username : null;
     }
 
+    private int? SelectedSessionTier()
+    {
+        var loginRole = User.FindFirstValue("login_role");
+        return string.IsNullOrWhiteSpace(loginRole) ? null : RequestedTier(loginRole);
+    }
+
     private async Task<AppUser?> FindCurrentUserAsync()
     {
         var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -194,19 +207,27 @@ public class AuthController : ControllerBase
         return await db.AppUsers.FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
     }
 
-    private async Task SignInAsync(AppUser user, bool persistent, string? employeeNo)
+    private async Task SignInAsync(
+        AppUser user,
+        bool persistent,
+        string? employeeNo,
+        string? effectiveRole = null,
+        string[]? effectivePermissions = null,
+        string? loginRole = null)
     {
         var claims = new List<Claim>
         {
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, user.Username),
-            new(ClaimTypes.Role, user.Role),
+            new(ClaimTypes.Role, effectiveRole ?? user.Role),
             new("must_change_password", user.MustChangePassword ? "true" : "false"),
             new("session_version", user.SessionVersion.ToString())
         };
+        if (!string.IsNullOrWhiteSpace(loginRole))
+            claims.Add(new Claim("login_role", loginRole.Trim()));
         if (!string.IsNullOrWhiteSpace(employeeNo))
             claims.Add(new Claim("employee_no", employeeNo));
-        claims.AddRange(GetPermissions(user).Select(
+        claims.AddRange((effectivePermissions ?? GetPermissions(user)).Select(
             permission => new Claim(AuthConstants.PermissionClaim, permission)));
 
         var principal = new ClaimsPrincipal(
@@ -244,19 +265,65 @@ public class AuthController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(requestedRole))
             return true;
-        var requestedTier = requestedRole.Trim().ToLowerInvariant() switch
+        return RoleTier(user) >= RequestedTier(requestedRole);
+    }
+
+    private static int RequestedTier(string? requestedRole)
+    {
+        if (string.IsNullOrWhiteSpace(requestedRole))
+            return 1;
+        return requestedRole.Trim().ToLowerInvariant() switch
         {
             "systemowner" => 4,
             "admin" => 3,
             "hr" or "hremployee" or "hr_employee" => 2,
             _ => 1
         };
-        return RoleTier(user) >= requestedTier;
     }
 
-    internal static object ToCurrentUser(AppUser user, string? employeeNo = null)
+    private static string NormalizeUsername(string? username)
     {
-        var permissions = GetPermissions(user);
+        var value = (username ?? string.Empty).Trim();
+        var at = value.IndexOf('@');
+        if (at > 0)
+            value = value[..at].Trim();
+        var slash = value.LastIndexOf('\\');
+        if (slash >= 0)
+            value = value[(slash + 1)..].Trim();
+        return value;
+    }
+
+    private static string[] SplitPermissions(string? permissions) =>
+        (permissions ?? string.Empty).Split(
+                ',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+    private static readonly string[] SelfServicePermissions = { "SelfAttendance", "SelfLeave" };
+
+    private static (string Role, string[] Permissions) ResolveSession(AppUser user, int? selectedTier)
+    {
+        var entitledTier = RoleTier(user);
+        if (selectedTier is null || selectedTier >= entitledTier)
+            return (user.Role, GetPermissions(user));
+        return selectedTier switch
+        {
+            3 => ("Admin", SplitPermissions(PermissionCatalog.AdminPermissions)),
+            2 => ("Employee", SplitPermissions(PermissionCatalog.EmployeePermissions)),
+            _ => ("Employee", SelfServicePermissions),
+        };
+    }
+
+    internal static object ToCurrentUser(
+        AppUser user,
+        string? employeeNo = null,
+        string? effectiveRole = null,
+        string[]? effectivePermissions = null)
+    {
+        var role = effectiveRole ?? user.Role;
+        var permissions = effectivePermissions ?? GetPermissions(user);
+        var isSystemOwner = string.Equals(role, "SystemOwner", StringComparison.OrdinalIgnoreCase);
+        var isAdmin = isSystemOwner || string.Equals(role, "Admin", StringComparison.OrdinalIgnoreCase);
         return new
         {
             user.Id,
@@ -264,10 +331,10 @@ public class AuthController : ControllerBase
             user.DisplayName,
             user.DisplayNameAr,
             user.DisplayNameEn,
-            user.Role,
+            Role = role,
             Permissions = permissions,
-            IsAdmin = IsAdminRole(user),
-            IsSystemOwner = IsSystemOwner(user),
+            IsAdmin = isAdmin,
+            IsSystemOwner = isSystemOwner,
             EmployeeNo = employeeNo,
             user.MustChangePassword
         };
