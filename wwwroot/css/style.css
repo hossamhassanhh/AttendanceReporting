@@ -289,6 +289,22 @@ body::after {
     background: #0d1c31;
     color: #fff;
 }
+.auth-form select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #405574;
+    border-radius: 10px;
+    background: #0d1c31;
+    color: #fff;
+    color-scheme: dark;
+    font: inherit;
+    cursor: pointer;
+}
+.auth-form select:focus {
+    outline: 2px solid var(--blue);
+    outline-offset: 1px;
+    border-color: var(--blue);
+}
 .auth-form .primary-action { width: 100%; margin-top: 8px; }
 .remember-field { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 .auth-error { margin: 16px 0 0; padding: 10px 12px; border-radius: 9px; background: #5a1c24; color: #ffdce1; }

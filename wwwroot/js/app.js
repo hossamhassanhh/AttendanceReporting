@@ -675,10 +675,10 @@ function hasPermission(permission) {
     function getUserDisplayName(user) {
         if (!user) return '-';
         if (currentLang === 'ar') {
-            if (user.role === 'SystemOwner' || user.isSystemOwner) return (i18n.ar || {}).roleSystemOwner || 'مالك النظام';
-            if (user.role === 'Admin' || user.isAdmin) return (i18n.ar || {}).roleAdmin || 'مدير النظام';
             if (isReadableDisplayName(user.displayNameAr)) return user.displayNameAr;
-            return user.displayName || user.displayNameEn || user.username || '-';
+            if (isReadableDisplayName(user.displayName)) return user.displayName;
+            if (isReadableDisplayName(user.displayNameEn)) return user.displayNameEn;
+            return user.username || '-';
         }
         return user.displayNameEn || user.displayName || user.displayNameAr || user.username || '-';
     }
