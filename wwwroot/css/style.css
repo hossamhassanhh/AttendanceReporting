@@ -3891,7 +3891,8 @@ html[dir="ltr"] .search-mode-row select {
 #leaveResults,
 #exportPreview,
 #exportResults,
-#dailyResults {
+#dailyResults,
+#adminResults {
     width: calc(100% + var(--page-gutter) * 2);
     max-width: none;
     margin-inline: calc(var(--page-gutter) * -1);
@@ -3906,6 +3907,7 @@ html[dir="ltr"] .search-mode-row select {
 #exportPreviewContent,
 #exportResultsContent,
 #dailyResultsContent,
+#adminResultsContent,
 .results .report-wrap,
 .results .monthly-attendance-wrap,
 .results .attendance-table-scroll,
@@ -3920,6 +3922,18 @@ html[dir="ltr"] .search-mode-row select {
 .results table {
     width: 100%;
     min-width: 100%;
+}
+
+/* Admin data tables stack full-screen: Users on top, Day Settings below. */
+.admin-tables-stacked {
+    display: grid;
+    gap: 22px;
+}
+.admin-table-block > h4 {
+    font-size: 15px;
+    color: var(--navy);
+    margin: 0 0 8px;
+    font-weight: 700;
 }
 
 @media (min-width: 1600px) {

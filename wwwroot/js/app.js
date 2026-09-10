@@ -3554,17 +3554,20 @@ populateResetPasswordUsers(users);
     function renderAdminTables(users, days) {
         var el = $('adminResultsContent');
         if (!el) return;
-        var html = '<div class="two-column admin-tables">';
-        html += '<div><h4>' + (currentLang === 'ar' ? 'المستخدمون' : 'Users') + '</h4><table><thead><tr><th>' + (currentLang === 'ar' ? 'المعرف' : 'ID') + '</th><th>' + (currentLang === 'ar' ? 'المستخدم' : 'User') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الدور' : 'Role') + '</th><th>' + (currentLang === 'ar' ? 'الصلاحيات' : 'Permissions') + '</th></tr></thead><tbody>';
+        var usersLabel = currentLang === 'ar' ? 'المستخدمون' : 'Users';
+        var daysLabel = currentLang === 'ar' ? 'إعدادات الأيام' : 'Day Settings';
+        var html = '<div class="admin-tables-stacked">';
+        html += '<div class="admin-table-block"><h4>' + usersLabel + '</h4>' + tableScrollOpen(usersLabel) + '<table><thead><tr><th>' + (currentLang === 'ar' ? 'المعرف' : 'ID') + '</th><th>' + (currentLang === 'ar' ? 'المستخدم' : 'User') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الدور' : 'Role') + '</th><th>' + (currentLang === 'ar' ? 'الصلاحيات' : 'Permissions') + '</th></tr></thead><tbody>';
         users.forEach(function (u) {
             html += '<tr><td>' + u.id + '</td><td>' + u.username + '</td><td>' + getUserDisplayName(u) + '</td><td>' + roleLabel(u.role, u.role === 'Admin' || u.role === 'SystemOwner') + '</td><td>' + permissionListLabel(u.permissions) + '</td></tr>';
         });
-        html += '</tbody></table></div>';
-        html += '<div><h4>' + (currentLang === 'ar' ? 'إعدادات الأيام' : 'Day Settings') + '</h4><table><thead><tr><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'ملاحظات' : 'Notes') + '</th></tr></thead><tbody>';
+        html += '</tbody></table></div></div>';
+        html += '<div class="admin-table-block"><h4>' + daysLabel + '</h4>' + tableScrollOpen(daysLabel) + '<table><thead><tr><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'النوع' : 'Type') + '</th><th>' + (currentLang === 'ar' ? 'ملاحظات' : 'Notes') + '</th></tr></thead><tbody>';
         days.forEach(function (d) {
             html += '<tr><td>' + fmtDateLocal(d.date) + '</td><td>' + statusLabel(d.dayType) + '</td><td>' + (d.notes || '') + '</td></tr>';
         });
         html += '</tbody></table></div></div>';
+        html += '</div>';
         el.innerHTML = html;
         show('adminResults');
         flashUpdated('adminResults');
