@@ -784,6 +784,9 @@ function showApplication() {
             if ($('attMatchMode')) { $('attMatchMode').value = 'exact'; $('attMatchMode').disabled = true; }
             if ($('balFinNo')) { $('balFinNo').value = employeeNo; $('balFinNo').disabled = true; }
             if ($('leaveFinNo')) { $('leaveFinNo').value = employeeNo; $('leaveFinNo').disabled = true; }
+            var firstOfMonth = new Date();
+            firstOfMonth.setDate(1);
+            if ($('attFrom')) $('attFrom').valueAsDate = firstOfMonth;
         }
     }
 
@@ -1830,6 +1833,11 @@ function activateTab(tabName, clearPrevious) {
         });
 if (tabName === 'admin' && currentUser) loadAdminData();
         if (tabName === 'leave' && currentUser) loadApprovalQueues();
+        var selfService = currentUser && hasPermission('SelfAttendance') && !hasPermission('Attendance');
+        if (selfService) {
+            if (tabName === 'attendance' && !lastAttendanceRecords) fetchAttendance(true);
+            if (tabName === 'leave' && !lastLeaveTransactions && $('fetchLeaveTransBtn')) $('fetchLeaveTransBtn').click();
+        }
     }
 
     function restoreActiveTab() {
