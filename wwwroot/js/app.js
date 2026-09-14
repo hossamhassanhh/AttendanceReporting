@@ -724,6 +724,11 @@ function applyPermissions() {
             el.style.display = hasAnyPermission(permissions) ? '' : 'none';
         });
 
+        var selfServiceView = isSelfServiceUser();
+        document.querySelectorAll('.attendance-result-tools').forEach(function (el) {
+            el.style.display = selfServiceView ? 'none' : '';
+        });
+
         if (!hasAnyPermission('ManagePermissions|AdSync') && document.querySelector('.tab.active')?.dataset.tab === 'admin') {
             document.querySelector('[data-tab="attendance"]').click();
         }
