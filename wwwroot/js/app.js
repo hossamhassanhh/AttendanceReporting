@@ -774,20 +774,27 @@ function showApplication() {
         renderAdminRoleOptions();
     }
 
+    function isSelfServiceUser() {
+        return !!(currentUser && hasPermission('SelfAttendance') && !hasPermission('Attendance'));
+    }
+
+    function restoreSelfServiceFilters() {
+        if (!isSelfServiceUser()) return;
+        var employeeNo = (currentUser && currentUser.employeeNo) || '';
+        var attEmp = $('attEmployees');
+        if (attEmp) { attEmp.value = employeeNo; attEmp.disabled = true; }
+        if ($('attMatchMode')) { $('attMatchMode').value = 'exact'; $('attMatchMode').disabled = true; }
+        if ($('balFinNo')) { $('balFinNo').value = employeeNo; $('balFinNo').disabled = true; }
+        if ($('leaveFinNo')) { $('leaveFinNo').value = employeeNo; $('leaveFinNo').disabled = true; }
+        var firstOfMonth = new Date();
+        firstOfMonth.setDate(1);
+        if ($('attFrom')) $('attFrom').valueAsDate = firstOfMonth;
+        updateAttendanceActiveFilters();
+    }
+
     function configureSelfServiceUI() {
         if (!currentUser) return;
-        var selfScoped = hasPermission('SelfAttendance') && !hasPermission('Attendance');
-        if (selfScoped) {
-            var employeeNo = currentUser.employeeNo || '';
-            var attEmp = $('attEmployees');
-            if (attEmp) { attEmp.value = employeeNo; attEmp.disabled = true; }
-            if ($('attMatchMode')) { $('attMatchMode').value = 'exact'; $('attMatchMode').disabled = true; }
-            if ($('balFinNo')) { $('balFinNo').value = employeeNo; $('balFinNo').disabled = true; }
-            if ($('leaveFinNo')) { $('leaveFinNo').value = employeeNo; $('leaveFinNo').disabled = true; }
-            var firstOfMonth = new Date();
-            firstOfMonth.setDate(1);
-            if ($('attFrom')) $('attFrom').valueAsDate = firstOfMonth;
-        }
+        restoreSelfServiceFilters();
     }
 
     function loadCurrentUser() {
@@ -1688,6 +1695,7 @@ if (tabName === 'daily') {
             $('resetPasswordValue').value = '';
             $('resetPasswordConfirm').value = '';
         }
+        restoreSelfServiceFilters();
         updateFileLabels();
     }
 
@@ -1789,6 +1797,7 @@ if (tabName === 'daily') {
             hide('wageExportActions');
             clear($('wageResultsContent'));
         }
+        restoreSelfServiceFilters();
     }
 
     document.querySelectorAll('[data-clear-query]').forEach(function (button) {
