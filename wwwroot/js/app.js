@@ -831,6 +831,7 @@ function showApplication() {
             return r.json();
         }).then(function (user) {
             currentUser = user;
+            resetClientSession();
             $('currentPassword').value = password;
             $('loginPassword').value = '';
             if (user.mustChangePassword) showLoginScreen(true);
@@ -870,6 +871,7 @@ function showApplication() {
         fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
             .finally(function () {
                 currentUser = null;
+                resetClientSession();
                 showLoginScreen(false);
             });
     });
@@ -1694,6 +1696,39 @@ if (tabName === 'daily') {
         }
         restoreSelfServiceFilters();
         updateFileLabels();
+    }
+
+    function resetClientSession() {
+        try { sessionStorage.removeItem('attendance.activeTab'); } catch (e) {}
+        lastAttendanceRecords = null;
+        lastEmployeeRows = null;
+        lastBalanceRows = null;
+        lastLeaveTransactions = null;
+        lastMonthlyPreview = null;
+        lastMonthlyInfo = null;
+        lastDailyRows = null;
+        lastOvertimeRecords = null;
+        lastWageRows = null;
+        lastAdminUsers = null;
+        lastAdminDays = null;
+        lastPermissionsAll = null;
+        if (attendanceRequestController) { try { attendanceRequestController.abort(); } catch (e) {} attendanceRequestController = null; }
+        if (overtimeRequestController) { try { overtimeRequestController.abort(); } catch (e) {} overtimeRequestController = null; }
+        if (wageRequestController) { try { wageRequestController.abort(); } catch (e) {} wageRequestController = null; }
+        ['attendance', 'employees', 'balances', 'leave', 'export', 'daily', 'reports', 'admin'].forEach(function (tab) {
+            try { clearSectionResults(tab); } catch (e) {}
+        });
+        ['managerApprovalsContent', 'hrApprovalsContent'].forEach(function (id) {
+            var list = $(id);
+            if (list) list.replaceChildren();
+        });
+        hideLoading();
+        hideError();
+        hide('success');
+        var successMessage = $('successMessage');
+        if (successMessage) successMessage.textContent = '';
+        if ($('loginUsername')) $('loginUsername').value = '';
+        if ($('loginPassword')) $('loginPassword').value = '';
     }
 
     function clearQueryFilters(queryName) {
