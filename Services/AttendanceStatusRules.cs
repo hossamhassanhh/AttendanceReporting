@@ -19,7 +19,8 @@ public static class AttendanceStatusRules
         "Missing Check Out",
         "Late",
         "Early Leave",
-        "Absent"
+        "Absent",
+        "Work From Home"
     };
 
     public static string Calculate(

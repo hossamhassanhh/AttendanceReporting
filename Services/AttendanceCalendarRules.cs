@@ -10,6 +10,8 @@ public static class AttendanceCalendarRules
 
     public static readonly string[] DayTypes = { WeeklyRest, WorkFromHome, Holiday };
 
+    private static readonly DateTime SundayWorkingDayStart = new(2026, 10, 1);
+
     public static string? GetDayStatus(DateTime date, IReadOnlyCollection<AttendanceDaySetting>? settings)
     {
         var configured = settings?.FirstOrDefault(s => s.Date.Date == date.Date);
@@ -19,7 +21,7 @@ public static class AttendanceCalendarRules
         if (date.DayOfWeek == DayOfWeek.Friday || date.DayOfWeek == DayOfWeek.Saturday)
             return WeeklyRest;
 
-        if (date.DayOfWeek == DayOfWeek.Sunday)
+        if (date.DayOfWeek == DayOfWeek.Sunday && date < SundayWorkingDayStart)
             return WorkFromHome;
 
         return null;
