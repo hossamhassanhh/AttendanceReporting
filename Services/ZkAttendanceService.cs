@@ -198,7 +198,68 @@ public class ZkAttendanceService
         }
 
         db.ChangeTracker.AutoDetectChangesEnabled = true;
+
+        // Finalize the affected employee-months with the month-ordered grace /
+        // late-permission rules so stored statuses match the report rules.
+        var affectedEmployeeNos = punchesByDay.Keys
+            .Where(key => empDict.ContainsKey(key.EmpNo))
+            .Select(key => key.EmpNo)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var affectedDays = punchesByDay.Keys.Select(key => key.Day).ToList();
+        await FinalizeMonthlyStatusesAsync(
+            db,
+            affectedEmployeeNos,
+            affectedDays.Min(),
+            affectedDays.Max(),
+            calendarSettings);
+
         return processed;
+    }
+
+    /// <summary>
+    /// Re-evaluates whole months for the given employees in date order so the
+    /// stored statuses consume the monthly quotas chronologically.
+    /// </summary>
+    private static async Task FinalizeMonthlyStatusesAsync(
+        AppDbContext db,
+        IReadOnlyCollection<string> employeeNos,
+        DateTime fromDate,
+        DateTime toDate,
+        IReadOnlyCollection<AttendanceDaySetting> calendarSettings)
+    {
+        if (employeeNos.Count == 0)
+            return;
+
+        var rangeStart = new DateTime(fromDate.Year, fromDate.Month, 1);
+        var rangeEnd = new DateTime(toDate.Year, toDate.Month, 1).AddMonths(1).AddDays(-1);
+
+        var monthRecords = await db.DailyAttendances
+            .Where(a => a.Date >= rangeStart
+                && a.Date <= rangeEnd
+                && employeeNos.Contains(a.EmployeeFinancialNo))
+            .ToListAsync();
+        if (monthRecords.Count == 0)
+            return;
+
+        var statusContext = await AttendanceTrackerService.LoadMonthlyStatusContextAsync(
+            db, employeeNos, rangeStart, rangeEnd);
+        var outcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+            monthRecords,
+            statusContext.LeaveFlags,
+            calendarSettings,
+            statusContext.LeaveTypeCodes);
+
+        foreach (var record in monthRecords)
+        {
+            if (outcomes.TryGetValue(record.Id, out var outcome)
+                && !string.Equals(record.Status, outcome.Status, StringComparison.Ordinal))
+            {
+                record.Status = outcome.Status;
+            }
+        }
+
+        await db.SaveChangesAsync();
     }
 
     public async Task<string> PopulateDailyAttendanceRangeAsync(DateTime fromDate, DateTime toDate)
@@ -308,6 +369,15 @@ public class ZkAttendanceService
         }
 
         await db.SaveChangesAsync();
+
+        // Apply the month-ordered quota rules across the touched months.
+        await FinalizeMonthlyStatusesAsync(
+            db,
+            employees.Select(e => e.FinancialNo).ToList(),
+            normalizedFrom,
+            normalizedTo,
+            calendarSettings);
+
         return $"Processed {processed} records from {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
     }
 

@@ -565,7 +565,6 @@ result.Add(new LeaveLogDay
             .Where(item => item.EmployeeFinancialNo == financialNo
                 && item.Date >= fromDate.Date
                 && item.Date <= toDate.Date
-                && item.Status == "Leave"
                 && item.LeaveTypeId == leaveTypeId)
             .ToListAsync();
         foreach (var attendance in records)

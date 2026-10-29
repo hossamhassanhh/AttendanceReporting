@@ -146,12 +146,12 @@ public class AttendanceTrackerService
         var rangeStart = keys.Min(k => new DateTime(k.Year, k.Month, 1));
         var rangeEnd = keys.Max(k => new DateTime(k.Year, k.Month, 1).AddMonths(1).AddDays(-1));
 
-        // NOTE: snapshots must mirror the monthly-code path exactly (stored
-        // statuses, leave days and calendar days consume nothing), so the
-        // displayed remaining quotas always reconcile with the X/X1 codes.
+        // NOTE: snapshots mirror the status walk exactly (same quota consumption
+        // in date order), so the displayed remaining quotas always reconcile
+        // with the report Status and the X/X1 codes.
         List<DailyAttendance> monthRecords;
-        HashSet<(string FinancialNo, DateTime Date)> leaveDays = new();
-        List<AttendanceDaySetting> calendarSettings = new();
+        List<AttendanceDaySetting> calendarSettings;
+        MonthlyStatusContext statusContext;
         using (var db = await _factory.CreateDbContextAsync())
         {
             monthRecords = await db.DailyAttendances
@@ -161,27 +161,19 @@ public class AttendanceTrackerService
                     && employeeNos.Contains(d.EmployeeFinancialNo))
                 .ToListAsync();
 
-            var leaveRows = await db.LeaveTransactions
-                .AsNoTracking()
-                .Where(t => t.Status == "Approved"
-                    && t.FromDate <= rangeEnd
-                    && t.ToDate >= rangeStart
-                    && employeeNos.Contains(t.EmployeeFinancialNo))
-                .Select(t => new { t.EmployeeFinancialNo, t.FromDate, t.ToDate })
-                .ToListAsync();
-            foreach (var leave in leaveRows)
-            {
-                var from = leave.FromDate.Date < rangeStart ? rangeStart : leave.FromDate.Date;
-                var to = leave.ToDate.Date > rangeEnd ? rangeEnd : leave.ToDate.Date;
-                for (var day = from; day <= to; day = day.AddDays(1))
-                    leaveDays.Add((leave.EmployeeFinancialNo, day));
-            }
-
             calendarSettings = await db.AttendanceDaySettings
                 .AsNoTracking()
                 .Where(s => s.Date >= rangeStart && s.Date <= rangeEnd)
                 .ToListAsync();
+
+            statusContext = await LoadMonthlyStatusContextAsync(db, employeeNos, rangeStart, rangeEnd);
         }
+
+        var outcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+            monthRecords,
+            statusContext.LeaveFlags,
+            calendarSettings,
+            statusContext.LeaveTypeCodes);
 
         foreach (var monthGroup in monthRecords.GroupBy(r => new
                  {
@@ -198,21 +190,15 @@ public class AttendanceTrackerService
             var graceUsed = 0;
             foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
             {
-                var dailyLateMinutes = 0;
-                if (string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
-                    && !leaveDays.Contains((record.EmployeeFinancialNo, record.Date.Date))
-                    && string.IsNullOrWhiteSpace(AttendanceCalendarRules.GetMonthlyCode(record.Date, calendarSettings)))
+                var dailyHours = 0;
+                if (outcomes.TryGetValue(record.Id, out var outcome))
                 {
-                    dailyLateMinutes = AttendanceStatusRules.GetLateMinutes(record);
+                    graceUsed += outcome.GraceConsumedMinutes;
+                    used += outcome.LateHoursConsumed;
+                    if (outcome.DailyLateMinutes > 0)
+                        dailyHours = (outcome.DailyLateMinutes + 59) / 60;
                 }
-                var dailyHours = dailyLateMinutes > 0 ? (dailyLateMinutes + 59) / 60 : 0;
-                if (dailyLateMinutes > 0)
-                {
-                    if (graceUsed + dailyLateMinutes <= AttendanceStatusRules.GraceLateAllowanceMinutes)
-                        graceUsed += dailyLateMinutes;
-                    else
-                        used += dailyHours;
-                }
+
                 snapshots[record.Id] = new LateAllowanceSnapshot(
                     dailyHours,
                     used,
@@ -507,9 +493,16 @@ public class AttendanceTrackerService
         var skipped = 0;
         var now = DateTime.Now;
 
+        var permissionIdSet = await db.LeaveTypes
+            .AsNoTracking()
+            .Where(t => t.Code == "P" || t.Code == "PL" || t.Code == "PE")
+            .Select(t => t.Id)
+            .ToHashSetAsync();
+
+        var processed = new List<(DailyAttendance Record, string Status, string? ScheduledStart, string? ScheduledEnd)>();
         foreach (var record in records)
         {
-            if (record.LeaveTypeId.HasValue || !AttendanceStatusRules.IsAutomaticStatus(record.Status))
+            if (!AttendanceStatusRules.ShouldRecalculate(record, permissionIdSet))
             {
                 skipped++;
                 continue;
@@ -520,26 +513,66 @@ public class AttendanceTrackerService
                 : AttendanceStatusRules.ResolveSchedule(record.Employee, scheduleRules);
             var scheduledStartValue = currentSchedule?.StartTime ?? record.ScheduledStart;
             var scheduledEndValue = currentSchedule?.EndTime ?? record.ScheduledEnd;
-            var status = AttendanceStatusRules.Calculate(
-                record.FirstPunch,
-                record.LastPunch,
-                scheduledStartValue,
-                scheduledEndValue,
-                record.Date,
-                calendarSettings,
-                now);
 
-            if (string.Equals(record.Status, status, StringComparison.Ordinal)
-                && string.Equals(record.ScheduledStart, scheduledStartValue, StringComparison.Ordinal)
-                && string.Equals(record.ScheduledEnd, scheduledEndValue, StringComparison.Ordinal))
+            processed.Add((record, record.Status, record.ScheduledStart, record.ScheduledEnd));
+            record.ScheduledStart = scheduledStartValue;
+            record.ScheduledEnd = scheduledEndValue;
+        }
+
+        Dictionary<int, MonthlyStatusOutcome> outcomes = new();
+        if (processed.Count > 0)
+        {
+            // Evaluate whole months in date order so the 30-minute grace and the
+            // 2-hour late-permission quotas are consumed chronologically.
+            var employeeNos = processed
+                .Select(p => p.Record.EmployeeFinancialNo)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var rangeStart = processed.Min(p => new DateTime(p.Record.Date.Year, p.Record.Date.Month, 1));
+            var rangeEnd = processed.Max(p => new DateTime(p.Record.Date.Year, p.Record.Date.Month, 1).AddMonths(1).AddDays(-1));
+
+            var monthRecords = await db.DailyAttendances
+                .Where(record => record.Date >= rangeStart
+                    && record.Date <= rangeEnd
+                    && employeeNos.Contains(record.EmployeeFinancialNo))
+                .ToListAsync();
+            var statusContext = await LoadMonthlyStatusContextAsync(db, employeeNos, rangeStart, rangeEnd);
+
+            outcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+                monthRecords,
+                statusContext.LeaveFlags,
+                calendarSettings,
+                statusContext.LeaveTypeCodes,
+                now);
+        }
+
+        foreach (var (record, previousStatus, previousStart, previousEnd) in processed)
+        {
+            if (!outcomes.TryGetValue(record.Id, out var outcome))
+            {
+                outcome = new MonthlyStatusOutcome(
+                    AttendanceStatusRules.Calculate(
+                        record.FirstPunch,
+                        record.LastPunch,
+                        record.ScheduledStart,
+                        record.ScheduledEnd,
+                        record.Date,
+                        calendarSettings,
+                        now),
+                    0,
+                    0,
+                    0);
+            }
+
+            if (string.Equals(outcome.Status, previousStatus, StringComparison.Ordinal)
+                && string.Equals(record.ScheduledStart, previousStart, StringComparison.Ordinal)
+                && string.Equals(record.ScheduledEnd, previousEnd, StringComparison.Ordinal))
             {
                 unchanged++;
                 continue;
             }
 
-            record.Status = status;
-            record.ScheduledStart = scheduledStartValue;
-            record.ScheduledEnd = scheduledEndValue;
+            record.Status = outcome.Status;
             updated++;
         }
 
@@ -559,13 +592,84 @@ public class AttendanceTrackerService
         AppDbContext db,
         IEnumerable<DailyAttendance> records)
     {
+        var recordList = records as IReadOnlyList<DailyAttendance> ?? records.ToList();
+        if (recordList.Count == 0)
+            return;
+
+        var rangeStart = recordList.Min(r => new DateTime(r.Date.Year, r.Date.Month, 1));
+        var rangeEnd = recordList.Max(r => new DateTime(r.Date.Year, r.Date.Month, 1).AddMonths(1).AddDays(-1));
+        var employeeNos = recordList
+            .Select(r => r.EmployeeFinancialNo)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         var calendarSettings = await db.AttendanceDaySettings
             .AsNoTracking()
+            .Where(s => s.Date >= rangeStart && s.Date <= rangeEnd)
             .ToListAsync();
-        var now = DateTime.Now;
+        var statusContext = await LoadMonthlyStatusContextAsync(db, employeeNos, rangeStart, rangeEnd);
 
-        foreach (var record in records)
-            AttendanceStatusRules.RefreshTransientStatus(record, calendarSettings, now);
+        // Walk whole months in date order so the grace / late-permission quotas
+        // are consumed chronologically, exactly like the stored recalculation.
+        var monthRecords = await db.DailyAttendances
+            .AsNoTracking()
+            .Where(d => d.Date >= rangeStart
+                && d.Date <= rangeEnd
+                && employeeNos.Contains(d.EmployeeFinancialNo))
+            .ToListAsync();
+
+        var outcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+            monthRecords,
+            statusContext.LeaveFlags,
+            calendarSettings,
+            statusContext.LeaveTypeCodes,
+            DateTime.Now);
+
+        foreach (var record in recordList)
+        {
+            if (outcomes.TryGetValue(record.Id, out var outcome))
+                record.Status = outcome.Status;
+        }
+    }
+
+    /// <summary>
+    /// Loads the approved leave/permission flags per date and the leave type
+    /// codes needed by the month-ordered status walk.
+    /// </summary>
+    public static async Task<MonthlyStatusContext> LoadMonthlyStatusContextAsync(
+        AppDbContext db,
+        IReadOnlyCollection<string> employeeNos,
+        DateTime rangeStart,
+        DateTime rangeEnd)
+    {
+        var leaveTypeCodes = await db.LeaveTypes
+            .AsNoTracking()
+            .ToDictionaryAsync(t => t.Id, t => t.Code);
+
+        var transactions = await db.LeaveTransactions
+            .AsNoTracking()
+            .Include(t => t.LeaveType)
+            .Where(t => t.Status == "Approved"
+                && t.FromDate <= rangeEnd
+                && t.ToDate >= rangeStart
+                && employeeNos.Contains(t.EmployeeFinancialNo))
+            .ToListAsync();
+
+        var leaveFlags = new Dictionary<(string EmployeeFinancialNo, DateTime Date), DayLeaveFlags>();
+        foreach (var transaction in transactions)
+        {
+            var latePermission = string.Equals(transaction.LeaveType?.Code, "PL", StringComparison.OrdinalIgnoreCase);
+            var from = transaction.FromDate.Date < rangeStart ? rangeStart : transaction.FromDate.Date;
+            var to = transaction.ToDate.Date > rangeEnd ? rangeEnd : transaction.ToDate.Date;
+            for (var day = from; day <= to; day = day.AddDays(1))
+            {
+                var key = (transaction.EmployeeFinancialNo, day);
+                leaveFlags.TryGetValue(key, out var existing);
+                leaveFlags[key] = new DayLeaveFlags(true, existing.LatePermission || latePermission);
+            }
+        }
+
+        return new MonthlyStatusContext(leaveFlags, leaveTypeCodes);
     }
 
     private static DateTime? ToEgyptTime(DateTime? utc)
@@ -661,6 +765,10 @@ public sealed record LateAllowanceSnapshot(
     int RemainingHours,
     int GraceUsedMinutes,
     int GraceRemainingMinutes);
+
+public sealed record MonthlyStatusContext(
+    Dictionary<(string EmployeeFinancialNo, DateTime Date), DayLeaveFlags> LeaveFlags,
+    Dictionary<int, string> LeaveTypeCodes);
 
 public sealed record AttendanceRecalculationResult(
     int ProcessedCount,

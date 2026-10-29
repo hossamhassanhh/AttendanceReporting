@@ -457,7 +457,10 @@ public class ExportService
 
     private static string GetCodeFromDaily(DailyAttendance da)
     {
-        if (da.Status == "Leave" && da.LeaveType != null)
+        // Entered leave/permission days keep their leave code even when the
+        // status walk reclassified the punches as Present or Late.
+        if (da.LeaveType != null
+            && (da.Status == "Leave" || AttendanceStatusRules.IsPermissionLeaveCode(da.LeaveType.Code)))
         {
             var ltCode = da.LeaveType.Code ?? "";
             if (LeaveTypeCodeMap.TryGetValue(ltCode, out var mapped))
@@ -533,7 +536,17 @@ public class ExportService
 
         if (dailyByDay != null && dailyByDay.TryGetValue(day, out var da))
         {
-            if (permissions != null && string.Equals(da.Status, "Late", StringComparison.OrdinalIgnoreCase))
+            // Quota consumption must follow the punches (not the stored status):
+            // stored statuses now already reflect the quota outcome, so a stored
+            // "Present" can still be a late arrival that consumed the grace.
+            // Leave days (LeaveTypeId) consume nothing, exactly like the walk.
+            var baseStatus = da.LeaveTypeId == null
+                && AttendanceStatusRules.IsAutomaticStatus(da.Status)
+                ? AttendanceStatusRules.CalculateBase(
+                    da.FirstPunch, da.LastPunch, da.ScheduledStart, da.ScheduledEnd, da.Date)
+                : null;
+
+            if (permissions != null && string.Equals(baseStatus, "Late", StringComparison.Ordinal))
             {
                 var lateMins = AttendanceStatusRules.GetLateMinutes(da);
                 if (permissions.TryConsumeGraceLate(lateMins))
@@ -548,7 +561,7 @@ public class ExportService
             }
 
             if (permissions != null
-                && string.Equals(da.Status, "Early Leave", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(baseStatus, "Early Leave", StringComparison.Ordinal)
                 && da.LastPunch.HasValue
                 && permissions.TryConsumeEarlyLeave(AttendanceStatusRules.ToEgyptTime(da.LastPunch.Value).TimeOfDay))
             {

@@ -1,5 +1,7 @@
 using AttendanceApp.Data;
+using AttendanceApp.Models;
 using AttendanceApp.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Xml;
 
@@ -48,7 +50,10 @@ var app = builder.Build();
 foreach (var target in listenerOptions.SqlTargets)
 {
     var factory = DbContextFactoryBuilder.Create(target.ConnectionString);
-    var dbService = new DatabaseService(factory);
+    var dbService = new DatabaseService(
+        factory,
+        new PasswordHasher<AppUser>(),
+        builder.Configuration);
     await dbService.InitializeAsync();
     await dbService.EnsureSyncStateTableAsync();
 }

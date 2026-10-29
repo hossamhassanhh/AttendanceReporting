@@ -138,9 +138,12 @@ public class TrackingController : ControllerBase
                 DateDisplay = ToEgyptTime(r.Date)!.Value.ToString("yyyy-MM-dd"),
                 FirstPunch = ToEgyptTime(r.FirstPunch),
                 LastPunch = ToEgyptTime(GetDisplayLastPunch(r)),
-                ScheduledStart = r.Employee?.ScheduleStart,
-                ScheduledEnd = r.Employee?.ScheduleEnd,
-                Status = effectiveStatus,
+                ScheduledStart = string.IsNullOrWhiteSpace(r.ScheduledStart)
+                    ? r.Employee?.ScheduleStart
+                    : r.ScheduledStart,
+                ScheduledEnd = string.IsNullOrWhiteSpace(r.ScheduledEnd)
+                    ? r.Employee?.ScheduleEnd
+                    : r.ScheduledEnd,                Status = effectiveStatus,
                 RawStatus = r.Status,
                 StatusAr = AttendanceTrackerService.GetStatusArabic(effectiveStatus),
                 LateHours = lateAllowance[r.Id].DailyHours,
@@ -431,9 +434,15 @@ isArabic ? "التقرير_اليومي" : "daily_report",
             ws.Cell(row, 7).Value = r.FirstPunch.HasValue ? ToEgyptTime(r.FirstPunch)!.Value.ToString("HH:mm:ss") : "-";
             var displayLastPunch = GetDisplayLastPunch(r);
             ws.Cell(row, 8).Value = displayLastPunch.HasValue ? ToEgyptTime(displayLastPunch)!.Value.ToString("HH:mm:ss") : "-";
-            var masterSchedule = string.IsNullOrWhiteSpace(r.Employee?.ScheduleStart) || string.IsNullOrWhiteSpace(r.Employee?.ScheduleEnd)
+            var scheduleStartText = string.IsNullOrWhiteSpace(r.ScheduledStart)
+                ? r.Employee?.ScheduleStart
+                : r.ScheduledStart;
+            var scheduleEndText = string.IsNullOrWhiteSpace(r.ScheduledEnd)
+                ? r.Employee?.ScheduleEnd
+                : r.ScheduledEnd;
+            var masterSchedule = string.IsNullOrWhiteSpace(scheduleStartText) || string.IsNullOrWhiteSpace(scheduleEndText)
                 ? "-"
-                : $"{r.Employee.ScheduleStart} - {r.Employee.ScheduleEnd}";
+                : $"{scheduleStartText} - {scheduleEndText}";
             ws.Cell(row, 9).Value = masterSchedule;
                 ws.Cell(row, 10).Value = lateAllowance[r.Id].DailyHours;
                 ws.Cell(row, 11).Value = lateAllowance[r.Id].RemainingHours;
@@ -544,9 +553,15 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                         var firstStr = r.FirstPunch.HasValue ? ToEgyptTime(r.FirstPunch)!.Value.ToString("HH:mm:ss") : "-";
                         var displayLastPunch = GetDisplayLastPunch(r);
                         var lastStr = displayLastPunch.HasValue ? ToEgyptTime(displayLastPunch)!.Value.ToString("HH:mm:ss") : "-";
-                        var schedStr = string.IsNullOrWhiteSpace(r.Employee?.ScheduleStart) || string.IsNullOrWhiteSpace(r.Employee?.ScheduleEnd)
+                        var scheduleStartText = string.IsNullOrWhiteSpace(r.ScheduledStart)
+                            ? r.Employee?.ScheduleStart
+                            : r.ScheduledStart;
+                        var scheduleEndText = string.IsNullOrWhiteSpace(r.ScheduledEnd)
+                            ? r.Employee?.ScheduleEnd
+                            : r.ScheduledEnd;
+                        var schedStr = string.IsNullOrWhiteSpace(scheduleStartText) || string.IsNullOrWhiteSpace(scheduleEndText)
                             ? "-"
-                            : $"{r.Employee.ScheduleStart} - {r.Employee.ScheduleEnd}";
+                            : $"{scheduleStartText} - {scheduleEndText}";
 
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(r.EmployeeFinancialNo).FontSize(8);
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(r.Employee?.Name ?? "").FontSize(8);
@@ -574,10 +589,9 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         AttendanceApp.Models.DailyAttendance record,
         LateAllowanceSnapshot allowance)
     {
-        return string.Equals(record.Status, "Late", StringComparison.OrdinalIgnoreCase)
-            && allowance.UsedHours <= AttendanceStatusRules.LatePermissionMonthlyHours
-                ? "Present"
-                : record.Status;
+        // QueryAttendanceAsync already applied the month-ordered grace and
+        // permission rules, so the refreshed status is the report status.
+        return record.Status;
     }
 
 [Authorize(Policy = "SelfOrAdmin")]

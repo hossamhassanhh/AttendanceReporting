@@ -2201,7 +2201,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td class="schedule-cell">' + fmtSchedule(r.scheduledStart) + ' - ' + fmtSchedule(r.scheduledEnd) + '</td>' +
                 '<td>' + (r.lateHours || 0) + '</td>' +
                 '<td>' + (r.remainingGraceMinutes || 0) + '</td>' +
-                '<td><strong>' + (r.remainingHours || 0) + '</strong></td>' +
+                '<td><strong>' + (r.remainingLateHours || 0) + '</strong></td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
