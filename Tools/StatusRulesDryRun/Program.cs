@@ -22,6 +22,77 @@ var options = new DbContextOptionsBuilder<AppDbContext>()
     .Options;
 using var db = new AppDbContext(options);
 
+if (args.Contains("--summary"))
+{
+    // Exercises the same service method the /api/tracking/allowance-summary
+    // endpoint uses, so the numbers are the ones the UI will display.
+    var tracker = new AttendanceTrackerService(new SimpleDbContextFactory(options));
+    var queried = await tracker.QueryAttendanceAsync(null, monthStart, rangeEnd);
+    var summary = await tracker.BuildMonthlyAllowanceSummaryAsync(queried);
+
+    Console.WriteLine($"Month: {monthStart:yyyy-MM}");
+    Console.WriteLine($"Summary rows: {summary.Count}; employees: {summary.Select(s => s.FinancialNo).Distinct().Count()}");
+    Console.WriteLine($"Employees who used grace: {summary.Count(s => s.GraceUsedMinutes > 0)}");
+    Console.WriteLine($"Employees who used the 2h allowance: {summary.Count(s => s.LateHoursUsed > 0)}");
+    Console.WriteLine($"Total late days: {summary.Sum(s => s.LateDays)}; total late minutes: {summary.Sum(s => s.LateMinutes)}");
+    Console.WriteLine($"Total grace used: {summary.Sum(s => s.GraceUsedMinutes)} min; total hours used: {summary.Sum(s => s.LateHoursUsed)}");
+    Console.WriteLine();
+
+    var invalid = summary
+        .Where(s => s.GraceUsedMinutes > AttendanceStatusRules.GraceLateAllowanceMinutes
+            || s.LateHoursUsed > AttendanceStatusRules.LatePermissionMonthlyHours
+            || s.GraceRemainingMinutes < 0
+            || s.LateHoursRemaining < 0
+            || s.LateDays < 0)
+        .ToList();
+    Console.WriteLine(invalid.Count == 0
+        ? "Quota invariants: OK (no negative or over-budget rows)"
+        : $"Quota invariants: FAILED for {invalid.Count} rows");
+    foreach (var row in invalid.Take(10))
+        Console.WriteLine($"  {row.FinancialNo} {row.MonthDisplay}: grace {row.GraceUsedMinutes}/{row.GraceRemainingMinutes}, hours {row.LateHoursUsed}/{row.LateHoursRemaining}");
+    Console.WriteLine();
+
+    Console.WriteLine("Fin | Month | Schedule | LateDays | LateMin | GraceUsed | GraceLeft | HoursUsed | HoursLeft | Name");
+    foreach (var row in summary.Where(s => s.GraceUsedMinutes > 0).Take(15))
+        Console.WriteLine($"{row.FinancialNo} | {row.MonthDisplay} | {row.Schedule} | {row.LateDays} | {row.LateMinutes} | {row.GraceUsedMinutes} | {row.GraceRemainingMinutes} | {row.LateHoursUsed} | {row.LateHoursRemaining} | {row.Name}");
+
+    if (args.Contains("--export"))
+    {
+        // Generate the same workbook/PDF the export endpoint serves.
+        var exporter = new TabularReportExportService();
+        var columns = new[]
+        {
+            "الرقم المالي", "الاسم", "الإدارة", "المستوى", "المنطقة", "الشهر", "الموعد",
+            "أيام التأخير", "دقائق التأخير", "المستخدم من 30 دقيقة", "المتبقي من 30 دقيقة",
+            "المستخدم من ساعتين", "المتبقي من ساعتين"
+        };
+        var exportRows = summary
+            .Select(s => (IReadOnlyList<object?>)new object?[]
+            {
+                s.FinancialNo, s.Name, s.Department, s.Level, s.Area, s.MonthDisplay, s.Schedule,
+                s.LateDays, s.LateMinutes, s.GraceUsedMinutes, s.GraceRemainingMinutes,
+                s.LateHoursUsed, s.LateHoursRemaining
+            })
+            .ToList();
+
+        var subtitle = $"{monthStart:yyyy-MM} - عدد الموظفين: {summary.Count}";
+        var xlsx = exporter.GenerateExcel("ملخص استخدام سماحات التأخير", subtitle, "ملخص السماحات", columns, exportRows, true);
+        var pdf = exporter.GeneratePdf("ملخص استخدام سماحات التأخير", subtitle, columns, exportRows, true);
+
+        var outDir = Path.GetFullPath(Path.Combine("..", "..", "outputs"));
+        Directory.CreateDirectory(outDir);
+        var xlsxPath = Path.Combine(outDir, $"allowance_summary_{monthStart:yyyyMM}_test.xlsx");
+        var pdfPath = Path.Combine(outDir, $"allowance_summary_{monthStart:yyyyMM}_test.pdf");
+        await File.WriteAllBytesAsync(xlsxPath, xlsx);
+        await File.WriteAllBytesAsync(pdfPath, pdf);
+        Console.WriteLine();
+        Console.WriteLine($"Excel: {xlsxPath} ({xlsx.Length:N0} bytes, {exportRows.Count} rows)");
+        Console.WriteLine($"PDF  : {pdfPath} ({pdf.Length:N0} bytes)");
+    }
+
+    return;
+}
+
 var records = await db.DailyAttendances
     .AsNoTracking()
     .Where(d => d.Date >= monthStart && d.Date <= rangeEnd)
@@ -127,3 +198,9 @@ foreach (var transition in transitions.OrderByDescending(t => t.Value))
 Console.WriteLine("Samples:");
 foreach (var sample in samples)
     Console.WriteLine(sample);
+
+internal sealed class SimpleDbContextFactory(DbContextOptions<AppDbContext> options)
+    : IDbContextFactory<AppDbContext>
+{
+    public AppDbContext CreateDbContext() => new(options);
+}

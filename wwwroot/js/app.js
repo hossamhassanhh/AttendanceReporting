@@ -26,6 +26,8 @@ var attendancePage = 1;
     var attendanceTotalCount = 0;
     var attendanceTotalPages = 1;
     var attendanceRequestController = null;
+    var attendanceSummaryMode = false;
+    var lastAttendanceSummary = null;
     var overtimeRequestController = null;
 
     var i18n = {
@@ -90,6 +92,9 @@ chooseFile: 'اختيار ملف',
             toDate: 'إلى تاريخ',
             showAttendance: 'عرض الحضور',
             attendanceResults: 'نتائج الحضور',
+            allowanceSummary: 'ملخص السماحات',
+            showAttendanceDetails: 'عرض التفاصيل',
+            allowanceSummaryResults: 'ملخص استخدام سماحات التأخير',
             exportExcel: 'تصدير إلى Excel',
             exportPdf: 'تصدير إلى PDF',
             employeesKicker: 'الموظفون',
@@ -216,6 +221,9 @@ chooseFile: 'اختيار ملف',
             toDate: 'To date',
             showAttendance: 'Show Attendance',
             attendanceResults: 'Attendance Results',
+            allowanceSummary: 'Allowance Summary',
+            showAttendanceDetails: 'Show Details',
+            allowanceSummaryResults: 'Late Allowance Summary',
             exportExcel: 'Export Excel',
             exportPdf: 'Export PDF',
             employeesKicker: 'Employees',
@@ -635,7 +643,12 @@ ManageCalendar: { ar: 'إدارة التقويم', en: 'Manage Calendar' },
         updateExportActiveFilters();
         if (currentUser) updateSyncStatus();
         updateFileLabels();
-        if (lastAttendanceRecords && $('attResults') && $('attResults').style.display !== 'none') renderAttendance(lastAttendanceRecords);
+        updateAttendanceSummaryButton();
+        if (attendanceSummaryMode) {
+            if (lastAttendanceSummary && $('attResults') && $('attResults').style.display !== 'none') renderAllowanceSummary(lastAttendanceSummary);
+        } else if (lastAttendanceRecords && $('attResults') && $('attResults').style.display !== 'none') {
+            renderAttendance(lastAttendanceRecords);
+        }
         if (lastEmployeeRows && $('empResults') && $('empResults').style.display !== 'none') renderEmployees(lastEmployeeRows);
         if (lastBalanceRows && $('balResults') && $('balResults').style.display !== 'none') renderBalances(lastBalanceRows);
         if (lastLeaveTransactions && $('leaveResults') && $('leaveResults').style.display !== 'none') {
@@ -1605,6 +1618,9 @@ function renderLeaveTypeOptions() {
 
         if (tabName === 'attendance') {
             lastAttendanceRecords = null;
+            lastAttendanceSummary = null;
+            attendanceSummaryMode = false;
+            updateAttendanceSummaryButton();
             attendancePage = 1;
             attendanceTotalCount = 0;
             attendanceTotalPages = 1;
@@ -2521,6 +2537,10 @@ function updateLeaveDays(fromId, toId, daysId) {
 
     // Attendance Tab
     function fetchAttendance(resetPage) {
+        if (attendanceSummaryMode) {
+            fetchAllowanceSummary();
+            return;
+        }
         if (resetPage !== false) attendancePage = 1;
         var params = getAttQueryParams();
         if (!params) return;
@@ -2567,6 +2587,126 @@ function updateLeaveDays(fromId, toId, daysId) {
         fetchAttendance(true);
     });
 
+    // Per-employee monthly summary of the 30-minute grace and 2-hour allowance.
+    function fetchAllowanceSummary() {
+        var params = getAttQueryParams();
+        if (!params) return;
+
+        if (attendanceRequestController) attendanceRequestController.abort();
+        attendanceRequestController = new AbortController();
+        var activeRequestController = attendanceRequestController;
+
+        showLoading();
+        hideError();
+        hide('attResults');
+        hide('attExportActions');
+
+        fetch('/api/tracking/allowance-summary?' + params + '&_=' + Date.now(), {
+            cache: 'no-store',
+            signal: activeRequestController.signal
+        })
+            .then(function (r) { if (!r.ok) throw new Error(currentLang === 'ar' ? 'فشل التحميل' : 'Failed to load'); return r.json(); })
+            .then(function (data) {
+                if (activeRequestController !== attendanceRequestController) return;
+                hideLoading();
+                lastAttendanceSummary = Array.isArray(data) ? data : (data.items || []);
+                renderAllowanceSummary(lastAttendanceSummary);
+                attendanceRequestController = null;
+            })
+            .catch(function (err) {
+                if (err.name === 'AbortError') {
+                    if (!attendanceRequestController || activeRequestController === attendanceRequestController) hideLoading();
+                    return;
+                }
+                hideLoading();
+                showError(err.message);
+                attendanceRequestController = null;
+            });
+    }
+
+    function renderAllowanceSummary(rows) {
+        var el = $('attResultsContent');
+        clear(el);
+
+        if (!rows || rows.length === 0) {
+            el.innerHTML = emptyState(
+                currentLang === 'ar' ? 'لا توجد بيانات ضمن الفترة المحددة' : 'No records found for the selected range',
+                currentLang === 'ar' ? 'جرّب توسيع الفترة أو تغيير أرقام الموظفين.' : 'Try a wider date range or different employee numbers.'
+            );
+            show('attResults');
+            show('attExportActions');
+            hide('attPagination');
+            flashUpdated('attResults');
+            return;
+        }
+
+        var tableLabel = i18n[currentLang].allowanceSummaryResults;
+        var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
+            '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
+            '<table><thead><tr><th>#</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الإدارة' : 'Department') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المستوى' : 'Level') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المنطقة' : 'Area') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الشهر' : 'Month') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'أيام التأخير' : 'Late days') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'دقائق التأخير' : 'Late minutes') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المستخدم من 30 دقيقة' : 'Grace used') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المستخدم من ساعتين' : '2 hrs used') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th>' +
+            '</tr></thead><tbody>';
+
+        rows.forEach(function (r, i) {
+            html += '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + r.financialNo + '</td>' +
+                '<td class="name-cell">' + r.name + '</td>' +
+                '<td>' + (r.department || '') + '</td>' +
+                '<td>' + (r.level || '') + '</td>' +
+                '<td>' + (r.area || '') + '</td>' +
+                '<td>' + (r.monthDisplay || '') + '</td>' +
+                '<td class="schedule-cell">' + (r.schedule || '-') + '</td>' +
+                '<td>' + (r.lateDays || 0) + '</td>' +
+                '<td>' + (r.lateMinutes || 0) + '</td>' +
+                '<td>' + (r.graceUsedMinutes || 0) + '</td>' +
+                '<td><strong>' + (r.graceRemainingMinutes || 0) + '</strong></td>' +
+                '<td>' + (r.lateHoursUsed || 0) + '</td>' +
+                '<td><strong>' + (r.lateHoursRemaining || 0) + '</strong></td>' +
+                '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+        show('attResults');
+        show('attExportActions');
+        hide('attPagination');
+        flashUpdated('attResults');
+    }
+
+    function updateAttendanceSummaryButton() {
+        var btn = $('attSummaryBtn');
+        if (!btn) return;
+        btn.textContent = attendanceSummaryMode
+            ? i18n[currentLang].showAttendanceDetails
+            : i18n[currentLang].allowanceSummary;
+        btn.setAttribute('aria-pressed', attendanceSummaryMode ? 'true' : 'false');
+    }
+
+    if ($('attSummaryBtn')) $('attSummaryBtn').addEventListener('click', function () {
+        attendanceSummaryMode = !attendanceSummaryMode;
+        updateAttendanceSummaryButton();
+        if (attendanceSummaryMode) {
+            fetchAllowanceSummary();
+        } else if (lastAttendanceRecords) {
+            renderAttendance(lastAttendanceRecords);
+        } else {
+            fetchAttendance(true);
+        }
+    });
+
     $('attPrevPage').addEventListener('click', function () {
         if (attendancePage <= 1) return;
         attendancePage -= 1;
@@ -2598,13 +2738,15 @@ function updateLeaveDays(fromId, toId, daysId) {
     $('exportExcelBtn').addEventListener('click', function () {
         var params = getAttQueryParams();
         if (!params) return;
-        window.open('/api/tracking/export/excel?' + params + '&_=' + Date.now(), '_blank');
+        var base = attendanceSummaryMode ? '/api/tracking/allowance-summary/export/excel' : '/api/tracking/export/excel';
+        window.open(base + '?' + params + '&_=' + Date.now(), '_blank');
     });
 
     $('exportPdfBtn').addEventListener('click', function () {
         var params = getAttQueryParams();
         if (!params) return;
-        window.open('/api/tracking/export/pdf?' + params + '&lang=' + currentLang + '&_=' + Date.now(), '_blank');
+        var base = attendanceSummaryMode ? '/api/tracking/allowance-summary/export/pdf' : '/api/tracking/export/pdf';
+        window.open(base + '?' + params + '&lang=' + currentLang + '&_=' + Date.now(), '_blank');
     });
 
     $('recalculateAttendanceBtn').addEventListener('click', function () {

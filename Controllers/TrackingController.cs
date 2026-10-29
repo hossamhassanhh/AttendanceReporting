@@ -143,7 +143,8 @@ public class TrackingController : ControllerBase
                     : r.ScheduledStart,
                 ScheduledEnd = string.IsNullOrWhiteSpace(r.ScheduledEnd)
                     ? r.Employee?.ScheduleEnd
-                    : r.ScheduledEnd,                Status = effectiveStatus,
+                    : r.ScheduledEnd,
+                Status = effectiveStatus,
                 RawStatus = r.Status,
                 StatusAr = AttendanceTrackerService.GetStatusArabic(effectiveStatus),
                 LateHours = lateAllowance[r.Id].DailyHours,
@@ -583,6 +584,124 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         using var ms = new MemoryStream();
         doc.GeneratePdf(ms);
         return File(ms.ToArray(), "application/pdf", $"attendance_{fromDate:yyyyMMdd}_{toDate:yyyyMMdd}.pdf");
+    }
+
+    [Authorize(Policy = "Attendance")]
+    [HttpGet("allowance-summary")]
+    public async Task<IActionResult> GetAllowanceSummary(
+        [FromQuery] string? employees,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? department,
+        [FromQuery] string? level,
+        [FromQuery] string? area,
+        [FromQuery] string? scheduleStart,
+        [FromQuery] string? scheduleEnd,
+        [FromQuery] string? matchMode)
+    {
+        var rows = await BuildAllowanceSummaryAsync(
+            employees, from, to, department, level, area, scheduleStart, scheduleEnd, matchMode);
+        return Ok(rows);
+    }
+
+    [Authorize(Policy = "Exports")]
+    [HttpGet("allowance-summary/export/{format}")]
+    public async Task<IActionResult> ExportAllowanceSummary(
+        string format,
+        [FromQuery] string? employees,
+        [FromQuery] string? from,
+        [FromQuery] string? to,
+        [FromQuery] string? department,
+        [FromQuery] string? level,
+        [FromQuery] string? area,
+        [FromQuery] string? scheduleStart,
+        [FromQuery] string? scheduleEnd,
+        [FromQuery] string? matchMode,
+        [FromQuery] string? lang)
+    {
+        if (!IsSupportedExportFormat(format))
+            return BadRequest(new { error = "Supported formats are excel and pdf." });
+
+        var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
+        var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+        var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
+
+        var summary = await BuildAllowanceSummaryAsync(
+            employees, from, to, department, level, area, scheduleStart, scheduleEnd, matchMode);
+
+        var columns = isArabic
+            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "المنطقة", "الشهر", "الموعد", "أيام التأخير", "دقائق التأخير", "المستخدم من 30 دقيقة", "المتبقي من 30 دقيقة", "المستخدم من ساعتين", "المتبقي من ساعتين" }
+            : new[] { "Financial No", "Name", "Department", "Level", "Area", "Month", "Schedule", "Late Days", "Late Minutes", "Grace Used", "Grace Remaining", "Hours Used", "Hours Remaining" };
+        var rows = summary.Select(row => (IReadOnlyList<object?>)new object?[]
+        {
+            row.FinancialNo,
+            row.Name,
+            row.Department,
+            row.Level,
+            row.Area,
+            row.MonthDisplay,
+            row.Schedule,
+            row.LateDays,
+            row.LateMinutes,
+            row.GraceUsedMinutes,
+            row.GraceRemainingMinutes,
+            row.LateHoursUsed,
+            row.LateHoursRemaining
+        }).ToList();
+
+        var title = isArabic ? "ملخص استخدام سماحات التأخير" : "Late Allowance Monthly Summary";
+        var subtitle = isArabic
+            ? $"من {fromDate:yyyy-MM-dd} إلى {toDate:yyyy-MM-dd} - عدد الموظفين: {summary.Count}"
+            : $"{fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd} - Employees: {summary.Count}";
+
+        return CreateTabularExport(
+            format,
+            title,
+            subtitle,
+            isArabic ? "ملخص السماحات" : "Allowance Summary",
+            columns,
+            rows,
+            isArabic ? "ملخص_السماحات" : "allowance_summary",
+            toDate,
+            isArabic);
+    }
+
+    private async Task<List<MonthlyAllowanceSummaryRow>> BuildAllowanceSummaryAsync(
+        string? employees,
+        string? from,
+        string? to,
+        string? department,
+        string? level,
+        string? area,
+        string? scheduleStart,
+        string? scheduleEnd,
+        string? matchMode)
+    {
+        var fromDate = DateTime.TryParse(from, out var fd) ? fd : DateTime.Today;
+        var toDate = DateTime.TryParse(to, out var td) ? td : DateTime.Today;
+
+        List<string>? empList = null;
+        if (IsSelfScoped())
+        {
+            empList = new List<string> { SelfEmployeeNo() ?? string.Empty };
+        }
+        else if (!string.IsNullOrWhiteSpace(employees))
+        {
+            empList = employees.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+        }
+
+        var results = await _tracker.QueryAttendanceAsync(
+            empList,
+            fromDate,
+            toDate,
+            department,
+            level,
+            area,
+            scheduleStart,
+            scheduleEnd,
+            matchMode);
+
+        return await _tracker.BuildMonthlyAllowanceSummaryAsync(results);
     }
 
     private static string GetEffectiveStatus(

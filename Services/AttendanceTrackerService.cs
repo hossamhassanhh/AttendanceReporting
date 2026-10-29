@@ -128,17 +128,18 @@ public class AttendanceTrackerService
         return records;
     }
 
-    public async Task<Dictionary<int, LateAllowanceSnapshot>> BuildMonthlyLateAllowanceAsync(
-        IReadOnlyCollection<DailyAttendance> queriedRecords)
+    /// <summary>
+    /// Walks the full month(s) touched by the queried records so that quota
+    /// consumption is always computed in date order per employee-month,
+    /// regardless of the date range the report was filtered to.
+    /// </summary>
+    private async Task<MonthlyWalk> BuildMonthlyWalkAsync(IReadOnlyCollection<DailyAttendance> queriedRecords)
     {
-        var snapshots = new Dictionary<int, LateAllowanceSnapshot>();
-        if (queriedRecords.Count == 0)
-            return snapshots;
-
         var keys = queriedRecords
             .Select(r => (FinancialNo: r.EmployeeFinancialNo, r.Date.Year, r.Date.Month))
             .Distinct()
             .ToList();
+        var keySet = keys.ToHashSet();
         var employeeNos = keys
             .Select(k => k.FinancialNo)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -146,9 +147,6 @@ public class AttendanceTrackerService
         var rangeStart = keys.Min(k => new DateTime(k.Year, k.Month, 1));
         var rangeEnd = keys.Max(k => new DateTime(k.Year, k.Month, 1).AddMonths(1).AddDays(-1));
 
-        // NOTE: snapshots mirror the status walk exactly (same quota consumption
-        // in date order), so the displayed remaining quotas always reconcile
-        // with the report Status and the X/X1 codes.
         List<DailyAttendance> monthRecords;
         List<AttendanceDaySetting> calendarSettings;
         MonthlyStatusContext statusContext;
@@ -175,7 +173,22 @@ public class AttendanceTrackerService
             calendarSettings,
             statusContext.LeaveTypeCodes);
 
-        foreach (var monthGroup in monthRecords.GroupBy(r => new
+        return new MonthlyWalk(monthRecords, outcomes, keySet);
+    }
+
+    public async Task<Dictionary<int, LateAllowanceSnapshot>> BuildMonthlyLateAllowanceAsync(
+        IReadOnlyCollection<DailyAttendance> queriedRecords)
+    {
+        var snapshots = new Dictionary<int, LateAllowanceSnapshot>();
+        if (queriedRecords.Count == 0)
+            return snapshots;
+
+        // NOTE: snapshots mirror the status walk exactly (same quota consumption
+        // in date order), so the displayed remaining quotas always reconcile
+        // with the report Status and the X/X1 codes.
+        var walk = await BuildMonthlyWalkAsync(queriedRecords);
+
+        foreach (var monthGroup in walk.MonthRecords.GroupBy(r => new
                  {
                      r.EmployeeFinancialNo,
                      r.Date.Year,
@@ -183,7 +196,7 @@ public class AttendanceTrackerService
                  }))
         {
             var key = (monthGroup.Key.EmployeeFinancialNo, monthGroup.Key.Year, monthGroup.Key.Month);
-            if (!keys.Contains(key))
+            if (!walk.Keys.Contains(key))
                 continue;
 
             var used = 0;
@@ -191,7 +204,7 @@ public class AttendanceTrackerService
             foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
             {
                 var dailyHours = 0;
-                if (outcomes.TryGetValue(record.Id, out var outcome))
+                if (walk.Outcomes.TryGetValue(record.Id, out var outcome))
                 {
                     graceUsed += outcome.GraceConsumedMinutes;
                     used += outcome.LateHoursConsumed;
@@ -209,6 +222,97 @@ public class AttendanceTrackerService
         }
 
         return snapshots;
+    }
+
+    /// <summary>
+    /// One row per employee-month: how much of the 30-minute grace and the
+    /// 2-hour late-permission allowance the employee used, and what is left.
+    /// </summary>
+    public async Task<List<MonthlyAllowanceSummaryRow>> BuildMonthlyAllowanceSummaryAsync(
+        IReadOnlyCollection<DailyAttendance> queriedRecords)
+    {
+        var summary = new List<MonthlyAllowanceSummaryRow>();
+        if (queriedRecords.Count == 0)
+            return summary;
+
+        var employees = queriedRecords
+            .GroupBy(r => r.EmployeeFinancialNo, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Employee, StringComparer.OrdinalIgnoreCase);
+
+        var walk = await BuildMonthlyWalkAsync(queriedRecords);
+
+        foreach (var monthGroup in walk.MonthRecords.GroupBy(r => new
+                 {
+                     r.EmployeeFinancialNo,
+                     r.Date.Year,
+                     r.Date.Month
+                 }))
+        {
+            var key = (monthGroup.Key.EmployeeFinancialNo, monthGroup.Key.Year, monthGroup.Key.Month);
+            if (!walk.Keys.Contains(key))
+                continue;
+
+            var lateDays = 0;
+            var lateMinutes = 0;
+            var graceUsed = 0;
+            var hoursUsed = 0;
+            string? monthScheduleStart = null;
+            string? monthScheduleEnd = null;
+
+            foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
+            {
+                if (!string.IsNullOrWhiteSpace(record.ScheduledStart))
+                {
+                    monthScheduleStart = record.ScheduledStart;
+                    monthScheduleEnd = record.ScheduledEnd;
+                }
+
+                if (!walk.Outcomes.TryGetValue(record.Id, out var outcome))
+                    continue;
+
+                if (outcome.DailyLateMinutes > 0)
+                {
+                    lateDays++;
+                    lateMinutes += outcome.DailyLateMinutes;
+                }
+
+                graceUsed += outcome.GraceConsumedMinutes;
+                hoursUsed += outcome.LateHoursConsumed;
+            }
+
+            employees.TryGetValue(monthGroup.Key.EmployeeFinancialNo, out var employee);
+            var scheduleStart = string.IsNullOrWhiteSpace(monthScheduleStart)
+                ? employee?.ScheduleStart
+                : monthScheduleStart;
+            var scheduleEnd = string.IsNullOrWhiteSpace(monthScheduleEnd)
+                ? employee?.ScheduleEnd
+                : monthScheduleEnd;
+
+            summary.Add(new MonthlyAllowanceSummaryRow(
+                monthGroup.Key.EmployeeFinancialNo,
+                employee?.Name ?? "",
+                employee?.Department ?? "",
+                employee?.Level ?? "",
+                employee?.WorkLocation ?? "",
+                string.IsNullOrWhiteSpace(scheduleStart) || string.IsNullOrWhiteSpace(scheduleEnd)
+                    ? "-"
+                    : $"{scheduleStart} - {scheduleEnd}",
+                monthGroup.Key.Year,
+                monthGroup.Key.Month,
+                lateDays,
+                lateMinutes,
+                graceUsed,
+                Math.Max(0, AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed),
+                hoursUsed,
+                Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - hoursUsed)));
+        }
+
+        return summary
+            .OrderBy(s => long.TryParse(s.FinancialNo, out var fin) ? fin : long.MaxValue)
+            .ThenBy(s => s.FinancialNo)
+            .ThenBy(s => s.Year)
+            .ThenBy(s => s.Month)
+            .ToList();
     }
 
     public async Task<List<TopManagementDailyRow>> GetTopManagementDailyAsync(DateTime date)
@@ -765,6 +869,30 @@ public sealed record LateAllowanceSnapshot(
     int RemainingHours,
     int GraceUsedMinutes,
     int GraceRemainingMinutes);
+
+public sealed record MonthlyAllowanceSummaryRow(
+    string FinancialNo,
+    string Name,
+    string Department,
+    string Level,
+    string Area,
+    string Schedule,
+    int Year,
+    int Month,
+    int LateDays,
+    int LateMinutes,
+    int GraceUsedMinutes,
+    int GraceRemainingMinutes,
+    int LateHoursUsed,
+    int LateHoursRemaining)
+{
+    public string MonthDisplay => $"{Year:D4}-{Month:D2}";
+}
+
+internal sealed record MonthlyWalk(
+    List<DailyAttendance> MonthRecords,
+    Dictionary<int, MonthlyStatusOutcome> Outcomes,
+    HashSet<(string EmployeeFinancialNo, int Year, int Month)> Keys);
 
 public sealed record MonthlyStatusContext(
     Dictionary<(string EmployeeFinancialNo, DateTime Date), DayLeaveFlags> LeaveFlags,
