@@ -136,8 +136,30 @@ Require(
     AttendanceStatusRules.Calculate(
         Utc(date, 9, 16), Utc(date, 15, 30), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota, latePermissionLeave: true) == "Present"
         && quota.GraceMinutesRemaining == 30
-        && quota.LateHoursRemaining == 2,
-    "An entered late permission (PL) must excuse the lateness without consuming quotas.");
+        && quota.LateHoursRemaining == 1,
+    "An entered late permission (PL) must excuse the lateness and spend one hour of the 2-hour quota.");
+
+quota = new MonthlyStatusQuota();
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 8, 31), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Early Leave"
+        && quota.EarlyLeavesRemaining == AttendanceStatusRules.EarlyLeavePermissionMonthlyCount,
+    "An automatic early check-out before any early-leave permission is consumed must stay Early Leave.");
+
+quota = new MonthlyStatusQuota();
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 8, 31), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Present"
+        && quota.EarlyLeavesRemaining == AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - 1,
+    "The first automatic early check-out with a check-out at/after 10:00 must become Present and consume one early-leave permission.");
+
+quota = new MonthlyStatusQuota();
+quota.TryConsumeEarlyLeave(new TimeSpan(14, 0, 0));
+quota.TryConsumeEarlyLeave(new TimeSpan(15, 0, 0));
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 8, 31), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Early Leave",
+    "The third automatic early check-out with a check-out at/after 10:00 within a month must stay Early Leave.");
 
 quota = new MonthlyStatusQuota();
 Require(
@@ -190,8 +212,8 @@ var permissionRecords = new List<DailyAttendance>
     NewRecord(24, "E6", oct5, 0, 0, 0, 0, "Leave", leaveTypeId: 3),            // PE permission, no punches
 };
 var permissionOutcomes = AttendanceStatusRules.CalculateMonthlyStatuses(permissionRecords, null, null, leaveTypeCodes);
-Require(permissionOutcomes[20].Status == "Present" && permissionOutcomes[20].GraceConsumedMinutes == 0,
-    "A PL (late permission) day with late punches must be Present and consume no grace.");
+Require(permissionOutcomes[20].Status == "Present" && permissionOutcomes[20].GraceConsumedMinutes == 0 && permissionOutcomes[20].LateHoursConsumed == 1,
+    "A PL (late permission) day with late punches must be Present, spend one hour of the 2-hour quota and consume no grace.");
 Require(permissionOutcomes[21].Status == "Present" && permissionOutcomes[21].GraceConsumedMinutes == 15,
     "The grace quota must still be full after the PL day.");
 Require(!permissionOutcomes.ContainsKey(22),
@@ -200,6 +222,28 @@ Require(permissionOutcomes[23].Status == "Present",
     "A permission day with full attendance must be Present.");
 Require(permissionOutcomes[24].Status == "Leave",
     "A permission day without proof of attendance must stay Leave.");
+
+// --- Entered early-leave permission (PE) consumes the monthly early-leave allowance ---
+
+var peFlags = new Dictionary<(string EmployeeFinancialNo, DateTime Date), DayLeaveFlags>
+{
+    [("E7", oct5)] = new DayLeaveFlags(true, false, true)
+};
+var peRecords = new List<DailyAttendance>
+{
+    NewRecord(30, "E7", oct5, 8, 31, 15, 0, "Early Leave", leaveTypeId: 3),
+};
+var peOutcomes = AttendanceStatusRules.CalculateMonthlyStatuses(peRecords, peFlags, null, leaveTypeCodes);
+Require(peOutcomes[30].Status == "Present" && peOutcomes[30].EarlyLeaveConsumed,
+    "An entered early-leave permission (PE) must excuse the early check-out and consume the permission.");
+
+var autoEarlyRecords = new List<DailyAttendance>
+{
+    NewRecord(31, "E8", oct5, 8, 31, 15, 0, "Early Leave"),
+};
+var autoEarlyOutcomes = AttendanceStatusRules.CalculateMonthlyStatuses(autoEarlyRecords, null, null, leaveTypeCodes);
+Require(autoEarlyOutcomes[31].Status == "Present" && autoEarlyOutcomes[31].EarlyLeaveConsumed,
+    "The first automatic early check-out after 10:00 must become Present and consume an early-leave permission.");
 
 Console.WriteLine("PASS attendance status rules");
 

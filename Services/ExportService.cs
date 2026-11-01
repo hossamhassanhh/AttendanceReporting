@@ -318,7 +318,7 @@ public class ExportService
                     {
                         var legendLabels = new[]
                         {
-                            "أيام حضور", "اجازة اعتيادى", "أيام مرضى", "أيام عارضه", "غياب",
+                            "أيام حضور", "اجازة اعتيادى", "أيام مرضى", "أيام عارضه", "موقف",
                             "راحه", "مأمورية خارجية", "مأمورية داخلية", "دورة تدريب"
                         };
 
@@ -540,7 +540,8 @@ public class ExportService
             // stored statuses now already reflect the quota outcome, so a stored
             // "Present" can still be a late arrival that consumed the grace.
             // Leave days (LeaveTypeId) consume nothing, exactly like the walk.
-            var baseStatus = da.LeaveTypeId == null
+            var isPermissionRow = da.LeaveTypeId != null && AttendanceStatusRules.IsPermissionLeaveCode(da.LeaveType?.Code);
+            var baseStatus = (da.LeaveTypeId == null || isPermissionRow)
                 && AttendanceStatusRules.IsAutomaticStatus(da.Status)
                 ? AttendanceStatusRules.CalculateBase(
                     da.FirstPunch, da.LastPunch, da.ScheduledStart, da.ScheduledEnd, da.Date)
@@ -549,6 +550,17 @@ public class ExportService
             if (permissions != null && string.Equals(baseStatus, "Late", StringComparison.Ordinal))
             {
                 var lateMins = AttendanceStatusRules.GetLateMinutes(da);
+                if (AttendanceStatusRules.IsLatePermissionCode(da.LeaveType?.Code))
+                {
+                    // Entered late permission (PL): the arrival is excused and the
+                    // monthly 2-hour late-permission quota is spent (grace untouched).
+                    var hours = Math.Max(1, (lateMins + 59) / 60);
+                    var consumed = Math.Min(hours, permissions.LateHoursRemaining);
+                    if (consumed > 0)
+                        permissions.TryConsumeLateHours(consumed);
+                    return consumed > 0 ? $"X{consumed}" : "B";
+                }
+
                 if (permissions.TryConsumeGraceLate(lateMins))
                     return "X";
                 if (permissions.TryConsumeLate(lateMins))
@@ -895,7 +907,7 @@ public class ExportService
                 // Add merged green row for extended leave
                 var fromDate = leaveStartDate.Value;
                 var toDate = new DateTime(year, month, daysInMonth);
-                var leaveText = $"فترة غياب من: {fromDate:dd/MM/yyyy} إلى: {toDate:dd/MM/yyyy}";
+                var leaveText = $"فترة موقف من: {fromDate:dd/MM/yyyy} إلى: {toDate:dd/MM/yyyy}";
 
                 ws.Cell(row, 1).Value = emp.FinancialNo;
                 ws.Cell(row, 2).Value = emp.Name;

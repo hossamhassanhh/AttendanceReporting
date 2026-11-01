@@ -150,7 +150,9 @@ public class TrackingController : ControllerBase
                 LateHours = lateAllowance[r.Id].DailyHours,
                 MonthlyLateHours = lateAllowance[r.Id].UsedHours,
                 RemainingLateHours = lateAllowance[r.Id].RemainingHours,
-                RemainingGraceMinutes = lateAllowance[r.Id].GraceRemainingMinutes
+                RemainingGraceMinutes = lateAllowance[r.Id].GraceRemainingMinutes,
+                EarlyLeavesUsed = lateAllowance[r.Id].EarlyLeavesUsed,
+                RemainingEarlyLeaves = lateAllowance[r.Id].EarlyLeavesRemaining
             };
         }).ToList();
 
@@ -410,8 +412,9 @@ isArabic ? "التقرير_اليومي" : "daily_report",
         ws.Cell(4, 10).Value = "ساعات التأخير";
         ws.Cell(4, 11).Value = "المتبقي من ساعتين";
         ws.Cell(4, 12).Value = "المتبقي من 30 دقيقة";
+        ws.Cell(4, 13).Value = "المتبقي من إذن انصراف مبكر";
 
-        var headerRange = ws.Range(4, 1, 4, 12);
+        var headerRange = ws.Range(4, 1, 4, 13);
         headerRange.Style.Font.Bold = true;
         headerRange.Style.Fill.BackgroundColor = XLColor.FromArgb(0xD9D9D9);
         headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
@@ -448,9 +451,10 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                 ws.Cell(row, 10).Value = lateAllowance[r.Id].DailyHours;
                 ws.Cell(row, 11).Value = lateAllowance[r.Id].RemainingHours;
                 ws.Cell(row, 12).Value = lateAllowance[r.Id].GraceRemainingMinutes;
+                ws.Cell(row, 13).Value = lateAllowance[r.Id].EarlyLeavesRemaining;
 
-            ws.Range(row, 1, row, 12).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            ws.Range(row, 1, row, 12).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(row, 1, row, 13).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            ws.Range(row, 1, row, 13).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
             row++;
         }
 
@@ -524,13 +528,14 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                         c.ConstantColumn(90);
                         c.ConstantColumn(65);
                         c.ConstantColumn(75);
+                        c.ConstantColumn(75);
                     });
 
                     table.Header(header =>
                     {
                         var headers = isArabic
-                            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "التاريخ", "الحالة", "الحضور", "الانصراف", "الموعد", "ساعات التأخير", "المتبقي", "المتبقي من 30 دقيقة" }
-                            : new[] { "Financial No", "Name", "Department", "Level", "Date", "Status", "Check In", "Check Out", "Schedule", "Late Hrs.", "Remaining", "Remaining 30 Min." };
+                            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "التاريخ", "الحالة", "الحضور", "الانصراف", "الموعد", "ساعات التأخير", "المتبقي", "المتبقي من 30 دقيقة", "المتبقي من إذن انصراف مبكر" }
+                            : new[] { "Financial No", "Name", "Department", "Level", "Date", "Status", "Check In", "Check Out", "Schedule", "Late Hrs.", "Remaining", "Remaining 30 Min.", "Remaining Early Leaves" };
                         foreach (var label in headers)
                             header.Cell()
                                 .Background("#1A2744")
@@ -576,6 +581,7 @@ isArabic ? "التقرير_اليومي" : "daily_report",
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].DailyHours.ToString()).FontSize(8);
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].RemainingHours.ToString()).FontSize(8);
                         table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].GraceRemainingMinutes.ToString()).FontSize(8);
+                        table.Cell().BorderBottom(0.5f).BorderColor("#D7E0EA").Padding(3).Text(lateAllowance[r.Id].EarlyLeavesRemaining.ToString()).FontSize(8);
                     }
                 });
             });
@@ -630,8 +636,8 @@ isArabic ? "التقرير_اليومي" : "daily_report",
             employees, from, to, department, level, area, scheduleStart, scheduleEnd, matchMode);
 
         var columns = isArabic
-            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "المنطقة", "الشهر", "الموعد", "أيام التأخير", "دقائق التأخير", "المستخدم من 30 دقيقة", "المتبقي من 30 دقيقة", "المستخدم من ساعتين", "المتبقي من ساعتين" }
-            : new[] { "Financial No", "Name", "Department", "Level", "Area", "Month", "Schedule", "Late Days", "Late Minutes", "Grace Used", "Grace Remaining", "Hours Used", "Hours Remaining" };
+            ? new[] { "الرقم المالي", "الاسم", "الإدارة", "المستوى", "المنطقة", "الشهر", "الموعد", "أيام التأخير", "دقائق التأخير", "المستخدم من 30 دقيقة", "المتبقي من 30 دقيقة", "المستخدم من ساعتين", "المتبقي من ساعتين", "المستخدم من إذن انصراف مبكر", "المتبقي من إذن انصراف مبكر" }
+            : new[] { "Financial No", "Name", "Department", "Level", "Area", "Month", "Schedule", "Late Days", "Late Minutes", "Grace Used", "Grace Remaining", "Hours Used", "Hours Remaining", "Early Leaves Used", "Early Leaves Remaining" };
         var rows = summary.Select(row => (IReadOnlyList<object?>)new object?[]
         {
             row.FinancialNo,
@@ -646,7 +652,9 @@ isArabic ? "التقرير_اليومي" : "daily_report",
             row.GraceUsedMinutes,
             row.GraceRemainingMinutes,
             row.LateHoursUsed,
-            row.LateHoursRemaining
+            row.LateHoursRemaining,
+            row.EarlyLeavesUsed,
+            row.EarlyLeavesRemaining
         }).ToList();
 
         var title = isArabic ? "ملخص استخدام سماحات التأخير" : "Late Allowance Monthly Summary";

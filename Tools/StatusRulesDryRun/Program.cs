@@ -34,27 +34,31 @@ if (args.Contains("--summary"))
     Console.WriteLine($"Summary rows: {summary.Count}; employees: {summary.Select(s => s.FinancialNo).Distinct().Count()}");
     Console.WriteLine($"Employees who used grace: {summary.Count(s => s.GraceUsedMinutes > 0)}");
     Console.WriteLine($"Employees who used the 2h allowance: {summary.Count(s => s.LateHoursUsed > 0)}");
+    Console.WriteLine($"Employees who used early-leave permissions: {summary.Count(s => s.EarlyLeavesUsed > 0)}");
     Console.WriteLine($"Total late days: {summary.Sum(s => s.LateDays)}; total late minutes: {summary.Sum(s => s.LateMinutes)}");
-    Console.WriteLine($"Total grace used: {summary.Sum(s => s.GraceUsedMinutes)} min; total hours used: {summary.Sum(s => s.LateHoursUsed)}");
+    Console.WriteLine($"Total grace used: {summary.Sum(s => s.GraceUsedMinutes)} min; total hours used: {summary.Sum(s => s.LateHoursUsed)}; total early leaves used: {summary.Sum(s => s.EarlyLeavesUsed)}");
     Console.WriteLine();
+    Console.WriteLine($"Total early-leave budget: {AttendanceStatusRules.EarlyLeavePermissionMonthlyCount}; remaining: {summary.Sum(s => s.EarlyLeavesRemaining)}");
 
     var invalid = summary
         .Where(s => s.GraceUsedMinutes > AttendanceStatusRules.GraceLateAllowanceMinutes
             || s.LateHoursUsed > AttendanceStatusRules.LatePermissionMonthlyHours
+            || s.EarlyLeavesUsed > AttendanceStatusRules.EarlyLeavePermissionMonthlyCount
             || s.GraceRemainingMinutes < 0
             || s.LateHoursRemaining < 0
+            || s.EarlyLeavesRemaining < 0
             || s.LateDays < 0)
         .ToList();
     Console.WriteLine(invalid.Count == 0
         ? "Quota invariants: OK (no negative or over-budget rows)"
         : $"Quota invariants: FAILED for {invalid.Count} rows");
     foreach (var row in invalid.Take(10))
-        Console.WriteLine($"  {row.FinancialNo} {row.MonthDisplay}: grace {row.GraceUsedMinutes}/{row.GraceRemainingMinutes}, hours {row.LateHoursUsed}/{row.LateHoursRemaining}");
+        Console.WriteLine($"  {row.FinancialNo} {row.MonthDisplay}: grace {row.GraceUsedMinutes}/{row.GraceRemainingMinutes}, hours {row.LateHoursUsed}/{row.LateHoursRemaining}, early leaves {row.EarlyLeavesUsed}/{row.EarlyLeavesRemaining}");
     Console.WriteLine();
 
-    Console.WriteLine("Fin | Month | Schedule | LateDays | LateMin | GraceUsed | GraceLeft | HoursUsed | HoursLeft | Name");
+    Console.WriteLine("Fin | Month | Schedule | LateDays | LateMin | GraceUsed | GraceLeft | HoursUsed | HoursLeft | EarlyLeavesUsed | EarlyLeavesLeft | Name");
     foreach (var row in summary.Where(s => s.GraceUsedMinutes > 0).Take(15))
-        Console.WriteLine($"{row.FinancialNo} | {row.MonthDisplay} | {row.Schedule} | {row.LateDays} | {row.LateMinutes} | {row.GraceUsedMinutes} | {row.GraceRemainingMinutes} | {row.LateHoursUsed} | {row.LateHoursRemaining} | {row.Name}");
+        Console.WriteLine($"{row.FinancialNo} | {row.MonthDisplay} | {row.Schedule} | {row.LateDays} | {row.LateMinutes} | {row.GraceUsedMinutes} | {row.GraceRemainingMinutes} | {row.LateHoursUsed} | {row.LateHoursRemaining} | {row.EarlyLeavesUsed} | {row.EarlyLeavesRemaining} | {row.Name}");
 
     if (args.Contains("--export"))
     {
@@ -64,14 +68,14 @@ if (args.Contains("--summary"))
         {
             "الرقم المالي", "الاسم", "الإدارة", "المستوى", "المنطقة", "الشهر", "الموعد",
             "أيام التأخير", "دقائق التأخير", "المستخدم من 30 دقيقة", "المتبقي من 30 دقيقة",
-            "المستخدم من ساعتين", "المتبقي من ساعتين"
+            "المستخدم من ساعتين", "المتبقي من ساعتين", "المستخدم من إذن انصراف مبكر", "المتبقي من إذن انصراف مبكر"
         };
         var exportRows = summary
             .Select(s => (IReadOnlyList<object?>)new object?[]
             {
                 s.FinancialNo, s.Name, s.Department, s.Level, s.Area, s.MonthDisplay, s.Schedule,
                 s.LateDays, s.LateMinutes, s.GraceUsedMinutes, s.GraceRemainingMinutes,
-                s.LateHoursUsed, s.LateHoursRemaining
+                s.LateHoursUsed, s.LateHoursRemaining, s.EarlyLeavesUsed, s.EarlyLeavesRemaining
             })
             .ToList();
 
@@ -143,7 +147,9 @@ if (args.Contains("--allowance"))
                 GraceUsed = graceUsed,
                 GraceRemaining = AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed,
                 HoursUsed = hoursUsed,
-                HoursRemaining = AttendanceStatusRules.LatePermissionMonthlyHours - hoursUsed
+                HoursRemaining = AttendanceStatusRules.LatePermissionMonthlyHours - hoursUsed,
+                EarlyLeavesUsed = ordered.Count(r => outcomes[r.Id].EarlyLeaveConsumed),
+                EarlyLeavesRemaining = AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - ordered.Count(r => outcomes[r.Id].EarlyLeaveConsumed)
             };
         })
         .OrderByDescending(e => e.GraceUsed)
@@ -152,9 +158,9 @@ if (args.Contains("--allowance"))
 
     Console.WriteLine();
     Console.WriteLine($"Employees: {perEmployee.Count}; employees who used grace: {perEmployee.Count(e => e.GraceUsed > 0)}");
-    Console.WriteLine("Employee | Schedule | LateDays | LateMin | GraceUsed | GraceRemaining | HoursUsed | HoursRemaining");
+    Console.WriteLine("Employee | Schedule | LateDays | LateMin | GraceUsed | GraceRemaining | HoursUsed | HoursRemaining | EarlyLeavesUsed | EarlyLeavesRemaining");
     foreach (var e in perEmployee.Take(30))
-        Console.WriteLine($"{e.Employee} | {e.Schedule} | {e.LateDays} | {e.LateMinutes} | {e.GraceUsed} | {e.GraceRemaining} | {e.HoursUsed} | {e.HoursRemaining}");
+        Console.WriteLine($"{e.Employee} | {e.Schedule} | {e.LateDays} | {e.LateMinutes} | {e.GraceUsed} | {e.GraceRemaining} | {e.HoursUsed} | {e.HoursRemaining} | {e.EarlyLeavesUsed} | {e.EarlyLeavesRemaining}");
 
     var graceHistogram = perEmployee
         .GroupBy(e => e.GraceRemaining)
@@ -181,7 +187,7 @@ foreach (var record in records)
     {
         samples.Add(
             $"  {record.EmployeeFinancialNo} {record.Date:yyyy-MM-dd}: {record.Status} -> {outcome.Status}" +
-            $" (late {outcome.DailyLateMinutes}m, grace -{outcome.GraceConsumedMinutes}m, hours -{outcome.LateHoursConsumed})");
+            $" (late {outcome.DailyLateMinutes}m, grace -{outcome.GraceConsumedMinutes}m, hours -{outcome.LateHoursConsumed}, earlyLeave {outcome.EarlyLeaveConsumed})");
     }
 }
 

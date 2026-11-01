@@ -40,14 +40,16 @@ public static class AttendanceStatusRules
         DateTime? now = null,
         MonthlyStatusQuota? quota = null,
         bool enteredLeave = false,
-        bool latePermissionLeave = false)
+        bool latePermissionLeave = false,
+        bool earlyLeavePermissionLeave = false)
     {
         var configuredDayStatus = AttendanceCalendarRules.GetDayStatus(date, calendarSettings);
         if (configuredDayStatus != null)
             return configuredDayStatus;
 
         var baseStatus = CalculateBase(firstPunch, lastPunch, scheduledStart, scheduledEnd, date, now);
-        return ApplyStatusRules(baseStatus, firstPunch, scheduledStart, date, quota, enteredLeave, latePermissionLeave);
+        var (status, _) = ApplyStatusRules(baseStatus, firstPunch, lastPunch, scheduledStart, date, quota, enteredLeave, latePermissionLeave, earlyLeavePermissionLeave);
+        return status;
     }
 
     /// <summary>
@@ -107,22 +109,32 @@ public static class AttendanceStatusRules
     }
 
     /// <summary>
-    /// Applies the monthly grace / late-permission rules to a punch-derived status.
+    /// Applies the monthly grace / late-permission / early-leave rules to a
+    /// punch-derived status. Returns the effective status plus whether an
+    /// automatic early check-out was covered by the early-leave permission.
     /// </summary>
-    private static string ApplyStatusRules(
+    private static (string Status, bool EarlyLeaveConsumed) ApplyStatusRules(
         string baseStatus,
         DateTime? firstPunch,
+        DateTime? lastPunch,
         string? scheduledStart,
         DateTime date,
         MonthlyStatusQuota? quota,
         bool enteredLeave,
-        bool latePermissionLeave)
+        bool latePermissionLeave,
+        bool earlyLeavePermissionLeave)
     {
         if (string.Equals(baseStatus, "Late", StringComparison.Ordinal))
         {
-            // An entered late permission (PL) excuses the arrival without touching quotas.
+            // An entered late permission (PL) excuses the arrival and spends the
+            // monthly 2-hour late-permission quota (rounded up to whole hours);
+            // the 30-minute grace is never consumed on a PL day.
             if (latePermissionLeave)
-                return "Present";
+            {
+                if (quota != null)
+                    quota.ConsumeLateHoursUpTo((GetLateMinutes(firstPunch, scheduledStart, date) + 59) / 60);
+                return ("Present", false);
+            }
 
             var lateMinutes = GetLateMinutes(firstPunch, scheduledStart, date);
 
@@ -130,17 +142,38 @@ public static class AttendanceStatusRules
             // treat those days as leave, so the quotas must not be spent on them.
             var consume = !enteredLeave;
             if (quota != null && quota.TryConsumeGrace(lateMinutes, consume))
-                return "Present";
+                return ("Present", false);
             if (quota != null && quota.TryConsumeLateHours((lateMinutes + 59) / 60, consume))
-                return "Present";
-            return "Late";
+                return ("Present", false);
+            return ("Late", false);
         }
 
-        // An entered leave/permission excuses an early check-out.
-        if (string.Equals(baseStatus, "Early Leave", StringComparison.Ordinal) && enteredLeave)
-            return "Present";
+        if (string.Equals(baseStatus, "Early Leave", StringComparison.Ordinal))
+        {
+            if (earlyLeavePermissionLeave)
+            {
+                // An entered early-leave permission (PE) excuses the early
+                // check-out and consumes one of the monthly early-leave
+                // permissions when quota allows; an entered permission always
+                // excuses the day.
+                var consumed = lastPunch.HasValue && quota != null
+                    && quota.TryConsumeEarlyLeave(AttendanceStatusRules.ToEgyptTime(lastPunch.Value).TimeOfDay);
+                return (enteredLeave || consumed ? "Present" : "Early Leave", consumed);
+            }
 
-        return baseStatus;
+            // An entered leave/permission excuses an early check-out.
+            if (enteredLeave)
+                return ("Present", false);
+
+            // Automatic early check-out: the first two per month with a check-out
+            // at or after 10:00 become present and consume the early-leave
+            // permission; later ones stay early leaves.
+            var automaticConsumed = lastPunch.HasValue && quota != null
+                && quota.TryConsumeEarlyLeave(AttendanceStatusRules.ToEgyptTime(lastPunch.Value).TimeOfDay);
+            return (automaticConsumed ? "Present" : "Early Leave", automaticConsumed);
+        }
+
+        return (baseStatus, false);
     }
 
     /// <summary>
@@ -168,6 +201,7 @@ public static class AttendanceStatusRules
                 leaveFlags?.TryGetValue((record.EmployeeFinancialNo, record.Date.Date), out transactionFlags);
                 var enteredLeave = transactionFlags.EnteredLeave;
                 var latePermissionLeave = transactionFlags.LatePermission;
+                var earlyLeavePermissionLeave = transactionFlags.EarlyLeavePermission;
 
                 if (record.LeaveTypeId.HasValue)
                 {
@@ -182,9 +216,10 @@ public static class AttendanceStatusRules
 
                     enteredLeave = true;
                     latePermissionLeave = latePermissionLeave || IsLatePermissionCode(code);
+                    earlyLeavePermissionLeave = earlyLeavePermissionLeave || IsEarlyLeavePermissionCode(code);
 
-                    var configuredStatus = AttendanceCalendarRules.GetDayStatus(record.Date, calendarSettings);
-                    if (configuredStatus != null)
+                    var permissionDayStatus = AttendanceCalendarRules.GetDayStatus(record.Date, calendarSettings);
+                    if (permissionDayStatus != null)
                     {
                         outcomes[record.Id] = new MonthlyStatusOutcome(record.Status, 0, 0, 0);
                         continue;
@@ -198,36 +233,52 @@ public static class AttendanceStatusRules
                         record.Date,
                         now);
 
-                    if (string.Equals(permissionBase, "Late", StringComparison.Ordinal))
+                    var graceBefore = quota.GraceMinutesRemaining;
+                    var hoursBefore = quota.LateHoursRemaining;
+                    var (permissionStatus, permissionEarlyLeaveConsumed) = ApplyStatusRules(
+                        permissionBase,
+                        record.FirstPunch,
+                        record.LastPunch,
+                        record.ScheduledStart,
+                        record.Date,
+                        quota,
+                        enteredLeave,
+                        latePermissionLeave,
+                        earlyLeavePermissionLeave);
+
+                    if (string.Equals(permissionBase, "Late", StringComparison.Ordinal) && latePermissionLeave)
                     {
-                        var graceBefore = quota.GraceMinutesRemaining;
-                        var hoursBefore = quota.LateHoursRemaining;
-                        var status = ApplyStatusRules(
-                            permissionBase,
-                            record.FirstPunch,
-                            record.ScheduledStart,
-                            record.Date,
-                            quota,
-                            enteredLeave,
-                            latePermissionLeave);
+                        // Entered late permission (PL): the arrival is excused and the
+                        // monthly 2-hour late-permission quota is spent on it.
                         outcomes[record.Id] = new MonthlyStatusOutcome(
-                            status,
-                            GetLateMinutes(record),
+                            permissionStatus,
+                            0,
                             graceBefore - quota.GraceMinutesRemaining,
-                            hoursBefore - quota.LateHoursRemaining);
-                    }
-                    else if (string.Equals(permissionBase, "Early Leave", StringComparison.Ordinal)
-                        || string.Equals(permissionBase, "Present", StringComparison.Ordinal))
-                    {
-                        // Attended with an entered permission: considered present.
-                        outcomes[record.Id] = new MonthlyStatusOutcome("Present", 0, 0, 0);
-                    }
-                    else
-                    {
-                        // No proof of a full day: the entered permission stays "Leave".
-                        outcomes[record.Id] = new MonthlyStatusOutcome(record.Status, 0, 0, 0);
+                            hoursBefore - quota.LateHoursRemaining,
+                            permissionEarlyLeaveConsumed);
+                        continue;
                     }
 
+                    if (string.Equals(permissionBase, "Late", StringComparison.Ordinal))
+                    {
+                        // Entered general permission (P): the day is excused and
+                        // consumes no late quota.
+                        outcomes[record.Id] = new MonthlyStatusOutcome("Present", 0, 0, 0, false);
+                        continue;
+                    }
+
+                    if (string.Equals(permissionBase, "Early Leave", StringComparison.Ordinal)
+                        || string.Equals(permissionBase, "Present", StringComparison.Ordinal))
+                    {
+                        // Attended with an entered permission: considered present. An
+                        // entered early-leave permission (PE) consumes one of the
+                        // monthly early-leave permissions.
+                        outcomes[record.Id] = new MonthlyStatusOutcome("Present", 0, 0, 0, permissionEarlyLeaveConsumed);
+                        continue;
+                    }
+
+                    // No proof of a full day: the entered permission stays "Leave".
+                    outcomes[record.Id] = new MonthlyStatusOutcome(record.Status, 0, 0, 0, false);
                     continue;
                 }
 
@@ -251,14 +302,16 @@ public static class AttendanceStatusRules
 
                 var graceBeforeDay = quota.GraceMinutesRemaining;
                 var hoursBeforeDay = quota.LateHoursRemaining;
-                var newStatus = ApplyStatusRules(
+                var (newStatus, earlyLeaveConsumed) = ApplyStatusRules(
                     baseStatus,
                     record.FirstPunch,
+                    record.LastPunch,
                     record.ScheduledStart,
                     record.Date,
                     quota,
                     enteredLeave,
-                    latePermissionLeave);
+                    latePermissionLeave,
+                    earlyLeavePermissionLeave);
 
                 var dailyLateMinutes = string.Equals(baseStatus, "Late", StringComparison.Ordinal)
                     ? GetLateMinutes(record)
@@ -268,7 +321,8 @@ public static class AttendanceStatusRules
                     newStatus,
                     dailyLateMinutes,
                     graceBeforeDay - quota.GraceMinutesRemaining,
-                    hoursBeforeDay - quota.LateHoursRemaining);
+                    hoursBeforeDay - quota.LateHoursRemaining,
+                    earlyLeaveConsumed);
             }
         }
 
@@ -323,8 +377,13 @@ public static class AttendanceStatusRules
     /// <summary>True for the entered permission leave types P / PL / PE.</summary>
     public static bool IsPermissionLeaveCode(string? code) => IsPermissionCode(code);
 
-    private static bool IsLatePermissionCode(string? code) =>
+    /// <summary>True for the entered late permission leave type (PL).</summary>
+    public static bool IsLatePermissionCode(string? code) =>
         string.Equals(code, "PL", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True for the entered early-leave permission type (PE).</summary>
+    public static bool IsEarlyLeavePermissionCode(string? code) =>
+        string.Equals(code, "PE", StringComparison.OrdinalIgnoreCase);
 
     public static bool IsAutomaticStatus(string? status) =>
         !string.IsNullOrWhiteSpace(status) && AutomaticStatuses.Contains(status);
@@ -383,13 +442,22 @@ public static class AttendanceStatusRules
 
 /// <summary>
 /// Month-scoped quota state consumed in date order: the free 30-minute grace
-/// quota first, then the automatic 2-hour late-permission quota.
+/// quota first, then the automatic 2-hour late-permission quota, then the
+/// monthly early-leave permissions.
 /// </summary>
 public sealed class MonthlyStatusQuota
 {
     public int GraceMinutesRemaining { get; private set; } = AttendanceStatusRules.GraceLateAllowanceMinutes;
 
     public int LateHoursRemaining { get; private set; } = AttendanceStatusRules.LatePermissionMonthlyHours;
+
+    public int EarlyLeavesRemaining { get; private set; } = AttendanceStatusRules.EarlyLeavePermissionMonthlyCount;
+
+    public int GraceMinutesUsed => AttendanceStatusRules.GraceLateAllowanceMinutes - GraceMinutesRemaining;
+
+    public int LateHoursUsed => AttendanceStatusRules.LatePermissionMonthlyHours - LateHoursRemaining;
+
+    public int EarlyLeavesUsed => AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - EarlyLeavesRemaining;
 
     public bool TryConsumeGrace(int minutes, bool consume = true)
     {
@@ -412,17 +480,39 @@ public sealed class MonthlyStatusQuota
             LateHoursRemaining -= hours;
         return true;
     }
+
+    /// <summary>Spends late hours from the monthly 2-hour quota, clamped to what is left.</summary>
+    public int ConsumeLateHoursUpTo(int hours)
+    {
+        var consumed = Math.Min(Math.Max(0, hours), LateHoursRemaining);
+        LateHoursRemaining -= consumed;
+        return consumed;
+    }
+
+    public bool TryConsumeEarlyLeave(TimeSpan checkoutTime)
+    {
+        if (checkoutTime < AttendanceStatusRules.EarlyLeavePermissionStart)
+            return false;
+        if (EarlyLeavesRemaining <= 0)
+            return false;
+        EarlyLeavesRemaining--;
+        return true;
+    }
 }
 
 /// <summary>Approved leave/permission covering a specific date.</summary>
-public readonly record struct DayLeaveFlags(bool EnteredLeave, bool LatePermission);
+public readonly record struct DayLeaveFlags(bool EnteredLeave, bool LatePermission, bool EarlyLeavePermission = false)
+{
+    public bool HasEarlyLeavePermission => EarlyLeavePermission;
+}
 
 /// <summary>Per-day result of the month-ordered status walk.</summary>
 public sealed record MonthlyStatusOutcome(
     string Status,
     int DailyLateMinutes,
     int GraceConsumedMinutes,
-    int LateHoursConsumed);
+    int LateHoursConsumed,
+    bool EarlyLeaveConsumed = false);
 
 public sealed class PermissionTracker
 {
@@ -431,6 +521,8 @@ public sealed class PermissionTracker
     public int LateHoursUsed { get; private set; }
 
     public int EarlyLeavesUsed { get; private set; }
+
+    public int LateHoursRemaining => AttendanceStatusRules.LatePermissionMonthlyHours - LateHoursUsed;
 
     public bool TryConsumeGraceLate(int minutes)
     {
@@ -442,12 +534,22 @@ public sealed class PermissionTracker
         return true;
     }
 
+    public bool TryConsumeLateHours(int hours, bool consume = true)
+    {
+        if (hours <= 0)
+            return true;
+        if (LateHoursUsed + hours > AttendanceStatusRules.LatePermissionMonthlyHours)
+            return false;
+        if (consume)
+            LateHoursUsed += hours;
+        return true;
+    }
+
     public bool TryConsumeLate(int minutes)
     {
         if (minutes <= 0)
             return true;
-        LateHoursUsed += (minutes + 59) / 60;
-        return LateHoursUsed <= AttendanceStatusRules.LatePermissionMonthlyHours;
+        return TryConsumeLateHours((minutes + 59) / 60);
     }
 
     public bool TryConsumeEarlyLeave(TimeSpan checkoutTime)

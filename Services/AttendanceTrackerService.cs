@@ -16,7 +16,7 @@ public class AttendanceTrackerService
         { "Missing Check Out", "لم يسجل انصراف" },
         { "Late", "متأخر" },
         { "Early Leave", "انصراف مبكر" },
-        { "Absent", "غائب" },
+        { "Absent", "موقف" },
         { "Leave", "إجازة" },
         { "Work From Home", "عمل من المنزل" },
         { "Weekly Rest", "راحة أسبوعية" },
@@ -201,6 +201,7 @@ public class AttendanceTrackerService
 
             var used = 0;
             var graceUsed = 0;
+            var earlyLeavesUsed = 0;
             foreach (var record in monthGroup.OrderBy(r => r.Date).ThenBy(r => r.Id))
             {
                 var dailyHours = 0;
@@ -208,6 +209,7 @@ public class AttendanceTrackerService
                 {
                     graceUsed += outcome.GraceConsumedMinutes;
                     used += outcome.LateHoursConsumed;
+                    earlyLeavesUsed += outcome.EarlyLeaveConsumed ? 1 : 0;
                     if (outcome.DailyLateMinutes > 0)
                         dailyHours = (outcome.DailyLateMinutes + 59) / 60;
                 }
@@ -217,7 +219,9 @@ public class AttendanceTrackerService
                     used,
                     Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - used),
                     graceUsed,
-                    Math.Max(0, AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed));
+                    Math.Max(0, AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed),
+                    earlyLeavesUsed,
+                    Math.Max(0, AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - earlyLeavesUsed));
             }
         }
 
@@ -225,8 +229,9 @@ public class AttendanceTrackerService
     }
 
     /// <summary>
-    /// One row per employee-month: how much of the 30-minute grace and the
-    /// 2-hour late-permission allowance the employee used, and what is left.
+    /// One row per employee-month: how much of the 30-minute grace, the 2-hour
+    /// late-permission allowance and the monthly early-leave permissions the
+    /// employee used, and what is left.
     /// </summary>
     public async Task<List<MonthlyAllowanceSummaryRow>> BuildMonthlyAllowanceSummaryAsync(
         IReadOnlyCollection<DailyAttendance> queriedRecords)
@@ -256,6 +261,7 @@ public class AttendanceTrackerService
             var lateMinutes = 0;
             var graceUsed = 0;
             var hoursUsed = 0;
+            var earlyLeavesUsed = 0;
             string? monthScheduleStart = null;
             string? monthScheduleEnd = null;
 
@@ -278,6 +284,7 @@ public class AttendanceTrackerService
 
                 graceUsed += outcome.GraceConsumedMinutes;
                 hoursUsed += outcome.LateHoursConsumed;
+                earlyLeavesUsed += outcome.EarlyLeaveConsumed ? 1 : 0;
             }
 
             employees.TryGetValue(monthGroup.Key.EmployeeFinancialNo, out var employee);
@@ -304,7 +311,9 @@ public class AttendanceTrackerService
                 graceUsed,
                 Math.Max(0, AttendanceStatusRules.GraceLateAllowanceMinutes - graceUsed),
                 hoursUsed,
-                Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - hoursUsed)));
+                Math.Max(0, AttendanceStatusRules.LatePermissionMonthlyHours - hoursUsed),
+                earlyLeavesUsed,
+                Math.Max(0, AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - earlyLeavesUsed)));
         }
 
         return summary
@@ -763,13 +772,17 @@ public class AttendanceTrackerService
         foreach (var transaction in transactions)
         {
             var latePermission = string.Equals(transaction.LeaveType?.Code, "PL", StringComparison.OrdinalIgnoreCase);
+            var isEarlyLeavePermission = string.Equals(transaction.LeaveType?.Code, "PE", StringComparison.OrdinalIgnoreCase);
             var from = transaction.FromDate.Date < rangeStart ? rangeStart : transaction.FromDate.Date;
             var to = transaction.ToDate.Date > rangeEnd ? rangeEnd : transaction.ToDate.Date;
             for (var day = from; day <= to; day = day.AddDays(1))
             {
                 var key = (transaction.EmployeeFinancialNo, day);
                 leaveFlags.TryGetValue(key, out var existing);
-                leaveFlags[key] = new DayLeaveFlags(true, existing.LatePermission || latePermission);
+                leaveFlags[key] = new DayLeaveFlags(
+                    true,
+                    existing.LatePermission || latePermission,
+                    existing.EarlyLeavePermission || isEarlyLeavePermission);
             }
         }
 
@@ -868,7 +881,9 @@ public sealed record LateAllowanceSnapshot(
     int UsedHours,
     int RemainingHours,
     int GraceUsedMinutes,
-    int GraceRemainingMinutes);
+    int GraceRemainingMinutes,
+    int EarlyLeavesUsed,
+    int EarlyLeavesRemaining);
 
 public sealed record MonthlyAllowanceSummaryRow(
     string FinancialNo,
@@ -884,7 +899,9 @@ public sealed record MonthlyAllowanceSummaryRow(
     int GraceUsedMinutes,
     int GraceRemainingMinutes,
     int LateHoursUsed,
-    int LateHoursRemaining)
+    int LateHoursRemaining,
+    int EarlyLeavesUsed,
+    int EarlyLeavesRemaining)
 {
     public string MonthDisplay => $"{Year:D4}-{Month:D2}";
 }

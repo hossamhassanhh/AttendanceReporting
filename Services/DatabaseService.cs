@@ -66,7 +66,7 @@ public class DatabaseService
                 new LeaveType { Code = "A", NameAr = "إجازة اعتيادية", NameEn = "Regular Leave", BalanceType = "Regular" },
                 new LeaveType { Code = "S", NameAr = "إجازة مرضية", NameEn = "Sick Leave", BalanceType = "Sick" },
                 new LeaveType { Code = "C", NameAr = "إجازة عارضة", NameEn = "Casual Leave", BalanceType = "Casual" },
-                new LeaveType { Code = "B", NameAr = "غياب", NameEn = "Absence", BalanceType = null },
+                new LeaveType { Code = "B", NameAr = "موقف", NameEn = "Absence", BalanceType = null },
                 new LeaveType { Code = "E", NameAr = "بدل راحة", NameEn = "Rest Allowance", BalanceType = "Rest" },
                 new LeaveType { Code = "H", NameAr = "عطلة", NameEn = "Holiday", BalanceType = "Holiday" },
                 new LeaveType { Code = "DI", NameAr = "مأمورية خارجية", NameEn = "External Mission", BalanceType = null },

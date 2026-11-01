@@ -1206,7 +1206,7 @@ document.querySelectorAll('input[type="file"]').forEach(function (input) {
     }
 
 var statusArMap = {
-        'Present': 'حاضر', 'Pending': 'قيد الانتظار', 'Checked In': 'حاضر بدون انصراف', 'Missing Check Out': 'لم يسجل انصراف', 'Late': 'متأخر', 'Early Leave': 'انصراف مبكر', 'Absent': 'غائب',
+        'Present': 'حاضر', 'Pending': 'قيد الانتظار', 'Checked In': 'حاضر بدون انصراف', 'Missing Check Out': 'لم يسجل انصراف', 'Late': 'متأخر', 'Early Leave': 'انصراف مبكر', 'Absent': 'موقف',
         'Leave': 'إجازة', 'Holiday': 'عطلة', 'Weekly Rest': 'راحة أسبوعية', 'Work From Home': 'عمل من المنزل',
         'Mission': 'مأمورية', 'Training': 'دورة تدريب',
         'PendingManager': 'بانتظار المدير', 'PendingHR': 'بانتظار الموارد البشرية', 'Approved': 'معتمد', 'Rejected': 'مرفوض'
@@ -2196,7 +2196,7 @@ function updateLeaveDays(fromId, toId, daysId) {
         var tableLabel = i18n[currentLang].attendanceResults;
         var html = '<p class="table-scroll-hint">' + i18n[currentLang].scrollTableHint + '</p>' +
             '<div class="table-scroll attendance-table-scroll" tabindex="0" role="region" aria-label="' + tableLabel + '">' +
-            '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'ساعات التأخير' : 'Late hours') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th></tr></thead><tbody>';
+            '<table><thead><tr><th>#</th><th>' + (currentLang === 'ar' ? 'الرقم المالي' : 'Financial No') + '</th><th>' + (currentLang === 'ar' ? 'الاسم' : 'Name') + '</th><th>' + (currentLang === 'ar' ? 'الحالة' : 'Status') + '</th><th>' + (currentLang === 'ar' ? 'اليوم' : 'Day') + '</th><th>' + (currentLang === 'ar' ? 'التاريخ' : 'Date') + '</th><th>' + (currentLang === 'ar' ? 'الحضور' : 'Check In') + '</th><th>' + (currentLang === 'ar' ? 'الانصراف' : 'Check Out') + '</th><th>' + (currentLang === 'ar' ? 'المدة' : 'Duration') + '</th><th>' + (currentLang === 'ar' ? 'الموعد' : 'Schedule') + '</th><th>' + (currentLang === 'ar' ? 'ساعات التأخير' : 'Late hours') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th><th>' + (currentLang === 'ar' ? 'المتبقي من إذن انصراف مبكر' : 'Remaining Early Leaves') + '</th></tr></thead><tbody>';
         data.forEach(function (r, i) {
             var duration = '-';
             if (r.firstPunch && r.lastPunch) {
@@ -2218,6 +2218,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td>' + (r.lateHours || 0) + '</td>' +
                 '<td>' + (r.remainingGraceMinutes || 0) + '</td>' +
                 '<td><strong>' + (r.remainingLateHours || 0) + '</strong></td>' +
+                '<td>' + (r.remainingEarlyLeaves || 0) + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table></div>';
@@ -2657,6 +2658,8 @@ function updateLeaveDays(fromId, toId, daysId) {
             '<th>' + (currentLang === 'ar' ? 'المتبقي من 30 دقيقة' : 'Remaining of 30 min.') + '</th>' +
             '<th>' + (currentLang === 'ar' ? 'المستخدم من ساعتين' : '2 hrs used') + '</th>' +
             '<th>' + (currentLang === 'ar' ? 'المتبقي من ساعتين' : 'Remaining of 2 hrs.') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المستخدم من إذن انصراف مبكر' : 'Early leaves used') + '</th>' +
+            '<th>' + (currentLang === 'ar' ? 'المتبقي من إذن انصراف مبكر' : 'Remaining Early Leaves') + '</th>' +
             '</tr></thead><tbody>';
 
         rows.forEach(function (r, i) {
@@ -2675,6 +2678,8 @@ function updateLeaveDays(fromId, toId, daysId) {
                 '<td><strong>' + (r.graceRemainingMinutes || 0) + '</strong></td>' +
                 '<td>' + (r.lateHoursUsed || 0) + '</td>' +
                 '<td><strong>' + (r.lateHoursRemaining || 0) + '</strong></td>' +
+                '<td>' + (r.earlyLeavesUsed || 0) + '</td>' +
+                '<td><strong>' + (r.earlyLeavesRemaining || 0) + '</strong></td>' +
                 '</tr>';
         });
 
@@ -3395,7 +3400,7 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
         var labels = currentLang === 'ar'
             ? {
                 caption: 'فترة كشف الحضور ' + monthLabel + ' ' + info.year,
-                pr: 'الرقم المالي', total: 'إجمالي أيام العمل', signature: 'توقيع الموظف', present: 'أيام<br>حضور', regular: 'إجازة<br>اعتيادي', sick: 'أيام<br>مرضي', casual: 'أيام<br>عارضة', absent: 'غياب', rest: 'راحة', extMission: 'مأمورية<br>خارجية', intMission: 'مأمورية<br>داخلية', training: 'دورة<br>تدريب', department: 'الإدارة العامة', level: 'المستوى الوظيفي', name: 'الاسم', jobTitle: 'الوظيفة', box: 'الصندوق'
+                pr: 'الرقم المالي', total: 'إجمالي أيام العمل', signature: 'توقيع الموظف', present: 'أيام<br>حضور', regular: 'إجازة<br>اعتيادي', sick: 'أيام<br>مرضي', casual: 'أيام<br>عارضة', absent: 'موقف', rest: 'راحة', extMission: 'مأمورية<br>خارجية', intMission: 'مأمورية<br>داخلية', training: 'دورة<br>تدريب', department: 'الإدارة العامة', level: 'المستوى الوظيفي', name: 'الاسم', jobTitle: 'الوظيفة', box: 'الصندوق'
             }
             : {
                 caption: 'Time sheet period ' + monthLabel + ' ' + info.year,
