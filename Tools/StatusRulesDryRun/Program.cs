@@ -60,6 +60,18 @@ if (args.Contains("--summary"))
     foreach (var row in summary.Where(s => s.GraceUsedMinutes > 0).Take(15))
         Console.WriteLine($"{row.FinancialNo} | {row.MonthDisplay} | {row.Schedule} | {row.LateDays} | {row.LateMinutes} | {row.GraceUsedMinutes} | {row.GraceRemainingMinutes} | {row.LateHoursUsed} | {row.LateHoursRemaining} | {row.EarlyLeavesUsed} | {row.EarlyLeavesRemaining} | {row.Name}");
 
+    if (args.Contains("--employee"))
+    {
+        var summaryEmployee = args[Array.IndexOf(args, "--employee") + 1];
+        Console.WriteLine();
+        Console.WriteLine($"Employee summary: {summaryEmployee}");
+        foreach (var row in summary.Where(s => string.Equals(s.FinancialNo, summaryEmployee, StringComparison.OrdinalIgnoreCase)))
+            Console.WriteLine(
+                $"{row.FinancialNo} | {row.MonthDisplay} | {row.Schedule} | late days {row.LateDays}, minutes {row.LateMinutes} | " +
+                $"grace {row.GraceUsedMinutes}/{row.GraceRemainingMinutes} | hours {row.LateHoursUsed}/{row.LateHoursRemaining} | " +
+                $"early leaves {row.EarlyLeavesUsed}/{row.EarlyLeavesRemaining} | {row.Name}");
+    }
+
     if (args.Contains("--export"))
     {
         // Generate the same workbook/PDF the export endpoint serves.
@@ -120,6 +132,49 @@ var outcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
 
 Console.WriteLine($"Month: {monthStart:yyyy-MM}");
 Console.WriteLine($"Records: {records.Count}; evaluated by walk: {outcomes.Count}");
+
+if (args.Contains("--employee"))
+{
+    // Per-day diagnostic for a single employee, including the punch-derived base
+    // status and the quota consumption the monthly walk assigns to each day.
+    var employeeNo = args[Array.IndexOf(args, "--employee") + 1];
+    var employeeRecords = records
+        .Where(r => string.Equals(r.EmployeeFinancialNo, employeeNo, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(r => r.Date)
+        .ThenBy(r => r.Id)
+        .ToList();
+
+    Console.WriteLine($"Employee: {employeeNo}; days: {employeeRecords.Count}");
+    Console.WriteLine("Date | Stored | Base | Outcome | LateMin | GraceUsed | HoursUsed | EarlyLeaveUsed | InLocal | OutLocal | Schedule");
+    foreach (var record in employeeRecords)
+    {
+        outcomes.TryGetValue(record.Id, out var outcome);
+        var baseStatus = AttendanceStatusRules.CalculateBase(
+            record.FirstPunch, record.LastPunch, record.ScheduledStart, record.ScheduledEnd, record.Date);
+        var inLocal = record.FirstPunch.HasValue
+            ? AttendanceStatusRules.ToEgyptTime(record.FirstPunch.Value).ToString("HH:mm")
+            : "-";
+        var outLocal = record.LastPunch.HasValue
+            ? AttendanceStatusRules.ToEgyptTime(record.LastPunch.Value).ToString("HH:mm")
+            : "-";
+        Console.WriteLine(
+            $"{record.Date:yyyy-MM-dd} | {record.Status} | {baseStatus} | {outcome?.Status ?? "-"} | " +
+            $"{outcome?.DailyLateMinutes ?? 0} | {outcome?.GraceConsumedMinutes ?? 0} | {outcome?.LateHoursConsumed ?? 0} | " +
+            $"{outcome?.EarlyLeaveConsumed ?? false} | {inLocal} | {outLocal} | {record.ScheduledStart}-{record.ScheduledEnd}");
+    }
+
+    var employeeOutcomes = employeeRecords
+        .Where(r => outcomes.ContainsKey(r.Id))
+        .Select(r => outcomes[r.Id])
+        .ToList();
+    Console.WriteLine(
+        $"Totals: late days {employeeOutcomes.Count(o => o.DailyLateMinutes > 0)}; " +
+        $"late minutes {employeeOutcomes.Sum(o => o.DailyLateMinutes)}; " +
+        $"grace used {employeeOutcomes.Sum(o => o.GraceConsumedMinutes)}/{(int)AttendanceStatusRules.GraceLateAllowanceMinutes}; " +
+        $"hours used {employeeOutcomes.Sum(o => o.LateHoursConsumed)}/{AttendanceStatusRules.LatePermissionMonthlyHours}; " +
+        $"early leaves used {employeeOutcomes.Count(o => o.EarlyLeaveConsumed)}/{AttendanceStatusRules.EarlyLeavePermissionMonthlyCount}");
+    return;
+}
 
 if (args.Contains("--allowance"))
 {
@@ -183,9 +238,15 @@ foreach (var record in records)
     var key = $"{record.Status} -> {outcome.Status}";
     transitions[key] = transitions.GetValueOrDefault(key) + 1;
 
-    if (samples.Count < 25)
+    if (samples.Count < 25 && !args.Contains("--all-transitions"))
     {
         samples.Add(
+            $"  {record.EmployeeFinancialNo} {record.Date:yyyy-MM-dd}: {record.Status} -> {outcome.Status}" +
+            $" (late {outcome.DailyLateMinutes}m, grace -{outcome.GraceConsumedMinutes}m, hours -{outcome.LateHoursConsumed}, earlyLeave {outcome.EarlyLeaveConsumed})");
+    }
+    else if (args.Contains("--all-transitions"))
+    {
+        Console.WriteLine(
             $"  {record.EmployeeFinancialNo} {record.Date:yyyy-MM-dd}: {record.Status} -> {outcome.Status}" +
             $" (late {outcome.DailyLateMinutes}m, grace -{outcome.GraceConsumedMinutes}m, hours -{outcome.LateHoursConsumed}, earlyLeave {outcome.EarlyLeaveConsumed})");
     }
@@ -194,6 +255,14 @@ foreach (var record in records)
 if (transitions.Count == 0)
 {
     Console.WriteLine("No status changes: stored statuses already match the new rules.");
+    return;
+}
+
+if (args.Contains("--all-transitions"))
+{
+    Console.WriteLine("Transitions:");
+    foreach (var transition in transitions.OrderByDescending(t => t.Value))
+        Console.WriteLine($"  {transition.Key}: {transition.Value}");
     return;
 }
 

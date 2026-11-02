@@ -86,7 +86,7 @@ Require(permissions.TryConsumeGraceLate(20) && permissions.GraceMinutesUsed == 3
 Require(!permissions.TryConsumeGraceLate(1) && permissions.GraceMinutesUsed == 30, "Grace over 30 minutes must fall through to permission.");
 Require(permissions.TryConsumeLate(10) && permissions.LateHoursUsed == 1, "Ten late minutes must consume one hour.");
 Require(permissions.TryConsumeLate(50) && permissions.LateHoursUsed == 2, "Late time within two whole hours must be covered.");
-Require(!permissions.TryConsumeLate(1) && permissions.LateHoursUsed == 3, "Late time over the 2-hour quota must not be covered.");
+Require(!permissions.TryConsumeLate(1) && permissions.LateHoursUsed == 2, "Late time over the 2-hour quota must not be covered nor over-consume.");
 Require(!permissions.TryConsumeEarlyLeave(new TimeSpan(9, 30, 0)) && permissions.EarlyLeavesUsed == 0, "Early leave before 10:00 must not consume a permission.");
 Require(permissions.TryConsumeEarlyLeave(new TimeSpan(14, 0, 0)) && permissions.EarlyLeavesUsed == 1, "First early leave after 10:00 must consume a permission.");
 Require(permissions.TryConsumeEarlyLeave(new TimeSpan(15, 0, 0)) && permissions.EarlyLeavesUsed == 2, "Second early leave after 10:00 must consume a permission.");
@@ -119,10 +119,11 @@ Require(
 quota = new MonthlyStatusQuota();
 Require(
     AttendanceStatusRules.Calculate(
-        Utc(date, 9, 6), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Early Leave"
+        Utc(date, 9, 6), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Present"
         && quota.GraceMinutesRemaining == 30
-        && quota.LateHoursRemaining == 2,
-    "A late arrival with an early check-out must stay Early Leave and consume nothing.");
+        && quota.LateHoursRemaining == 2
+        && quota.EarlyLeavesRemaining == AttendanceStatusRules.EarlyLeavePermissionMonthlyCount - 1,
+    "A late arrival with an early check-out must stay out of the late quotas and consume one early-leave permission.");
 
 quota = new MonthlyStatusQuota();
 Require(
@@ -138,13 +139,6 @@ Require(
         && quota.GraceMinutesRemaining == 30
         && quota.LateHoursRemaining == 1,
     "An entered late permission (PL) must excuse the lateness and spend one hour of the 2-hour quota.");
-
-quota = new MonthlyStatusQuota();
-Require(
-    AttendanceStatusRules.Calculate(
-        Utc(date, 8, 31), Utc(date, 15, 0), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Early Leave"
-        && quota.EarlyLeavesRemaining == AttendanceStatusRules.EarlyLeavePermissionMonthlyCount,
-    "An automatic early check-out before any early-leave permission is consumed must stay Early Leave.");
 
 quota = new MonthlyStatusQuota();
 Require(
@@ -167,6 +161,85 @@ Require(
         Utc(date, 8, 41), Utc(date, 15, 30), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota, enteredLeave: true) == "Present"
         && quota.GraceMinutesRemaining == 30,
     "Days covered by an entered leave consume no grace quota.");
+
+// --- Late arrivals charged on single-punch / missing-check-out days ---
+
+quota = new MonthlyStatusQuota();
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 9, 28), Utc(date, 9, 28), scheduleStart, scheduleEnd, date, null, date.AddHours(10), quota) == "Checked In"
+        && quota.GraceMinutesRemaining == 30
+        && quota.LateHoursRemaining == 1,
+    "A single punch 57 minutes late must stay Checked In and consume one hour of the 2-hour quota (employee 4779 case).");
+
+quota = new MonthlyStatusQuota();
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 8, 51), Utc(date, 8, 51), scheduleStart, scheduleEnd, date, null, date.AddHours(10), quota) == "Checked In"
+        && quota.GraceMinutesRemaining == 10
+        && quota.LateHoursRemaining == 2,
+    "A single punch 20 minutes late must stay Checked In and consume only the grace.");
+
+quota = new MonthlyStatusQuota();
+quota.TryConsumeLateHours(2);
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 9, 28), Utc(date, 9, 28), scheduleStart, scheduleEnd, date, null, date.AddHours(10), quota) == "Checked In"
+        && quota.GraceMinutesRemaining == 30
+        && quota.LateHoursRemaining == 0,
+    "A late single punch with an exhausted 2-hour quota must stay Checked In and consume nothing.");
+
+quota = new MonthlyStatusQuota();
+Require(
+    AttendanceStatusRules.Calculate(
+        Utc(date, 10, 6), Utc(date, 15, 30), scheduleStart, scheduleEnd, date, null, date.AddDays(1), quota) == "Present"
+        && quota.GraceMinutesRemaining == 30
+        && quota.LateHoursRemaining == 0,
+    "A 95-minute late arrival must consume both hours of the 2-hour quota.");
+
+var checkedInDay = new DateTime(2026, 11, 1);
+var checkedInRecords = new List<DailyAttendance>
+{
+    new()
+    {
+        Id = 40,
+        EmployeeFinancialNo = "E9",
+        Date = checkedInDay,
+        FirstPunch = Utc(checkedInDay, 9, 28),
+        LastPunch = Utc(checkedInDay, 9, 28),
+        ScheduledStart = "08:31",
+        ScheduledEnd = "15:25",
+        Status = "Checked In"
+    }
+};
+var checkedInOutcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+    checkedInRecords, null, null, null, checkedInDay.AddHours(10));
+Require(checkedInOutcomes[40].Status == "Checked In"
+    && checkedInOutcomes[40].DailyLateMinutes == 57
+    && checkedInOutcomes[40].GraceConsumedMinutes == 0
+    && checkedInOutcomes[40].LateHoursConsumed == 1,
+    "The monthly walk must charge one hour for a 57-minute late single punch without spending the grace.");
+
+var missingCheckoutRecords = new List<DailyAttendance>
+{
+    new()
+    {
+        Id = 41,
+        EmployeeFinancialNo = "E10",
+        Date = checkedInDay,
+        FirstPunch = Utc(checkedInDay, 9, 28),
+        LastPunch = Utc(checkedInDay, 9, 28),
+        ScheduledStart = "08:31",
+        ScheduledEnd = "15:25",
+        Status = "Missing Check Out"
+    }
+};
+var missingCheckoutOutcomes = AttendanceStatusRules.CalculateMonthlyStatuses(
+    missingCheckoutRecords, null, null, null, checkedInDay.AddDays(1));
+Require(missingCheckoutOutcomes[41].Status == "Missing Check Out"
+    && missingCheckoutOutcomes[41].DailyLateMinutes == 57
+    && missingCheckoutOutcomes[41].LateHoursConsumed == 1,
+    "A missing-check-out day 57 minutes late must keep its status and still consume one hour.");
 
 // --- Month-ordered walk: quotas are consumed chronologically ---
 

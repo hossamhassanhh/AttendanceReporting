@@ -541,15 +541,25 @@ public class ExportService
             // "Present" can still be a late arrival that consumed the grace.
             // Leave days (LeaveTypeId) consume nothing, exactly like the walk.
             var isPermissionRow = da.LeaveTypeId != null && AttendanceStatusRules.IsPermissionLeaveCode(da.LeaveType?.Code);
-            var baseStatus = (da.LeaveTypeId == null || isPermissionRow)
-                && AttendanceStatusRules.IsAutomaticStatus(da.Status)
+            var baseStatus = (da.LeaveTypeId == null
+                    ? AttendanceStatusRules.IsAutomaticStatus(da.Status)
+                    : isPermissionRow)
                 ? AttendanceStatusRules.CalculateBase(
                     da.FirstPunch, da.LastPunch, da.ScheduledStart, da.ScheduledEnd, da.Date)
                 : null;
 
-            if (permissions != null && string.Equals(baseStatus, "Late", StringComparison.Ordinal))
+            var lateMins = AttendanceStatusRules.GetLateMinutes(da);
+            var lateDay = AttendanceStatusRules.IsLateQuotaStatus(baseStatus) && lateMins > 0;
+            var isLateBase = string.Equals(baseStatus, "Late", StringComparison.Ordinal);
+            var fallbackCode = GetCodeFromDaily(da);
+
+            // Entered permissions other than PL (P / PE) excuse the arrival without
+            // spending the late quotas, exactly like the month-ordered walk.
+            var permissionExcused = isPermissionRow
+                && !AttendanceStatusRules.IsLatePermissionCode(da.LeaveType?.Code);
+
+            if (permissions != null && lateDay && !permissionExcused)
             {
-                var lateMins = AttendanceStatusRules.GetLateMinutes(da);
                 if (AttendanceStatusRules.IsLatePermissionCode(da.LeaveType?.Code))
                 {
                     // Entered late permission (PL): the arrival is excused and the
@@ -558,18 +568,18 @@ public class ExportService
                     var consumed = Math.Min(hours, permissions.LateHoursRemaining);
                     if (consumed > 0)
                         permissions.TryConsumeLateHours(consumed);
-                    return consumed > 0 ? $"X{consumed}" : "B";
+                    return isLateBase ? (consumed > 0 ? $"X{consumed}" : "B") : fallbackCode;
                 }
 
                 if (permissions.TryConsumeGraceLate(lateMins))
-                    return "X";
+                    return isLateBase ? "X" : fallbackCode;
                 if (permissions.TryConsumeLate(lateMins))
                 {
                     // Return X{hours} based on hours consumed for this day (min X1)
                     var hoursConsumed = Math.Max(1, (lateMins + 59) / 60);
-                    return $"X{hoursConsumed}";
+                    return isLateBase ? $"X{hoursConsumed}" : fallbackCode;
                 }
-                return "B";
+                return isLateBase ? "B" : fallbackCode;
             }
 
             if (permissions != null
