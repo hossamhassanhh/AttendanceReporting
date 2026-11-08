@@ -471,6 +471,38 @@
                         </div>
                     </div>
                 </div>
+                <div class="card upload-panel slim-upload leave-upload-panel" data-permission="Leaves">
+                    <div class="upload-identity">
+                        <span class="upload-mark" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path d="M7 3.75h7l3 3V20.25H7z"></path>
+                                <path d="M14 3.75v3h3M9 12h6M9 15h6M9 9h2"></path>
+                            </svg>
+                        </span>
+                        <div>
+                            <span class="section-kicker" data-i18n="adminKicker">الإدارة</span>
+                            <strong data-i18n="uploadWorkflowTitle">سير عمل اعتماد الإجازات</strong>
+                            <p data-i18n="uploadWorkflowDesc">تكوين دورة اعتماد الإجازات حسب الإدارة أو مجموعة الموظفين (مندوب الموظف، مندوب المدير).</p>
+                        </div>
+                    </div>
+                    <div class="leave-upload-workspace">
+                        <div class="file-picker leave-file-picker" data-drop-zone>
+                            <input type="file" id="workflowUploadFile" accept=".xlsx,.xls">
+                            <span class="file-picker-copy">
+                                <strong data-i18n="excelFileLabel">ملف Excel</strong>
+                                <span data-file-name-for="workflowUploadFile" data-i18n="noFileChosen">لم يتم اختيار ملف</span>
+                                <span class="file-picker-hint" data-i18n="fileFormatHint">صيغة Excel (.xlsx أو .xls)</span>
+                            </span>
+                            <span class="file-picker-status" aria-hidden="true"></span>
+                            <label for="workflowUploadFile" data-i18n="chooseFile">اختيار ملف</label>
+                            <button type="button" class="file-picker-clear" data-clear-file="workflowUploadFile" data-i18n-aria-label="clearFile" aria-label="مسح الملف" title="مسح الملف" tabindex="-1">×</button>
+                        </div>
+                        <div class="leave-upload-actions">
+                            <button id="downloadWorkflowTemplateBtn" class="ghost" type="button" data-i18n="downloadWorkflowTemplate">تحميل قالب سير العمل</button>
+                            <button id="uploadWorkflowBtn" class="secondary" type="button" data-i18n="uploadWorkflow" disabled>استيراد سير العمل</button>
+                        </div>
+                    </div>
+                </div>
                 <section class="results" id="leaveResults" style="display:none;">
                     <div class="results-header">
                         <h3 data-i18n="transactions">حركات الإجازات</h3>
@@ -854,7 +886,7 @@
             </footer>
         </main>
     </div>
-    <script src="/js/app.js?v=57"></script>
+    <script src="/js/app.js?v=58"></script>
     <script>
         (function(){
             var el = document.getElementById('todayLabel');

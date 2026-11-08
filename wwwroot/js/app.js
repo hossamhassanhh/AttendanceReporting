@@ -132,6 +132,10 @@ chooseFile: 'اختيار ملف',
             uploadLeavesTitle: 'استيراد بيانات الإجازات',
             uploadLeavesDesc: 'إضافة عدة حركات إجازة دفعة واحدة.',
             uploadLeaves: 'استيراد الإجازات',
+            uploadWorkflowTitle: 'سير عمل اعتماد الإجازات',
+            uploadWorkflowDesc: 'تكوين دورة اعتماد الإجازات حسب الإدارة أو مجموعة الموظفين (مندوب الموظف، مندوب المدير).',
+            downloadWorkflowTemplate: 'تحميل قالب سير العمل',
+            uploadWorkflow: 'استيراد سير العمل',
             transactions: 'حركات الإجازات',
             monthlyKicker: 'التقرير الشهري',
             monthlyTitle: 'كشف الحضور الشهري',
@@ -261,6 +265,10 @@ chooseFile: 'اختيار ملف',
             uploadLeavesTitle: 'Upload Leave Days',
             uploadLeavesDesc: 'Add multiple leave transactions at once.',
             uploadLeaves: 'Upload Leaves',
+            uploadWorkflowTitle: 'Leave Approval Workflow',
+            uploadWorkflowDesc: 'Configure the leave approval cycle per department or group (employee delegate, manager delegate).',
+            downloadWorkflowTemplate: 'Download Workflow Template',
+            uploadWorkflow: 'Upload Workflow',
             transactions: 'Transactions',
             monthlyKicker: 'Monthly Report',
             monthlyTitle: 'Monthly Attendance Sheet',
@@ -939,7 +947,8 @@ var validExcelExt = /\.(xlsx|xls)$/i;
     var uploadMeta = {
         employeesUploadFile: { button: 'uploadEmployeesBtn', url: '/api/import/employees', labelKey: 'uploadData' },
         balancesUploadFile: { button: 'uploadBalancesBtn', url: '/api/import/balances', labelKey: 'uploadBalances' },
-        leavesUploadFile: { button: 'uploadLeavesBtn', url: '/api/import/leaves', labelKey: 'uploadLeaves' }
+        leavesUploadFile: { button: 'uploadLeavesBtn', url: '/api/import/leaves', labelKey: 'uploadLeaves' },
+        workflowUploadFile: { button: 'uploadWorkflowBtn', url: '/api/leave/upload-approval-workflow', labelKey: 'uploadWorkflow' }
     };
 
     function formatFileSize(bytes) {
@@ -3350,6 +3359,14 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
         downloadBlobFile(templateUrl, fileName);
     });
 
+    $('downloadWorkflowTemplateBtn').addEventListener('click', function () {
+        var language = currentLang === 'ar' ? 'ar' : 'en';
+        var fileName = language === 'ar'
+            ? 'قالب-سير-عمل-اعتماد-الإجازات.xlsx'
+            : 'leave-approval-workflow-template.xlsx';
+        downloadBlobFile('/api/leave/approval-workflow-template?lang=' + encodeURIComponent(language), fileName);
+    });
+
     $('downloadEmployeesTemplateBtn').addEventListener('click', function () {
         downloadBlobFile('/api/import/template/employees?lang=' + encodeURIComponent(currentLang), 'employees-template.xlsx');
     });
@@ -3364,6 +3381,12 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
             lastLeaveTransactions = null;
             hide('leaveResults');
             $('fetchLeaveTransBtn').click();
+        });
+    });
+
+    $('uploadWorkflowBtn').addEventListener('click', function () {
+        performUpload('workflowUploadFile', function () {
+            // Workflow assignments imported; no specific list to refresh yet.
         });
     });
 
