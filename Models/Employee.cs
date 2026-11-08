@@ -36,6 +36,10 @@ public class Employee
     [MaxLength(20)]
     public string? ManagerFinancialNo { get; set; }
 
+    /// <summary>Employee's delegate for leave approval (approves before manager). Optional.</summary>
+    [MaxLength(20)]
+    public string? DelegateFinancialNo { get; set; }
+
     public DateTime? BirthDate { get; set; }
 
     public DateTime? HireDate { get; set; }

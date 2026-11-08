@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<AppUser> AppUsers => Set<AppUser>();
     public DbSet<AttendanceDaySetting> AttendanceDaySettings => Set<AttendanceDaySetting>();
+    public DbSet<DepartmentWorkflowConfig> DepartmentWorkflowConfigs => Set<DepartmentWorkflowConfig>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -75,6 +76,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AttendanceDaySetting>(e =>
         {
             e.HasIndex(x => x.Date).IsUnique();
+        });
+
+        modelBuilder.Entity<DepartmentWorkflowConfig>(e =>
+        {
+            e.Property(x => x.Department).ValueGeneratedNever();
         });
     }
 }

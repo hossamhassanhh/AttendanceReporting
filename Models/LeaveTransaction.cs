@@ -32,7 +32,21 @@ public class LeaveTransaction
     [MaxLength(20)]
     public string? ManagerFinancialNo { get; set; }
 
+    /// <summary>Manager's delegate who can approve on manager's behalf (if configured). Optional.</summary>
+    [MaxLength(20)]
+    public string? ManagerDelegateFinancialNo { get; set; }
+
+    /// <summary>Employee's delegate who must approve first (if configured). Optional.</summary>
+    [MaxLength(20)]
+    public string? DelegateFinancialNo { get; set; }
+
+    public DateTime? DelegateApprovedAt { get; set; }
+
     public DateTime? ManagerApprovedAt { get; set; }
+
+    /// <summary>Department HR employee assigned to final approval (if configured). Optional.</summary>
+    [MaxLength(20)]
+    public string? AssignedHrFinancialNo { get; set; }
 
     public DateTime? HrApprovedAt { get; set; }
 

@@ -57,16 +57,30 @@ public class LeaveController : ControllerBase
     {
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "No file provided" });
+
+        var enteredBy = User.FindFirstValue(ClaimTypes.Name)
+            ?? throw new UnauthorizedAccessException("Authenticated username is unavailable");
+
+        var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+        Directory.CreateDirectory(uploadsDir);
+        var safeName = $"{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+        var filePath = Path.Combine(uploadsDir, safeName);
         try
         {
-            var enteredBy = User.FindFirstValue(ClaimTypes.Name)
-                ?? throw new UnauthorizedAccessException("Authenticated username is unavailable");
-            var result = await _leaveApprovalWorkflowService.ImportApprovalWorkflowAsync(file.FileName, enteredBy);
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+            var result = await _leaveApprovalWorkflowService.ImportApprovalWorkflowAsync(filePath, enteredBy);
             return Ok(new { message = result });
         }
         catch (Exception ex)
         {
             return BadRequest(new { error = ex.Message });
+        }
+        finally
+        {
+            try { if (System.IO.File.Exists(filePath)) System.IO.File.Delete(filePath); } catch { }
         }
     }
 
@@ -120,6 +134,26 @@ public class LeaveController : ControllerBase
     }
 
     [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpPost("{id:int}/approve-delegate")]
+    public async Task<IActionResult> ApproveAsDelegate(int id)
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        try
+        {
+            var result = await _leaveService.ApproveAsDelegateAsync(id, employeeNo ?? string.Empty);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
     [HttpPost("{id:int}/approve-manager")]
     public async Task<IActionResult> ApproveAsManager(int id)
     {
@@ -145,7 +179,8 @@ public class LeaveController : ControllerBase
     {
         try
         {
-            var result = await _leaveService.ApproveAsHrAsync(id);
+            var employeeNo = User.FindFirstValue("employee_no");
+            var result = await _leaveService.ApproveAsHrAsync(id, employeeNo);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)
@@ -158,7 +193,7 @@ public class LeaveController : ControllerBase
         }
     }
 
-    [Authorize(Policy = "LeaveHrFlow")]
+    [Authorize(Policy = "LeaveApprovalFlow")]
     [HttpPost("{id:int}/reject")]
     public async Task<IActionResult> RejectLeave(int id, [FromBody] RejectLeaveRequest request)
     {
@@ -180,6 +215,17 @@ public class LeaveController : ControllerBase
     }
 
     [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpGet("pending/delegate")]
+    public async Task<IActionResult> GetPendingForDelegate()
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return Ok(new List<object>());
+        var transactions = await _leaveService.GetPendingForDelegateAsync(employeeNo);
+        return Ok(transactions);
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
     [HttpGet("pending/manager")]
     public async Task<IActionResult> GetPendingForManager()
     {
@@ -194,7 +240,8 @@ public class LeaveController : ControllerBase
     [HttpGet("pending/hr")]
     public async Task<IActionResult> GetPendingForHr()
     {
-        var transactions = await _leaveService.GetPendingForHrAsync();
+        var employeeNo = User.FindFirstValue("employee_no");
+        var transactions = await _leaveService.GetPendingForHrAsync(employeeNo);
         return Ok(transactions);
     }
 
