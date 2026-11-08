@@ -152,6 +152,7 @@ builder.Services.AddHostedService<AdSyncBackgroundService>();
 builder.Services.AddScoped<ExcelImportService>();
 builder.Services.AddScoped<AttendanceTrackerService>();
 builder.Services.AddScoped<LeaveService>();
+builder.Services.AddScoped<LeaveApprovalWorkflowService>();
 builder.Services.AddScoped<ZkAttendanceService>(sp =>
     new ZkAttendanceService(connectionString ?? string.Empty, sp.GetRequiredService<IDbContextFactory<AppDbContext>>()));
 builder.Services.AddScoped<LeaveFillService>();

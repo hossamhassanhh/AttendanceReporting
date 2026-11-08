@@ -15,10 +15,12 @@ namespace AttendanceApp.Controllers;
 public class LeaveController : ControllerBase
 {
     private readonly LeaveService _leaveService;
+    private readonly LeaveApprovalWorkflowService _leaveApprovalWorkflowService;
 
-    public LeaveController(LeaveService leaveService)
+    public LeaveController(LeaveService leaveService, LeaveApprovalWorkflowService leaveApprovalWorkflowService)
     {
         _leaveService = leaveService;
+        _leaveApprovalWorkflowService = leaveApprovalWorkflowService;
     }
 
     [Authorize(Policy = "LeaveFlow")]
@@ -37,6 +39,35 @@ public class LeaveController : ControllerBase
         var data = await _leaveService.GenerateLeaveUploadTemplateAsync(isArabic);
         var fileName = isArabic ? "قالب-استيراد-الإجازات.xlsx" : "leave-upload-template.xlsx";
         return File(data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    [Authorize(Policy = "Leaves")]
+    [HttpGet("approval-workflow-template")]
+    public async Task<IActionResult> DownloadApprovalWorkflowTemplate([FromQuery] string? lang)
+    {
+        var isArabic = !string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase);
+        var data = await _leaveApprovalWorkflowService.GenerateApprovalWorkflowTemplateAsync(isArabic);
+        var fileName = isArabic ? "قالب-سير-عمل-إجازات-الموافقة.xlsx" : "leave-approval-workflow-template.xlsx";
+        return File(data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    [Authorize(Policy = "Leaves")]
+    [HttpPost("upload-approval-workflow")]
+    public async Task<IActionResult> UploadApprovalWorkflow([FromForm] IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { error = "No file provided" });
+        try
+        {
+            var enteredBy = User.FindFirstValue(ClaimTypes.Name)
+                ?? throw new UnauthorizedAccessException("Authenticated username is unavailable");
+            var result = await _leaveApprovalWorkflowService.ImportApprovalWorkflowAsync(file.FileName, enteredBy);
+            return Ok(new { message = result });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [Authorize(Policy = "Leaves")]
