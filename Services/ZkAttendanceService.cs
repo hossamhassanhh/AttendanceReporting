@@ -381,6 +381,195 @@ public class ZkAttendanceService
         return $"Processed {processed} records from {fromDate:yyyy-MM-dd} to {toDate:yyyy-MM-dd}";
     }
 
+    /// <summary>
+    /// Re-checks the ZK transactions for a recent date range against the stored
+    /// DailyAttendances rows and repairs any employee/day whose first/last punch
+    /// no longer matches the ZK DB. This catches in-place edits to existing ZK
+    /// transactions (which the id-based incremental sync cannot see), deletions,
+    /// and late/edited punches.
+    /// </summary>
+    public async Task<ZkReconcileResult> ReconcileRangeAsync(DateTime fromDate, DateTime toDate)
+    {
+        fromDate = fromDate.Date;
+        toDate = toDate.Date;
+        if (toDate < fromDate)
+            throw new ArgumentException("End date must be on or after start date.");
+
+        using var db = await _factory.CreateDbContextAsync();
+
+        var employees = await db.Employees.Where(e => e.IsActive).ToListAsync();
+        var empDict = employees.ToDictionary(e => e.FinancialNo, StringComparer.OrdinalIgnoreCase);
+        if (empDict.Count == 0)
+        {
+            return new ZkReconcileResult { FromDate = fromDate, ToDate = toDate };
+        }
+
+        var rules = await db.ScheduleRules.Where(r => r.IsActive).ToListAsync();
+        var calendarSettings = await db.AttendanceDaySettings.AsNoTracking().ToListAsync();
+        var permissionIds = await db.LeaveTypes
+            .AsNoTracking()
+            .Where(t => t.Code == "P" || t.Code == "PL" || t.Code == "PE")
+            .Select(t => t.Id)
+            .ToHashSetAsync();
+
+        var punchesByDay = await LoadPunchesByDayAsync(fromDate, toDate, empDict.Keys);
+
+        var employeeNos = empDict.Keys.ToList();
+        var existingRows = await db.DailyAttendances
+            .Where(a => employeeNos.Contains(a.EmployeeFinancialNo)
+                && a.Date >= fromDate && a.Date <= toDate)
+            .ToListAsync();
+        var existingByKey = existingRows.ToDictionary(a => (a.EmployeeFinancialNo, a.Date));
+
+        var changedEmployees = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var changedDays = 0;
+        var createdDays = 0;
+        var clearedDays = 0;
+
+        // Repair existing employee/day rows when the ZK punches changed.
+        foreach (var row in existingRows)
+        {
+            var hasPunch = punchesByDay.TryGetValue((row.EmployeeFinancialNo, row.Date), out var punch);
+            DateTime? firstPunch = hasPunch ? punch.First : null;
+            DateTime? lastPunch = hasPunch ? punch.Last : null;
+
+            if (row.FirstPunch == firstPunch && row.LastPunch == lastPunch)
+                continue;
+
+            var wasEmpty = !row.FirstPunch.HasValue && !row.LastPunch.HasValue;
+            row.FirstPunch = firstPunch;
+            row.LastPunch = lastPunch;
+
+            if (empDict.TryGetValue(row.EmployeeFinancialNo, out var emp))
+            {
+                var schedule = GetSchedule(emp, rules);
+                row.ScheduledStart = schedule?.StartTime;
+                row.ScheduledEnd = schedule?.EndTime;
+
+                // Leave/manual statuses are preserved; only automatic or permission
+                // attendance rows are recalculated from the punch data.
+                if (AttendanceStatusRules.ShouldRecalculate(row, permissionIds))
+                {
+                    row.Status = AttendanceStatusRules.Calculate(
+                        firstPunch,
+                        lastPunch,
+                        schedule?.StartTime,
+                        schedule?.EndTime,
+                        row.Date,
+                        calendarSettings);
+                }
+            }
+
+            changedEmployees.Add(row.EmployeeFinancialNo);
+            changedDays++;
+            if (!wasEmpty && !hasPunch)
+                clearedDays++;
+        }
+
+        // Create a row when ZK has punches for an active employee/day that the
+        // application DB does not have yet.
+        foreach (var ((empNo, day), punch) in punchesByDay)
+        {
+            if (existingByKey.ContainsKey((empNo, day)))
+                continue;
+            if (!empDict.TryGetValue(empNo, out var emp))
+                continue;
+
+            var schedule = GetSchedule(emp, rules);
+            var row = new DailyAttendance
+            {
+                EmployeeFinancialNo = empNo,
+                Date = day,
+                FirstPunch = punch.First,
+                LastPunch = punch.Last,
+                ScheduledStart = schedule?.StartTime,
+                ScheduledEnd = schedule?.EndTime,
+                Status = AttendanceStatusRules.Calculate(
+                    punch.First,
+                    punch.Last,
+                    schedule?.StartTime,
+                    schedule?.EndTime,
+                    day,
+                    calendarSettings)
+            };
+            db.DailyAttendances.Add(row);
+            existingByKey[(empNo, day)] = row;
+            changedEmployees.Add(empNo);
+            changedDays++;
+            createdDays++;
+        }
+
+        if (changedDays > 0)
+        {
+            await db.SaveChangesAsync();
+
+            // Re-apply the month-ordered grace / late-permission rules for the
+            // touched employees so the repaired day is consistent with its month.
+            await FinalizeMonthlyStatusesAsync(
+                db,
+                changedEmployees,
+                fromDate,
+                toDate,
+                calendarSettings);
+        }
+
+        return new ZkReconcileResult
+        {
+            FromDate = fromDate,
+            ToDate = toDate,
+            ExaminedDays = punchesByDay.Count,
+            ChangedDays = changedDays,
+            CreatedDays = createdDays,
+            ClearedDays = clearedDays,
+            AffectedEmployees = changedEmployees.Count
+        };
+    }
+
+    private async Task<Dictionary<(string EmpNo, DateTime Day), (DateTime First, DateTime Last)>> LoadPunchesByDayAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        IEnumerable<string> employeeNos)
+    {
+        var empCodes = employeeNos
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        var punchesByDay = new Dictionary<(string EmpNo, DateTime Day), (DateTime First, DateTime Last)>();
+        if (empCodes.Length == 0)
+            return punchesByDay;
+
+        await using var conn = new NpgsqlConnection(_pgConnectionString);
+        await conn.OpenAsync();
+
+        // The application stores Egypt local dates as UTC+2 (see SyncNewPunchesAsync).
+        var sql = @"
+            SELECT CAST(emp_code AS VARCHAR) AS emp_no,
+                   (punch_time + interval '2 hours')::date AS day,
+                   MIN(punch_time) AS first_punch,
+                   MAX(punch_time) AS last_punch
+            FROM public.iclock_transaction
+            WHERE (punch_time + interval '2 hours')::date >= @fromDate
+              AND (punch_time + interval '2 hours')::date <= @toDate
+              AND emp_code = ANY(@empCodes)
+            GROUP BY 1, 2";
+
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@fromDate", fromDate);
+        cmd.Parameters.AddWithValue("@toDate", toDate);
+        cmd.Parameters.AddWithValue("@empCodes", empCodes);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var empNo = reader.GetString(0);
+            var day = reader.GetDateTime(1).Date;
+            punchesByDay[(empNo, day)] = (reader.GetDateTime(2), reader.GetDateTime(3));
+        }
+
+        return punchesByDay;
+    }
+
     private static ScheduleRule? GetSchedule(Employee employee, List<ScheduleRule> rules)
     {
         return AttendanceStatusRules.ResolveSchedule(employee, rules);
@@ -392,4 +581,15 @@ public class SyncResult
 {
     public int ProcessedCount { get; set; }
     public long MaxId { get; set; }
+}
+
+public class ZkReconcileResult
+{
+    public DateTime FromDate { get; set; }
+    public DateTime ToDate { get; set; }
+    public int ExaminedDays { get; set; }
+    public int ChangedDays { get; set; }
+    public int CreatedDays { get; set; }
+    public int ClearedDays { get; set; }
+    public int AffectedEmployees { get; set; }
 }

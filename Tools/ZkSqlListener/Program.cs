@@ -40,7 +40,9 @@ var listenerOptions = new ZkListenerOptions(
     pgConnectionString ?? string.Empty,
     sqlTargets,
     builder.Configuration.GetValue<int>("ZkSync:PollingIntervalSeconds", 60),
-    builder.Configuration.GetValue<int>("ZkSync:BatchSize", 1000));
+    builder.Configuration.GetValue<int>("ZkSync:BatchSize", 1000),
+    builder.Configuration.GetValue<int>("ZkSync:ReconcileIntervalSeconds", 30),
+    builder.Configuration.GetValue<int>("ZkSync:ReconcileLookbackDays", 3));
 
 builder.Services.AddSingleton(listenerOptions);
 builder.Services.AddHostedService<MultiTargetZkSyncService>();
@@ -70,7 +72,9 @@ public sealed record ZkListenerOptions(
     string PostgreSqlConnectionString,
     IReadOnlyList<SqlTargetOptions> SqlTargets,
     int PollingIntervalSeconds,
-    int BatchSize);
+    int BatchSize,
+    int ReconcileIntervalSeconds,
+    int ReconcileLookbackDays);
 
 public sealed class StaticDbContextFactory : IDbContextFactory<AppDbContext>
 {
@@ -102,6 +106,7 @@ public sealed class MultiTargetZkSyncService : BackgroundService
 {
     private readonly ZkListenerOptions _options;
     private readonly ILogger<MultiTargetZkSyncService> _logger;
+    private DateTime _lastReconcileUtc = DateTime.MinValue;
 
     public MultiTargetZkSyncService(ZkListenerOptions options, ILogger<MultiTargetZkSyncService> logger)
     {
@@ -112,9 +117,12 @@ public sealed class MultiTargetZkSyncService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation(
-            "ZK listener starting for {TargetCount} SQL target(s), polling every {Interval}s",
+            "ZK listener starting for {TargetCount} SQL target(s), polling every {Interval}s, " +
+            "reconciling every {ReconcileInterval}s over the last {LookbackDays} day(s)",
             _options.SqlTargets.Count,
-            _options.PollingIntervalSeconds);
+            _options.PollingIntervalSeconds,
+            _options.ReconcileIntervalSeconds,
+            _options.ReconcileLookbackDays);
 
         foreach (var target in _options.SqlTargets)
             _logger.LogInformation("SQL target enabled: {TargetName}", target.Name);
@@ -135,6 +143,31 @@ public sealed class MultiTargetZkSyncService : BackgroundService
                 {
                     _logger.LogError(ex, "Error syncing ZK attendance to SQL target {TargetName}", target.Name);
                 }
+            }
+
+            // New transactions are synced above by id. This periodic pass repairs
+            // existing employee/day rows whose ZK transaction was edited in place,
+            // deleted, or re-uploaded without a new id.
+            if (_options.ReconcileIntervalSeconds > 0
+                && (DateTime.UtcNow - _lastReconcileUtc).TotalSeconds >= _options.ReconcileIntervalSeconds)
+            {
+                foreach (var target in _options.SqlTargets)
+                {
+                    try
+                    {
+                        await ReconcileTargetAsync(target, stoppingToken);
+                    }
+                    catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error reconciling ZK day updates to SQL target {TargetName}", target.Name);
+                    }
+                }
+
+                _lastReconcileUtc = DateTime.UtcNow;
             }
 
             await Task.Delay(TimeSpan.FromSeconds(_options.PollingIntervalSeconds), stoppingToken);
@@ -160,6 +193,32 @@ public sealed class MultiTargetZkSyncService : BackgroundService
             result.ProcessedCount,
             target.Name,
             result.MaxId);
+    }
+
+    private async Task ReconcileTargetAsync(SqlTargetOptions target, CancellationToken ct)
+    {
+        var factory = DbContextFactoryBuilder.Create(target.ConnectionString);
+        var zkService = new ZkAttendanceService(_options.PostgreSqlConnectionString, factory);
+        var today = DateTime.Now.Date;
+        var fromDate = today.AddDays(-Math.Max(0, _options.ReconcileLookbackDays));
+
+        var result = await zkService.ReconcileRangeAsync(fromDate, today);
+
+        if (result.ChangedDays > 0)
+        {
+            _logger.LogInformation(
+                "Reconciled ZK day updates for {TargetName}: {FromDate:yyyy-MM-dd}..{ToDate:yyyy-MM-dd}, " +
+                "examined {ExaminedDays} day(s), updated {ChangedDays}, created {CreatedDays}, " +
+                "cleared {ClearedDays}, affected {AffectedEmployees} employee(s)",
+                target.Name,
+                result.FromDate,
+                result.ToDate,
+                result.ExaminedDays,
+                result.ChangedDays,
+                result.CreatedDays,
+                result.ClearedDays,
+                result.AffectedEmployees);
+        }
     }
 
     private static async Task<long> GetLastProcessedIdAsync(IDbContextFactory<AppDbContext> factory, CancellationToken ct)
