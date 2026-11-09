@@ -37,7 +37,22 @@ try {
         "Deployment in progress" | Set-Content -LiteralPath $OfflinePath -Encoding UTF8
     } -ArgumentList $offline
 
+    # The publish output contains the development appsettings.json; keep the
+    # server's own appsettings.json (connection strings, production settings).
+    $remoteSettingsPath = Join-Path $RemoteAppPath "appsettings.json"
+    $remoteSettings = Invoke-Command -Session $session -ScriptBlock {
+        param($Path)
+        if (Test-Path -LiteralPath $Path) { Get-Content -LiteralPath $Path -Raw } else { $null }
+    } -ArgumentList $remoteSettingsPath
+
     Copy-Item -LiteralPath (Join-Path $LocalPublishPath "*") -Destination $RemoteAppPath -ToSession $session -Recurse -Force
+
+    if ($null -ne $remoteSettings) {
+        Invoke-Command -Session $session -ScriptBlock {
+            param($Path, $Content)
+            [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
+        } -ArgumentList $remoteSettingsPath, $remoteSettings
+    }
 
     Invoke-Command -Session $session -ScriptBlock {
         param($SiteName, $AppPoolName, $Port, $RemoteAppPath, $OfflinePath)
@@ -57,13 +72,13 @@ try {
             Set-ItemProperty "IIS:\Sites\$SiteName" -Name physicalPath -Value $RemoteAppPath
 
             $site = Get-Website -Name $SiteName
-            $hasPort = $site.Bindings.Collection | Where-Object { $_.protocol -eq "http" -and $_.bindingInformation -eq "*:$Port:" }
+            $hasPort = $site.Bindings.Collection | Where-Object { $_.protocol -eq "http" -and $_.bindingInformation -eq "*:${Port}:" }
             if (-not $hasPort) {
                 New-WebBinding -Name $SiteName -Protocol http -Port $Port -IPAddress "*" | Out-Null
             }
         }
 
-        icacls $RemoteAppPath /grant "IIS AppPool\$AppPoolName:(OI)(CI)RX" /T | Out-Null
+        icacls $RemoteAppPath /grant "IIS AppPool\${AppPoolName}:(OI)(CI)RX" /T | Out-Null
 
         if (Test-Path -LiteralPath $OfflinePath) {
             Remove-Item -LiteralPath $OfflinePath -Force
@@ -79,4 +94,4 @@ finally {
     }
 }
 
-"Deployment completed: http://10.51.0.100:$Port/"
+"Deployment completed: http://10.51.0.100:${Port}/"
