@@ -388,7 +388,15 @@ public class ZkAttendanceService
     /// transactions (which the id-based incremental sync cannot see), deletions,
     /// and late/edited punches.
     /// </summary>
-    public async Task<ZkReconcileResult> ReconcileRangeAsync(DateTime fromDate, DateTime toDate)
+    /// <param name="employeeFilter">
+    /// Optional list of financial numbers. When supplied, only those employees
+    /// are reconciled (used for targeted repairs); otherwise all active
+    /// employees are processed.
+    /// </param>
+    public async Task<ZkReconcileResult> ReconcileRangeAsync(
+        DateTime fromDate,
+        DateTime toDate,
+        IReadOnlyCollection<string>? employeeFilter = null)
     {
         fromDate = fromDate.Date;
         toDate = toDate.Date;
@@ -398,6 +406,14 @@ public class ZkAttendanceService
         using var db = await _factory.CreateDbContextAsync();
 
         var employees = await db.Employees.Where(e => e.IsActive).ToListAsync();
+        if (employeeFilter is { Count: > 0 })
+        {
+            var filter = new HashSet<string>(
+                employeeFilter.Where(n => !string.IsNullOrWhiteSpace(n)),
+                StringComparer.OrdinalIgnoreCase);
+            employees = employees.Where(e => filter.Contains(e.FinancialNo)).ToList();
+        }
+
         var empDict = employees.ToDictionary(e => e.FinancialNo, StringComparer.OrdinalIgnoreCase);
         if (empDict.Count == 0)
         {
@@ -543,14 +559,17 @@ public class ZkAttendanceService
         await conn.OpenAsync();
 
         // The application stores Egypt local dates as UTC+2 (see SyncNewPunchesAsync).
+        // Convert from UTC explicitly: the PostgreSQL session timezone is not
+        // guaranteed to be UTC (the production server uses Asia/Shanghai), and a
+        // plain timestamptz-to-date cast would use that session timezone.
         var sql = @"
             SELECT CAST(emp_code AS VARCHAR) AS emp_no,
-                   (punch_time + interval '2 hours')::date AS day,
+                   ((punch_time AT TIME ZONE 'UTC') + interval '2 hours')::date AS day,
                    MIN(punch_time) AS first_punch,
                    MAX(punch_time) AS last_punch
             FROM public.iclock_transaction
-            WHERE (punch_time + interval '2 hours')::date >= @fromDate
-              AND (punch_time + interval '2 hours')::date <= @toDate
+            WHERE ((punch_time AT TIME ZONE 'UTC') + interval '2 hours')::date >= @fromDate
+              AND ((punch_time AT TIME ZONE 'UTC') + interval '2 hours')::date <= @toDate
               AND emp_code = ANY(@empCodes)
             GROUP BY 1, 2";
 
