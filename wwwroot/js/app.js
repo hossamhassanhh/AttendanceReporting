@@ -4063,23 +4063,26 @@ $('saveUserBtn').addEventListener('click', function () {
             .then(function (data) {
                 var el = $('syncStatus');
                 if (!el) return;
+                el.classList.remove('is-ok', 'is-idle', 'is-pending', 'is-failed');
                 if (!data.lastSyncTime) {
-                    el.innerHTML = '<span style="color:#c8882a;">&#9679;</span> ' + ((i18n[currentLang] || i18n.ar).dataFreshPending);
+                    el.textContent = (i18n[currentLang] || i18n.ar).dataFreshPending;
+                    el.classList.add('is-pending');
                     return;
                 }
                 var time = new Date(data.lastSyncTime);
                 var h = String(time.getHours()).padStart(2, '0');
                 var m = String(time.getMinutes()).padStart(2, '0');
                 var s = String(time.getSeconds()).padStart(2, '0');
-                var color = data.isRunning ? '#188038' : '#666';
                 var label = (i18n[currentLang] || i18n.ar).lastUpdate;
-                el.innerHTML = '<span style="color:' + color + ';">&#9679;</span> ' + label + ' ' + h + ':' + m + ':' + s;
+                el.textContent = label + ' ' + h + ':' + m + ':' + s;
+                el.classList.add(data.isRunning ? 'is-ok' : 'is-idle');
             })
             .catch(function () {
                 var el = $('syncStatus');
                 if (!el) return;
-                var msg = (i18n[currentLang] || i18n.ar).dataFreshFailed;
-                el.innerHTML = '<span style="color:#dc3545;">&#9679;</span> ' + msg;
+                el.classList.remove('is-ok', 'is-idle', 'is-pending', 'is-failed');
+                el.textContent = (i18n[currentLang] || i18n.ar).dataFreshFailed;
+                el.classList.add('is-failed');
             });
     }
 

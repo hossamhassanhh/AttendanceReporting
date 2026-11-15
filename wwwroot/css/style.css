@@ -248,13 +248,14 @@ body::after {
 .role-pill { cursor: default; }
 
 .topbar-meta { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-.topbar-meta span {
+.topbar-meta > span {
     background: rgba(26,39,68,0.03);
     border: 1px solid var(--line);
     color: var(--muted);
     padding: 6px 14px;
     border-radius: 999px;
     font-size: 12px;
+    white-space: nowrap;
 }
 
 .auth-screen {
@@ -327,7 +328,18 @@ body::after {
     background: rgba(45,110,63,0.08) !important;
     color: var(--green) !important;
     font-weight: 700;
+    gap: 6px;
+    white-space: nowrap;
 }
+.sync-pill::before {
+    content: "\25CF";
+    font-size: 9px;
+    line-height: 1;
+}
+.sync-pill.is-ok { color: var(--green) !important; }
+.sync-pill.is-idle { color: #666 !important; }
+.sync-pill.is-pending { color: #c8882a !important; }
+.sync-pill.is-failed { color: #dc3545 !important; }
 
 /* ===================== WORKSPACE BRIEF ===================== */
 .workspace-brief {
@@ -1639,7 +1651,7 @@ tbody tr:last-child td { border-bottom: 0; }
     button { padding: 10px 16px; font-size: 13px; }
     .primary-action, .secondary, .success { padding: 10px 18px; font-size: 13px; min-height: 40px; }
     .lang-pill, .role-pill { padding: 5px 10px; font-size: 10px; }
-    .topbar-meta span { padding: 5px 10px; font-size: 11px; }
+    .topbar-meta > span { padding: 5px 10px; font-size: 11px; }
 }
 
 /* Print */
@@ -2140,7 +2152,7 @@ html[dir="rtl"] .sidebar {
     .logout-action,
     .lang-pill,
     .role-pill,
-    .topbar-meta span {
+    .topbar-meta > span {
         min-height: 30px;
         padding: 5px 10px;
         font-size: 11px;
@@ -2317,7 +2329,7 @@ html[dir="rtl"] .sidebar {
 
 .lang-pill,
 .role-pill,
-.topbar-meta span {
+.topbar-meta > span {
     min-height: 34px;
     display: inline-flex;
     align-items: center;
@@ -2665,7 +2677,7 @@ table {
     .logout-action,
     .lang-pill,
     .role-pill,
-    .topbar-meta span {
+    .topbar-meta > span {
         min-height: 30px;
         padding: 5px 10px;
         font-size: 11px;
@@ -3299,7 +3311,7 @@ html[lang="en"] .monthly-attendance-wrap > table {
     .lang-pill,
     .role-pill,
     .logout-action,
-    .topbar-meta span {
+    .topbar-meta > span {
         font-size: 10.5px;
     }
 
