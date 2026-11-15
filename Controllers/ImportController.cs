@@ -11,7 +11,7 @@ namespace AttendanceApp.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = "Imports")]
+[Authorize]
 public class ImportController : ControllerBase
 {
     private readonly ExcelImportService _importService;
@@ -29,6 +29,7 @@ public class ImportController : ControllerBase
         _dbContextFactory = dbContextFactory;
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("all")]
     public async Task<IActionResult> ImportAll()
     {
@@ -43,6 +44,7 @@ public class ImportController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("zk-attendance")]
     public async Task<IActionResult> PopulateZkAttendance([FromQuery] string? date, [FromQuery] string? from, [FromQuery] string? to)
     {
@@ -65,24 +67,28 @@ public class ImportController : ControllerBase
         }
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("employees")]
     public async Task<IActionResult> ImportEmployees(IFormFile file)
     {
         return await ImportUploadedFileAsync(file, path => _importService.ImportEmployeesLevelsAsync(path));
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("balances")]
     public async Task<IActionResult> ImportBalances(IFormFile file)
     {
         return await ImportUploadedFileAsync(file, path => _importService.ImportLeaveBalancesAsync(path));
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("monthly-attendance")]
     public async Task<IActionResult> ImportMonthlyAttendance(IFormFile file)
     {
         return await ImportUploadedFileAsync(file, path => _importService.ImportMonthlyAttendanceAsync(path));
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("leaves")]
     public async Task<IActionResult> ImportLeaves(IFormFile file)
     {
@@ -93,6 +99,7 @@ public class ImportController : ControllerBase
         return await ImportUploadedFileAsync(file, path => _leaveService.ImportLeaveUploadAsync(path, enteredBy));
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("fill-leaves")]
     public async Task<IActionResult> FillLeaves([FromQuery] int? year, [FromQuery] int? month)
     {
@@ -125,6 +132,7 @@ public class ImportController : ControllerBase
         });
     }
 
+    [Authorize(Policy = "Imports")]
     [HttpPost("zk-backfill")]
     public async Task<IActionResult> BackfillAll()
     {
