@@ -653,7 +653,14 @@ result.Add(new LeaveLogDay
                 HrApprovedAt = transaction.HrApprovedAt,
                 RejectedBy = transaction.RejectedBy ?? string.Empty,
                 RejectedAt = transaction.RejectedAt,
-                RejectionReason = transaction.RejectionReason
+                RejectionReason = transaction.RejectionReason,
+                DelegateFinancialNo = transaction.DelegateFinancialNo,
+                DelegateApprovedAt = transaction.DelegateApprovedAt,
+                DirectManagerFinancialNo = transaction.DirectManagerFinancialNo ?? transaction.ManagerFinancialNo,
+                DirectManagerApprovedAt = transaction.DirectManagerApprovedAt ?? transaction.ManagerApprovedAt,
+                DepartmentManagerFinancialNo = transaction.DepartmentManagerFinancialNo,
+                DepartmentManagerApprovedAt = transaction.DepartmentManagerApprovedAt,
+                AssignedHrFinancialNo = transaction.AssignedHrFinancialNo
             });
         }
 
@@ -962,7 +969,7 @@ public class LeaveLogDay
     public double DaysCount { get; set; }
     public string? Reason { get; set; }
     public string Status { get; set; } = string.Empty;
-public string EnteredBy { get; set; } = string.Empty;
+    public string EnteredBy { get; set; } = string.Empty;
     public string EnteredByAr { get; set; } = string.Empty;
     public string EnteredByEn { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
@@ -972,4 +979,11 @@ public string EnteredBy { get; set; } = string.Empty;
     public string RejectedBy { get; set; } = string.Empty;
     public DateTime? RejectedAt { get; set; }
     public string? RejectionReason { get; set; }
+    public string? DelegateFinancialNo { get; set; }
+    public DateTime? DelegateApprovedAt { get; set; }
+    public string? DirectManagerFinancialNo { get; set; }
+    public DateTime? DirectManagerApprovedAt { get; set; }
+    public string? DepartmentManagerFinancialNo { get; set; }
+    public DateTime? DepartmentManagerApprovedAt { get; set; }
+    public string? AssignedHrFinancialNo { get; set; }
 }

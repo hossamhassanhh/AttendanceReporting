@@ -516,6 +516,10 @@ i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
     i18n.en.delegateApprovals = 'Awaiting Delegate Approval';
     i18n.en.leaveDelegate = 'Delegate (same department)';
     i18n.en.noDelegateOption = 'No delegate';
+    i18n.en.leaveDelegateHint = 'Optional: choose a colleague in the same department to approve first. Leave empty to skip the delegate step.';
+    i18n.en.leaveDelegateNone = 'No other employees in your department are available to select as delegate (or no department is linked).';
+    i18n.en.workflowChainLabel = 'Approval path';
+    i18n.en.awaitingApprover = 'Awaiting approval by';
     i18n.en.statusApproved = 'Approved';
     i18n.en.statusRejected = 'Rejected';
     i18n.en.adSyncTitle = 'Active Directory Sync';
@@ -2093,11 +2097,13 @@ function updateLeaveDays(fromId, toId, daysId) {
     function loadDelegateOptions() {
         var sel = $('reqLeaveDelegate');
         if (!sel || !currentUser || !currentUser.employeeNo) return;
+        var hint = $('reqLeaveDelegateHint');
         fetch('/api/leave/delegate-options', { cache: 'no-store', credentials: 'same-origin' })
             .then(readUploadResponse)
             .then(function (items) {
                 var current = sel.value;
-                sel.innerHTML = '<option value="">' + ((i18n[currentLang] || i18n.ar).noDelegateOption || (currentLang === 'ar' ? 'بدون مندوب' : 'No delegate')) + '</option>';
+                var dict = i18n[currentLang] || i18n.ar;
+                sel.innerHTML = '<option value="">' + (dict.noDelegateOption || (currentLang === 'ar' ? 'بدون مندوب' : 'No delegate')) + '</option>';
                 (items || []).forEach(function (emp) {
                     var opt = document.createElement('option');
                     opt.value = emp.financialNo || emp.FinancialNo || '';
@@ -2106,8 +2112,19 @@ function updateLeaveDays(fromId, toId, daysId) {
                     sel.appendChild(opt);
                 });
                 if (current) sel.value = current;
+                sel.disabled = false;
+                if (hint) {
+                    if (!items || !items.length) {
+                        hint.textContent = dict.leaveDelegateNone || hint.textContent;
+                    } else {
+                        hint.textContent = dict.leaveDelegateHint || hint.textContent;
+                    }
+                }
             })
-            .catch(function () { /* delegate picker is optional */ });
+            .catch(function () {
+                var hint2 = $('reqLeaveDelegateHint');
+                if (hint2) hint2.textContent = (i18n[currentLang] || i18n.ar).leaveDelegateNone || hint2.textContent;
+            });
     }
 
     if ($('requestLeaveBtn')) {
@@ -2145,9 +2162,13 @@ function updateLeaveDays(fromId, toId, daysId) {
                     if (!r.ok) return r.json().then(function (e) { throw new Error(e.error); });
                     return r.json();
                 })
-                .then(function () {
+                .then(function (result) {
                     hideLoading();
-                    showSuccess(i18n[currentLang].requestLeaveSent);
+                    var status = result && result.status ? result.status : null;
+                    var statusLabel = status ? ((i18n[currentLang] || i18n.ar)['status' + status] || status) : '';
+                    var msg = (i18n[currentLang] || i18n.ar).requestLeaveSent || 'Leave request submitted';
+                    if (statusLabel) msg += ' — ' + statusLabel;
+                    showSuccess(msg);
                     $('reqLeaveTypeId').value = '';
                     $('reqLeaveFrom').value = '';
                     $('reqLeaveTo').value = '';
@@ -3304,33 +3325,43 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
 
     function renderApprovalList(el, items, kind) {
         if (!el) return;
+        var dict = i18n[currentLang] || i18n.ar;
         if (!items.length) {
-            el.innerHTML = '<div class="empty-state"><strong>' + (i18n[currentLang].noPendingRequests || 'No pending requests') + '</strong></div>';
+            el.innerHTML = '<div class="empty-state"><strong>' + (dict.noPendingRequests || 'No pending requests') + '</strong></div>';
             return;
         }
         var canReject = kind === 'hr' || kind === 'delegate' || hasPermission('LeaveHR') || hasPermission('Leaves') || hasPermission('LeaveApproval');
+        var chainParts = [dict.statusPendingDelegate || 'Delegate', dict.statusPendingDirectManager || 'Direct manager', dict.statusPendingDeptManager || 'Department manager', dict.statusPendingHR || 'HR'];
         var html = items.map(function (t) {
             var type = t.leaveType
                 ? (currentLang === 'ar' ? (t.leaveType.nameAr || t.leaveType.nameEn) : (t.leaveType.nameEn || t.leaveType.nameAr))
                 : '';
             var empName = t.employee ? t.employee.name : '';
-            var statusLabel = (i18n[currentLang] || i18n.ar)['status' + (t.status || '')] || t.status || '';
-            var actions = '<button type="button" class="success" data-approval-action="approve" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].approve + '</button>';
+            var statusLabel = dict['status' + (t.status || '')] || t.status || '';
+            var expected = '';
+            if (t.status === 'PendingDelegate') expected = t.delegateFinancialNo || '';
+            else if (t.status === 'PendingDirectManager' || t.status === 'PendingManager') expected = t.directManagerFinancialNo || t.managerFinancialNo || '';
+            else if (t.status === 'PendingDeptManager') expected = t.departmentManagerFinancialNo || '';
+            else if (t.status === 'PendingHR') expected = t.assignedHrFinancialNo || '';
+            var actions = '<button type="button" class="success" data-approval-action="approve" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + (dict.approve || 'Approve') + '</button>';
             if (canReject) {
-                actions += '<button type="button" class="ghost danger-text" data-approval-action="reject" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].reject + '</button>';
+                actions += '<button type="button" class="ghost danger-text" data-approval-action="reject" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + (dict.reject || 'Reject') + '</button>';
             }
-            return '<div class="approval-item">' +
+            return '<div class="approval-item" data-status="' + escapeHtml(t.status || '') + '">' +
                 '<div class="approval-main">' +
-                '<strong>' + escapeHtml(empName || '-') + ' <span class="approval-fin">(' + escapeHtml(t.employeeFinancialNo) + ')</span></strong>' +
-                '<span class="approval-detail">' + escapeHtml(type || '') + ' • ' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + ' • ' + t.daysCount + ' ' + (currentLang === 'ar' ? 'يوم' : 'day(s)') + (statusLabel ? ' • ' + escapeHtml(statusLabel) : '') + '</span>' +
+                '<strong>' + escapeHtml(empName || '-') + ' <span class="approval-fin">(<bdi>' + escapeHtml(t.employeeFinancialNo || '') + '</bdi>)</span></strong>' +
+                '<span class="approval-detail">' + escapeHtml(type || '') + ' • <bdi>' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + '</bdi> • <bdi>' + t.daysCount + '</bdi> ' + (currentLang === 'ar' ? 'يوم' : 'day(s)') + '</span>' +
+                '<span class="approval-meta">' + (dict.status || 'Status') + ': ' + escapeHtml(statusLabel) + (expected ? ' • ' + escapeHtml(dict.awaitingApprover || 'Awaiting') + ': <bdi>' + escapeHtml(expected) + '</bdi>' : '') + '</span>' +
+                '<span class="approval-meta workflow-chain">' + escapeHtml(dict.workflowChainLabel || 'Approval path') + ': ' + chainParts.join(currentLang === 'ar' ? ' ← ' : ' → ') + '</span>' +
                 (t.reason ? '<span class="approval-detail">' + escapeHtml(t.reason) + '</span>' : '') +
-                '<span class="approval-detail">' + (i18n[currentLang].requested || 'Requested') + ': ' + fmtDateTime(t.createdAt) + '</span>' +
+                '<span class="approval-detail">' + (dict.requested || 'Requested') + ': <bdi>' + fmtDateTime(t.createdAt) + '</bdi></span>' +
                 '</div>' +
                 '<div class="approval-actions">' + actions + '</div>' +
                 '</div>';
         }).join('');
         el.innerHTML = html;
     }
+
 
     document.querySelectorAll('.approval-list').forEach(function (container) {
         container.addEventListener('click', function (event) {
