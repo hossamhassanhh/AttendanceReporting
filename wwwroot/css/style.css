@@ -3862,7 +3862,7 @@ html[dir="ltr"] .search-mode-row select {
 .leave-request-grid .form-group { margin: 0; }
 .leave-request-grid textarea { grid-column: 1 / -1; min-height: 70px; resize: vertical; }
 
-.approval-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.approval-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
 .approval-column { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding: 16px; }
 .approval-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 .approval-heading h4 { font-size: 14px; color: var(--navy); margin: 0; }
