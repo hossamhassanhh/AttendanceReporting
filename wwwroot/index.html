@@ -402,6 +402,7 @@
                         <div class="form-group"><label for="reqLeaveFrom" data-i18n="fromDate">من تاريخ</label><input type="date" id="reqLeaveFrom"></div>
                         <div class="form-group"><label for="reqLeaveTo" data-i18n="toDate">إلى تاريخ</label><input type="date" id="reqLeaveTo"></div>
                         <div class="form-group"><label for="reqLeaveDays" data-i18n="daysCount">عدد الأيام</label><input type="number" id="reqLeaveDays" min="1" step="1" readonly></div>
+                        <div class="form-group"><label for="reqLeaveDelegate" data-i18n="leaveDelegate">المندوب (من نفس الإدارة)</label><select id="reqLeaveDelegate"><option value="" data-i18n="noDelegateOption">بدون مندوب</option></select></div>
                         <div class="form-group wide"><label for="reqLeaveReason" data-i18n="reason">السبب</label><input type="text" id="reqLeaveReason" data-i18n-placeholder="reasonPlaceholder" placeholder="سبب الإجازة"></div>
                     </div>
                     <div class="button-bar">
@@ -409,6 +410,13 @@
                     </div>
                 </div>
                 <div class="two-column approval-columns">
+                    <div class="card" id="delegateApprovalsCard" data-permission="LeaveApproval|LeaveHR|Leaves|SelfLeave">
+                        <div class="approval-heading">
+                            <h3 data-i18n="delegateApprovals">طلبات بانتظار موافقة المندوب</h3>
+                            <button class="refresh-action" type="button" data-refresh-approvals="delegate" data-i18n="refresh">تحديث</button>
+                        </div>
+                        <div id="delegateApprovalsContent" class="approval-list"></div>
+                    </div>
                     <div class="card" id="managerApprovalsCard" data-permission="LeaveApproval|LeaveHR|Leaves">
                         <div class="approval-heading">
                             <h3 data-i18n="managerApprovals">طلبات بانتظار موافقة المدير</h3>
@@ -564,7 +572,9 @@
                             <div class="form-group">
                                 <label for="workflowStatus" data-i18n="workflowStatus">حالة سير الموافقة</label>
                                 <select id="workflowStatus">
-                                    <option value="PendingManager" data-i18n="statusPendingManager">بانتظار المدير</option>
+                                    <option value="PendingDelegate" data-i18n="statusPendingDelegate">بانتظار المندوب</option>
+                                    <option value="PendingDirectManager" data-i18n="statusPendingDirectManager">بانتظار المدير المباشر</option>
+                                    <option value="PendingDeptManager" data-i18n="statusPendingDeptManager">بانتظار مدير الإدارة</option>
                                     <option value="PendingHR" data-i18n="statusPendingHR">بانتظار الموارد البشرية</option>
                                     <option value="Approved" data-i18n="statusApproved">معتمد</option>
                                     <option value="Rejected" data-i18n="statusRejected">مرفوض</option>

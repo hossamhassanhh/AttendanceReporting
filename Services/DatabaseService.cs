@@ -192,6 +192,72 @@ public class DatabaseService
                AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'RejectionReason')
             BEGIN
                 ALTER TABLE [LeaveTransactions] ADD [RejectionReason] nvarchar(500) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DelegateFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DelegateFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DelegateApprovedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DelegateApprovedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'ManagerDelegateFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [ManagerDelegateFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'AssignedHrFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [AssignedHrFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DirectManagerFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DirectManagerFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DirectManagerApprovedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DirectManagerApprovedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DepartmentManagerFinancialNo')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DepartmentManagerFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'LeaveTransactions')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'LeaveTransactions' AND COLUMN_NAME = 'DepartmentManagerApprovedAt')
+            BEGIN
+                ALTER TABLE [LeaveTransactions] ADD [DepartmentManagerApprovedAt] datetime2 NULL;
+            END
+
+            IF EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Employees')
+               AND NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Employees' AND COLUMN_NAME = 'DelegateFinancialNo')
+            BEGIN
+                ALTER TABLE [Employees] ADD [DelegateFinancialNo] nvarchar(20) NULL;
+            END
+
+            IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'DepartmentWorkflowConfigs')
+            BEGIN
+                CREATE TABLE [DepartmentWorkflowConfigs] (
+                    [Department] nvarchar(500) NOT NULL,
+                    [ManagerFinancialNo] nvarchar(20) NULL,
+                    [ManagerDelegateFinancialNo] nvarchar(20) NULL,
+                    [HrFinancialNo] nvarchar(20) NULL,
+                    [UpdatedAt] datetime2 NOT NULL DEFAULT SYSDATETIME(),
+                    CONSTRAINT [PK_DepartmentWorkflowConfigs] PRIMARY KEY ([Department])
+                );
             END";
         await cmd.ExecuteNonQueryAsync();
 
@@ -203,7 +269,30 @@ public class DatabaseService
             WHERE lt.[Status] = 'PendingManager'
               AND (lt.[ManagerFinancialNo] IS NULL OR LTRIM(RTRIM(lt.[ManagerFinancialNo])) = '')
               AND e.[ManagerFinancialNo] IS NOT NULL
-              AND LTRIM(RTRIM(e.[ManagerFinancialNo])) <> '';";
+              AND LTRIM(RTRIM(e.[ManagerFinancialNo])) <> '';
+
+            -- Migrate legacy manager step to explicit direct-manager step for new workflow
+            UPDATE [LeaveTransactions]
+            SET [DirectManagerFinancialNo] = [ManagerFinancialNo]
+            WHERE ([DirectManagerFinancialNo] IS NULL OR LTRIM(RTRIM([DirectManagerFinancialNo])) = '')
+              AND [ManagerFinancialNo] IS NOT NULL AND LTRIM(RTRIM([ManagerFinancialNo])) <> '';
+
+            UPDATE [LeaveTransactions]
+            SET [DirectManagerApprovedAt] = [ManagerApprovedAt]
+            WHERE [DirectManagerApprovedAt] IS NULL AND [ManagerApprovedAt] IS NOT NULL;
+
+            UPDATE [LeaveTransactions]
+            SET [Status] = 'PendingDirectManager'
+            WHERE [Status] = 'PendingManager';
+
+            UPDATE [LeaveTransactions]
+            SET [ManagerFinancialNo] = [DirectManagerFinancialNo]
+            WHERE ([ManagerFinancialNo] IS NULL OR LTRIM(RTRIM([ManagerFinancialNo])) = '')
+              AND [DirectManagerFinancialNo] IS NOT NULL AND LTRIM(RTRIM([DirectManagerFinancialNo])) <> '';
+
+            UPDATE [LeaveTransactions]
+            SET [ManagerApprovedAt] = [DirectManagerApprovedAt]
+            WHERE [ManagerApprovedAt] IS NULL AND [DirectManagerApprovedAt] IS NOT NULL;";
         await cmd.ExecuteNonQueryAsync();
 
         cmd.CommandText = @"

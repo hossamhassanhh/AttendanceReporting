@@ -1,7 +1,9 @@
+using AttendanceApp.Data;
 using AttendanceApp.Services;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -124,13 +126,36 @@ public class LeaveController : ControllerBase
                 request.FromDate,
                 request.ToDate,
                 request.Reason,
-                enteredBy);
+                enteredBy,
+                request.DelegateFinancialNo);
             return Ok(result);
         }
         catch (Exception ex)
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [Authorize(Policy = "LeaveFlow")]
+    [HttpGet("delegate-options")]
+    public async Task<IActionResult> GetDelegateOptions()
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return BadRequest(new { error = "No employee record is linked to your account" });
+
+        // Return active employees in the same department as the requester (excluding self)
+        using var db = await HttpContext.RequestServices.GetRequiredService<Microsoft.EntityFrameworkCore.IDbContextFactory<AttendanceApp.Data.AppDbContext>>().CreateDbContextAsync();
+        var me = await db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.FinancialNo == employeeNo);
+        if (me == null || string.IsNullOrWhiteSpace(me.Department))
+            return Ok(new List<object>());
+
+        var colleagues = await db.Employees.AsNoTracking()
+            .Where(e => e.IsActive && e.Department == me.Department && e.FinancialNo != employeeNo)
+            .OrderBy(e => e.Name)
+            .Select(e => new { financialNo = e.FinancialNo, name = e.Name, department = e.Department })
+            .ToListAsync();
+        return Ok(colleagues);
     }
 
     [Authorize(Policy = "LeaveApprovalFlow")]
@@ -141,6 +166,46 @@ public class LeaveController : ControllerBase
         try
         {
             var result = await _leaveService.ApproveAsDelegateAsync(id, employeeNo ?? string.Empty);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpPost("{id:int}/approve-direct-manager")]
+    public async Task<IActionResult> ApproveAsDirectManager(int id)
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        try
+        {
+            var result = await _leaveService.ApproveAsDirectManagerAsync(id, employeeNo ?? string.Empty);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpPost("{id:int}/approve-dept-manager")]
+    public async Task<IActionResult> ApproveAsDeptManager(int id)
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        try
+        {
+            var result = await _leaveService.ApproveAsDeptManagerAsync(id, employeeNo ?? string.Empty);
             return Ok(result);
         }
         catch (KeyNotFoundException ex)
@@ -171,6 +236,28 @@ public class LeaveController : ControllerBase
         {
             return BadRequest(new { error = ex.Message });
         }
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpGet("pending/direct-manager")]
+    public async Task<IActionResult> GetPendingForDirectManager()
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return Ok(new List<object>());
+        var transactions = await _leaveService.GetPendingForDirectManagerAsync(employeeNo);
+        return Ok(transactions);
+    }
+
+    [Authorize(Policy = "LeaveApprovalFlow")]
+    [HttpGet("pending/dept-manager")]
+    public async Task<IActionResult> GetPendingForDeptManager()
+    {
+        var employeeNo = User.FindFirstValue("employee_no");
+        if (string.IsNullOrWhiteSpace(employeeNo))
+            return Ok(new List<object>());
+        var transactions = await _leaveService.GetPendingForDeptManagerAsync(employeeNo);
+        return Ok(transactions);
     }
 
     [Authorize(Policy = "LeaveHrFlow")]
@@ -470,6 +557,7 @@ public class RequestLeaveRequest
     public DateTime FromDate { get; set; }
     public DateTime ToDate { get; set; }
     public string? Reason { get; set; }
+    public string? DelegateFinancialNo { get; set; }
 }
 
 public class RejectLeaveRequest

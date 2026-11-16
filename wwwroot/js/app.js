@@ -509,7 +509,13 @@ i18n.en.scheduleFinancialNumbersPlaceholder = 'Example: 4779, 4780';
     i18n.en.managerNoPlaceholder = 'Leave empty to clear';
     i18n.en.rejectionReason = 'Rejection reason';
     i18n.en.statusPendingManager = 'Pending Manager';
+    i18n.en.statusPendingDelegate = 'Pending Delegate';
+    i18n.en.statusPendingDirectManager = 'Pending Direct Manager';
+    i18n.en.statusPendingDeptManager = 'Pending Department Manager';
     i18n.en.statusPendingHR = 'Pending HR';
+    i18n.en.delegateApprovals = 'Awaiting Delegate Approval';
+    i18n.en.leaveDelegate = 'Delegate (same department)';
+    i18n.en.noDelegateOption = 'No delegate';
     i18n.en.statusApproved = 'Approved';
     i18n.en.statusRejected = 'Rejected';
     i18n.en.adSyncTitle = 'Active Directory Sync';
@@ -789,6 +795,7 @@ function showApplication() {
         loadExportFilterOptions();
         updateSyncStatus();
         loadApprovalQueues();
+        loadDelegateOptions();
         renderAdminRoleOptions();
     }
 
@@ -1218,14 +1225,14 @@ var statusArMap = {
         'Present': 'حاضر', 'Pending': 'قيد الانتظار', 'Checked In': 'حاضر بدون انصراف', 'Missing Check Out': 'لم يسجل انصراف', 'Late': 'متأخر', 'Early Leave': 'انصراف مبكر', 'Absent': 'موقف',
         'Leave': 'إجازة', 'Holiday': 'عطلة', 'Weekly Rest': 'راحة أسبوعية', 'Work From Home': 'عمل من المنزل',
         'Mission': 'مأمورية', 'Training': 'دورة تدريب',
-        'PendingManager': 'بانتظار المدير', 'PendingHR': 'بانتظار الموارد البشرية', 'Approved': 'معتمد', 'Rejected': 'مرفوض'
+        'PendingDelegate': 'بانتظار المندوب', 'PendingDirectManager': 'بانتظار المدير المباشر', 'PendingDeptManager': 'بانتظار مدير الإدارة', 'PendingManager': 'بانتظار المدير', 'PendingHR': 'بانتظار الموارد البشرية', 'Approved': 'معتمد', 'Rejected': 'مرفوض'
     };
 
     var statusEnMap = {
         'Present': 'Present', 'Pending': 'Pending', 'Checked In': 'Checked In', 'Missing Check Out': 'Missing Check Out', 'Late': 'Late', 'Early Leave': 'Early Leave', 'Absent': 'Absent',
         'Leave': 'Leave', 'Holiday': 'Holiday', 'Weekly Rest': 'Weekly Rest', 'Work From Home': 'Work From Home',
         'Mission': 'Mission', 'Training': 'Training',
-        'PendingManager': 'Pending Manager', 'PendingHR': 'Pending HR', 'Approved': 'Approved', 'Rejected': 'Rejected'
+        'PendingDelegate': 'Pending Delegate', 'PendingDirectManager': 'Pending Direct Manager', 'PendingDeptManager': 'Pending Department Manager', 'PendingManager': 'Pending Manager', 'PendingHR': 'Pending HR', 'Approved': 'Approved', 'Rejected': 'Rejected'
     };
 
     function statusLabel(status) {
@@ -1236,7 +1243,7 @@ function badge(status) {
         var map = {
             'Present': 'badge-present', 'Pending': 'badge-late', 'Checked In': 'badge-late', 'Missing Check Out': 'badge-absent', 'Late': 'badge-late', 'Early Leave': 'badge-absent', 'Absent': 'badge-absent',
             'Leave': 'badge-leave', 'Holiday': 'badge-holiday', 'Weekly Rest': 'badge-holiday', 'Work From Home': 'badge-leave',
-            'Approved': 'badge-present', 'PendingManager': 'badge-late', 'PendingHR': 'badge-late', 'Rejected': 'badge-absent'
+            'Approved': 'badge-present', 'PendingDelegate': 'badge-late', 'PendingDirectManager': 'badge-late', 'PendingDeptManager': 'badge-late', 'PendingManager': 'badge-late', 'PendingHR': 'badge-late', 'Rejected': 'badge-absent'
         };
         var cls = map[status] || 'badge-present';
         return '<span class="' + cls + '">' + statusLabel(status) + '</span>';
@@ -1898,7 +1905,7 @@ function activateTab(tabName, clearPrevious) {
             inline: 'nearest'
         });
 if (tabName === 'admin' && currentUser) loadAdminData();
-        if (tabName === 'leave' && currentUser) loadApprovalQueues();
+        if (tabName === 'leave' && currentUser) { loadApprovalQueues(); loadDelegateOptions(); }
         var selfService = currentUser && hasPermission('SelfAttendance') && !hasPermission('Attendance');
         if (selfService) {
             if (tabName === 'attendance' && !lastAttendanceRecords) fetchAttendance(true);
@@ -2083,6 +2090,26 @@ function updateLeaveDays(fromId, toId, daysId) {
         $('reqLeaveTo').addEventListener('change', function () { updateLeaveDays('reqLeaveFrom', 'reqLeaveTo', 'reqLeaveDays'); });
     }
 
+    function loadDelegateOptions() {
+        var sel = $('reqLeaveDelegate');
+        if (!sel || !currentUser || !currentUser.employeeNo) return;
+        fetch('/api/leave/delegate-options', { cache: 'no-store', credentials: 'same-origin' })
+            .then(readUploadResponse)
+            .then(function (items) {
+                var current = sel.value;
+                sel.innerHTML = '<option value="">' + ((i18n[currentLang] || i18n.ar).noDelegateOption || (currentLang === 'ar' ? 'بدون مندوب' : 'No delegate')) + '</option>';
+                (items || []).forEach(function (emp) {
+                    var opt = document.createElement('option');
+                    opt.value = emp.financialNo || emp.FinancialNo || '';
+                    var name = emp.name || emp.Name || '';
+                    opt.textContent = name ? (name + ' (' + opt.value + ')') : opt.value;
+                    sel.appendChild(opt);
+                });
+                if (current) sel.value = current;
+            })
+            .catch(function () { /* delegate picker is optional */ });
+    }
+
     if ($('requestLeaveBtn')) {
         $('requestLeaveBtn').addEventListener('click', function () {
             var leaveTypeId = $('reqLeaveTypeId').value;
@@ -2096,6 +2123,7 @@ function updateLeaveDays(fromId, toId, daysId) {
             showLoading();
             hideError();
 
+            var delegateFinancialNo = $('reqLeaveDelegate') ? ($('reqLeaveDelegate').value || null) : null;
             updateLeaveDays('reqLeaveFrom', 'reqLeaveTo', 'reqLeaveDays')
                 .then(function (days) {
                     if (parseFloat(days) <= 0) {
@@ -2108,7 +2136,8 @@ function updateLeaveDays(fromId, toId, daysId) {
                             leaveTypeId: parseInt(leaveTypeId, 10),
                             fromDate: fromDate,
                             toDate: toDate,
-                            reason: reason || null
+                            reason: reason || null,
+                            delegateFinancialNo: delegateFinancialNo || null
                         })
                     });
                 })
@@ -2124,6 +2153,7 @@ function updateLeaveDays(fromId, toId, daysId) {
                     $('reqLeaveTo').value = '';
                     $('reqLeaveDays').value = '';
                     $('reqLeaveReason').value = '';
+                    if ($('reqLeaveDelegate')) $('reqLeaveDelegate').value = '';
                     loadApprovalQueues();
                     if ($('leaveResults') && $('leaveResults').style.display !== 'none') $('fetchLeaveTransBtn').click();
                 })
@@ -3244,8 +3274,15 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
 
     function loadApprovalQueues() {
         if (!currentUser) return;
+        var showDelegate = !!(currentUser.employeeNo || hasAnyPermission('LeaveApproval|LeaveHR|Leaves'));
         var showManager = hasAnyPermission('LeaveApproval|LeaveHR|Leaves');
         var showHr = hasAnyPermission('LeaveHR|Leaves');
+        if (showDelegate && $('delegateApprovalsContent') && $('delegateApprovalsCard') && $('delegateApprovalsCard').style.display !== 'none') {
+            fetch('/api/leave/pending/delegate', { cache: 'no-store', credentials: 'same-origin' })
+                .then(readUploadResponse)
+                .then(function (data) { renderApprovalList($('delegateApprovalsContent'), data || [], 'delegate'); })
+                .catch(function (err) { renderApprovalError($('delegateApprovalsContent'), err); });
+        }
         if (showManager && $('managerApprovalsContent') && $('managerApprovalsCard') && $('managerApprovalsCard').style.display !== 'none') {
             fetch('/api/leave/pending/manager', { cache: 'no-store', credentials: 'same-origin' })
                 .then(readUploadResponse)
@@ -3271,12 +3308,13 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
             el.innerHTML = '<div class="empty-state"><strong>' + (i18n[currentLang].noPendingRequests || 'No pending requests') + '</strong></div>';
             return;
         }
-        var canReject = kind === 'hr' || hasPermission('LeaveHR') || hasPermission('Leaves');
+        var canReject = kind === 'hr' || kind === 'delegate' || hasPermission('LeaveHR') || hasPermission('Leaves') || hasPermission('LeaveApproval');
         var html = items.map(function (t) {
             var type = t.leaveType
                 ? (currentLang === 'ar' ? (t.leaveType.nameAr || t.leaveType.nameEn) : (t.leaveType.nameEn || t.leaveType.nameAr))
                 : '';
             var empName = t.employee ? t.employee.name : '';
+            var statusLabel = (i18n[currentLang] || i18n.ar)['status' + (t.status || '')] || t.status || '';
             var actions = '<button type="button" class="success" data-approval-action="approve" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].approve + '</button>';
             if (canReject) {
                 actions += '<button type="button" class="ghost danger-text" data-approval-action="reject" data-approval-kind="' + kind + '" data-transaction-id="' + t.id + '">' + i18n[currentLang].reject + '</button>';
@@ -3284,7 +3322,7 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
             return '<div class="approval-item">' +
                 '<div class="approval-main">' +
                 '<strong>' + escapeHtml(empName || '-') + ' <span class="approval-fin">(' + escapeHtml(t.employeeFinancialNo) + ')</span></strong>' +
-                '<span class="approval-detail">' + escapeHtml(type || '') + ' • ' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + ' • ' + t.daysCount + ' ' + (currentLang === 'ar' ? 'يوم' : 'day(s)') + '</span>' +
+                '<span class="approval-detail">' + escapeHtml(type || '') + ' • ' + fmtDateLocal(t.fromDate) + ' - ' + fmtDateLocal(t.toDate) + ' • ' + t.daysCount + ' ' + (currentLang === 'ar' ? 'يوم' : 'day(s)') + (statusLabel ? ' • ' + escapeHtml(statusLabel) : '') + '</span>' +
                 (t.reason ? '<span class="approval-detail">' + escapeHtml(t.reason) + '</span>' : '') +
                 '<span class="approval-detail">' + (i18n[currentLang].requested || 'Requested') + ': ' + fmtDateTime(t.createdAt) + '</span>' +
                 '</div>' +
@@ -3309,7 +3347,12 @@ $('fetchLeaveTransBtn').addEventListener('click', function () {
             pendingReason.then(function (reason) {
                 if (action === 'reject' && reason === null) return Promise.reject(new Error('__cancelled__'));
                 var body = action === 'reject' ? { reason: reason || null } : null;
-                var endpoint = '/api/leave/' + encodeURIComponent(id) + '/' + (action === 'approve' ? 'approve-' + kind : 'reject');
+                var approveKind = kind;
+                if (action === 'approve' && kind === 'manager') {
+                    // smart backend route; keep manager endpoint for compat
+                    approveKind = 'manager';
+                }
+                var endpoint = '/api/leave/' + encodeURIComponent(id) + '/' + (action === 'approve' ? 'approve-' + approveKind : 'reject');
                 return fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

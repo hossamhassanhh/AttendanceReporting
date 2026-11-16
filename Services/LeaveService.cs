@@ -69,7 +69,7 @@ public class LeaveService
 
     public async Task<LeaveTransaction> RequestLeaveAsync(
         string financialNo, int leaveTypeId, DateTime fromDate, DateTime toDate,
-        string? reason, string requestedBy)
+        string? reason, string requestedBy, string? delegateFinancialNo = null)
     {
         if (string.IsNullOrWhiteSpace(requestedBy))
             throw new UnauthorizedAccessException("Authenticated username is unavailable");
@@ -105,24 +105,39 @@ public class LeaveService
             db.LeaveTransactions.Remove(duplicate);
         }
 
-        // Resolve workflow: employee delegate -> dept manager/manager delegate -> dept HR
+        string? chosenDelegate = null;
+        if (!string.IsNullOrWhiteSpace(delegateFinancialNo))
+        {
+            chosenDelegate = delegateFinancialNo.Trim();
+            if (string.Equals(chosenDelegate, emp.FinancialNo, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("You cannot choose yourself as delegate");
+
+            var delegateEmp = await db.Employees.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.FinancialNo == chosenDelegate && e.IsActive);
+            if (delegateEmp == null)
+                throw new InvalidOperationException("Selected delegate was not found");
+            if (!string.Equals(delegateEmp.Department, emp.Department, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Delegate must belong to the same department");
+        }
+
+        // Resolve workflow: chosen delegate (per-request) -> direct manager -> department manager -> department HR
         var deptConfig = !string.IsNullOrWhiteSpace(emp.Department)
             ? await db.DepartmentWorkflowConfigs.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Department == emp.Department)
             : null;
 
-        var managerNo = !string.IsNullOrWhiteSpace(emp.ManagerFinancialNo)
-            ? emp.ManagerFinancialNo
-            : deptConfig?.ManagerFinancialNo;
+        var directManagerNo = string.IsNullOrWhiteSpace(emp.ManagerFinancialNo) ? null : emp.ManagerFinancialNo;
+        var deptManagerNo = deptConfig?.ManagerFinancialNo;
         var managerDelegateNo = deptConfig?.ManagerDelegateFinancialNo;
         var assignedHrNo = deptConfig?.HrFinancialNo;
-        var employeeDelegateNo = emp.DelegateFinancialNo;
 
         string initialStatus;
-        if (!string.IsNullOrWhiteSpace(employeeDelegateNo))
+        if (!string.IsNullOrWhiteSpace(chosenDelegate))
             initialStatus = "PendingDelegate";
-        else if (!string.IsNullOrWhiteSpace(managerNo) || !string.IsNullOrWhiteSpace(managerDelegateNo))
-            initialStatus = "PendingManager";
+        else if (!string.IsNullOrWhiteSpace(directManagerNo))
+            initialStatus = "PendingDirectManager";
+        else if (!string.IsNullOrWhiteSpace(deptManagerNo))
+            initialStatus = "PendingDeptManager";
         else
             initialStatus = "PendingHR";
 
@@ -135,8 +150,10 @@ public class LeaveService
             DaysCount = days,
             Reason = reason,
             Status = initialStatus,
-            DelegateFinancialNo = employeeDelegateNo,
-            ManagerFinancialNo = managerNo,
+            DelegateFinancialNo = chosenDelegate,
+            DirectManagerFinancialNo = directManagerNo,
+            DepartmentManagerFinancialNo = deptManagerNo,
+            ManagerFinancialNo = directManagerNo, // compat
             ManagerDelegateFinancialNo = managerDelegateNo,
             AssignedHrFinancialNo = assignedHrNo,
             EnteredBy = requestedBy.Trim(),
@@ -147,6 +164,14 @@ public class LeaveService
         await dbTransaction.CommitAsync();
         return transaction;
     }
+
+    private static string NextStatusAfterDelegate(LeaveTransaction t) =>
+        !string.IsNullOrWhiteSpace(t.DirectManagerFinancialNo) ? "PendingDirectManager"
+        : !string.IsNullOrWhiteSpace(t.DepartmentManagerFinancialNo) ? "PendingDeptManager"
+        : "PendingHR";
+
+    private static string NextStatusAfterDirectManager(LeaveTransaction t) =>
+        !string.IsNullOrWhiteSpace(t.DepartmentManagerFinancialNo) ? "PendingDeptManager" : "PendingHR";
 
     public async Task<LeaveTransaction> ApproveAsDelegateAsync(int id, string delegateNo)
     {
@@ -163,22 +188,17 @@ public class LeaveService
         if (transaction.Status != "PendingDelegate")
             throw new InvalidOperationException("This request is not awaiting delegate approval");
 
-        var assignedDelegate = transaction.DelegateFinancialNo
-            ?? transaction.Employee?.DelegateFinancialNo;
+        var assignedDelegate = transaction.DelegateFinancialNo ?? transaction.Employee?.DelegateFinancialNo;
         if (!string.Equals(assignedDelegate, delegateNo, StringComparison.OrdinalIgnoreCase))
             throw new UnauthorizedAccessException("You are not the assigned delegate for this request");
 
         transaction.DelegateApprovedAt = DateTime.Now;
-        // Advance: delegate -> manager (or manager delegate) -> HR
-        if (!string.IsNullOrWhiteSpace(transaction.ManagerFinancialNo) || !string.IsNullOrWhiteSpace(transaction.ManagerDelegateFinancialNo))
-            transaction.Status = "PendingManager";
-        else
-            transaction.Status = "PendingHR";
+        transaction.Status = NextStatusAfterDelegate(transaction);
         await db.SaveChangesAsync();
         return transaction;
     }
 
-    public async Task<LeaveTransaction> ApproveAsManagerAsync(int id, string approverNo)
+    public async Task<LeaveTransaction> ApproveAsDirectManagerAsync(int id, string approverNo)
     {
         if (string.IsNullOrWhiteSpace(approverNo))
             throw new UnauthorizedAccessException("Authenticated employee number is unavailable");
@@ -190,20 +210,71 @@ public class LeaveService
             .FirstOrDefaultAsync(item => item.Id == id)
             ?? throw new KeyNotFoundException("Leave request was not found");
 
-        if (transaction.Status != "PendingManager")
-            throw new InvalidOperationException("This request is not awaiting manager approval");
+        if (transaction.Status is not ("PendingDirectManager" or "PendingManager"))
+            throw new InvalidOperationException("This request is not awaiting direct manager approval");
 
-        var assignedManager = transaction.ManagerFinancialNo ?? transaction.Employee?.ManagerFinancialNo;
-        var managerDelegate = transaction.ManagerDelegateFinancialNo;
-        var isManager = !string.IsNullOrWhiteSpace(assignedManager) && string.Equals(assignedManager, approverNo, StringComparison.OrdinalIgnoreCase);
-        var isManagerDelegate = !string.IsNullOrWhiteSpace(managerDelegate) && string.Equals(managerDelegate, approverNo, StringComparison.OrdinalIgnoreCase);
-        if (!isManager && !isManagerDelegate)
-            throw new UnauthorizedAccessException("You are not authorized to approve this request as manager");
+        var directManager = transaction.DirectManagerFinancialNo ?? transaction.ManagerFinancialNo ?? transaction.Employee?.ManagerFinancialNo;
+        if (string.IsNullOrWhiteSpace(directManager) || !string.Equals(directManager, approverNo, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("You are not authorized to approve this request as direct manager");
 
-        transaction.Status = "PendingHR";
-        transaction.ManagerApprovedAt = DateTime.Now;
+        transaction.DirectManagerApprovedAt = DateTime.Now;
+        transaction.ManagerApprovedAt = DateTime.Now; // compat
+        transaction.Status = NextStatusAfterDirectManager(transaction);
         await db.SaveChangesAsync();
         return transaction;
+    }
+
+    public async Task<LeaveTransaction> ApproveAsDeptManagerAsync(int id, string approverNo)
+    {
+        if (string.IsNullOrWhiteSpace(approverNo))
+            throw new UnauthorizedAccessException("Authenticated employee number is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .Include(item => item.Employee)
+            .Include(item => item.LeaveType)
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (transaction.Status != "PendingDeptManager")
+            throw new InvalidOperationException("This request is not awaiting department manager approval");
+
+        var deptManager = transaction.DepartmentManagerFinancialNo;
+        if (string.IsNullOrWhiteSpace(deptManager) || !string.Equals(deptManager, approverNo, StringComparison.OrdinalIgnoreCase))
+            throw new UnauthorizedAccessException("You are not authorized to approve this request as department manager");
+
+        transaction.DepartmentManagerApprovedAt = DateTime.Now;
+        transaction.Status = "PendingHR";
+        await db.SaveChangesAsync();
+        return transaction;
+    }
+
+    // Compatibility: approve whichever manager step applies to this approver/request
+    public async Task<LeaveTransaction> ApproveAsManagerAsync(int id, string approverNo)
+    {
+        if (string.IsNullOrWhiteSpace(approverNo))
+            throw new UnauthorizedAccessException("Authenticated employee number is unavailable");
+
+        using var db = await _factory.CreateDbContextAsync();
+        var transaction = await db.LeaveTransactions
+            .Include(item => item.Employee)
+            .Include(item => item.LeaveType)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id)
+            ?? throw new KeyNotFoundException("Leave request was not found");
+
+        if (transaction.Status is "PendingDirectManager" or "PendingManager")
+        {
+            var direct = transaction.DirectManagerFinancialNo ?? transaction.ManagerFinancialNo ?? transaction.Employee?.ManagerFinancialNo;
+            if (!string.IsNullOrWhiteSpace(direct) && string.Equals(direct, approverNo, StringComparison.OrdinalIgnoreCase))
+                return await ApproveAsDirectManagerAsync(id, approverNo);
+        }
+        if (transaction.Status == "PendingDeptManager")
+        {
+            if (!string.IsNullOrWhiteSpace(transaction.DepartmentManagerFinancialNo) && string.Equals(transaction.DepartmentManagerFinancialNo, approverNo, StringComparison.OrdinalIgnoreCase))
+                return await ApproveAsDeptManagerAsync(id, approverNo);
+        }
+        throw new UnauthorizedAccessException("You are not authorized to approve this request as manager");
     }
 
     public async Task<LeaveTransaction> ApproveAsHrAsync(int id, string? approverNo = null)
@@ -214,7 +285,7 @@ public class LeaveService
             .FirstOrDefaultAsync(item => item.Id == id)
             ?? throw new KeyNotFoundException("Leave request was not found");
 
-        if (transaction.Status is not ("PendingDelegate" or "PendingManager" or "PendingHR"))
+        if (transaction.Status is not ("PendingDelegate" or "PendingDirectManager" or "PendingDeptManager" or "PendingManager" or "PendingHR"))
             throw new InvalidOperationException("Only pending requests can be approved");
 
         // If a specific HR is assigned for the department, enforce it when approver is known
@@ -251,7 +322,7 @@ public class LeaveService
             .FirstOrDefaultAsync(item => item.Id == id)
             ?? throw new KeyNotFoundException("Leave request was not found");
 
-        if (transaction.Status is not ("PendingDelegate" or "PendingManager" or "PendingHR"))
+        if (transaction.Status is not ("PendingDelegate" or "PendingDirectManager" or "PendingDeptManager" or "PendingManager" or "PendingHR"))
             throw new InvalidOperationException("Only pending requests can be rejected");
 
         transaction.Status = "Rejected";
@@ -275,7 +346,10 @@ public class LeaveService
             ?? throw new KeyNotFoundException("Leave request was not found");
 
         if (!string.IsNullOrWhiteSpace(managerFinancialNo))
+        {
             transaction.ManagerFinancialNo = managerFinancialNo.Trim();
+            transaction.DirectManagerFinancialNo = managerFinancialNo.Trim();
+        }
 
         if (!string.IsNullOrWhiteSpace(status))
         {
@@ -284,9 +358,31 @@ public class LeaveService
 
             switch (status.Trim())
             {
-                case "PendingManager":
-                    transaction.Status = "PendingManager";
+                case "PendingDelegate":
+                    transaction.Status = "PendingDelegate";
+                    transaction.DelegateApprovedAt = null;
+                    transaction.DirectManagerApprovedAt = null;
+                    transaction.DepartmentManagerApprovedAt = null;
                     transaction.ManagerApprovedAt = null;
+                    transaction.HrApprovedAt = null;
+                    transaction.RejectedBy = null;
+                    transaction.RejectedAt = null;
+                    transaction.RejectionReason = null;
+                    break;
+                case "PendingDirectManager":
+                case "PendingManager": // compat
+                    transaction.Status = "PendingDirectManager";
+                    transaction.DirectManagerApprovedAt = null;
+                    transaction.DepartmentManagerApprovedAt = null;
+                    transaction.ManagerApprovedAt = null;
+                    transaction.HrApprovedAt = null;
+                    transaction.RejectedBy = null;
+                    transaction.RejectedAt = null;
+                    transaction.RejectionReason = null;
+                    break;
+                case "PendingDeptManager":
+                    transaction.Status = "PendingDeptManager";
+                    transaction.DepartmentManagerApprovedAt = null;
                     transaction.HrApprovedAt = null;
                     transaction.RejectedBy = null;
                     transaction.RejectedAt = null;
@@ -319,6 +415,8 @@ public class LeaveService
                             transaction.FromDate, transaction.ToDate, transaction.Reason, calendarSettings);
                     }
                     transaction.Status = "Approved";
+                    transaction.DirectManagerApprovedAt ??= DateTime.Now;
+                    transaction.DepartmentManagerApprovedAt ??= DateTime.Now;
                     transaction.ManagerApprovedAt ??= DateTime.Now;
                     transaction.HrApprovedAt ??= DateTime.Now;
                     transaction.RejectedBy = null;
@@ -346,16 +444,41 @@ public class LeaveService
             .ToListAsync();
     }
 
-    public async Task<List<LeaveTransaction>> GetPendingForManagerAsync(string managerNo)
+    public async Task<List<LeaveTransaction>> GetPendingForDirectManagerAsync(string managerNo)
     {
         using var db = await _factory.CreateDbContextAsync();
         return await db.LeaveTransactions
             .AsNoTracking()
             .Include(t => t.LeaveType)
             .Include(t => t.Employee)
-            .Where(t => t.Status == "PendingManager" && (t.ManagerFinancialNo == managerNo || t.ManagerDelegateFinancialNo == managerNo))
+            .Where(t => (t.Status == "PendingDirectManager" || t.Status == "PendingManager")
+                && (t.DirectManagerFinancialNo == managerNo || t.ManagerFinancialNo == managerNo))
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
+    }
+
+    public async Task<List<LeaveTransaction>> GetPendingForDeptManagerAsync(string managerNo)
+    {
+        using var db = await _factory.CreateDbContextAsync();
+        return await db.LeaveTransactions
+            .AsNoTracking()
+            .Include(t => t.LeaveType)
+            .Include(t => t.Employee)
+            .Where(t => t.Status == "PendingDeptManager" && t.DepartmentManagerFinancialNo == managerNo)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
+    }
+
+    // Compatibility: returns pending requests for this person as direct or department manager
+    public async Task<List<LeaveTransaction>> GetPendingForManagerAsync(string managerNo)
+    {
+        var direct = await GetPendingForDirectManagerAsync(managerNo);
+        var dept = await GetPendingForDeptManagerAsync(managerNo);
+        return direct.Concat(dept)
+            .GroupBy(t => t.Id)
+            .Select(g => g.First())
+            .OrderByDescending(t => t.CreatedAt)
+            .ToList();
     }
 
     public async Task<List<LeaveTransaction>> GetPendingForHrAsync(string? hrEmployeeNo = null)
@@ -365,11 +488,14 @@ public class LeaveService
             .AsNoTracking()
             .Include(t => t.LeaveType)
             .Include(t => t.Employee)
-            .Where(t => t.Status == "PendingDelegate" || t.Status == "PendingManager" || t.Status == "PendingHR");
+            .Where(t => t.Status == "PendingDelegate"
+                || t.Status == "PendingDirectManager"
+                || t.Status == "PendingDeptManager"
+                || t.Status == "PendingManager"
+                || t.Status == "PendingHR");
 
         if (!string.IsNullOrWhiteSpace(hrEmployeeNo))
         {
-            // Show requests assigned to this HR, or unassigned (backward compat)
             query = query.Where(t => t.AssignedHrFinancialNo == hrEmployeeNo || t.AssignedHrFinancialNo == null || t.AssignedHrFinancialNo == "");
         }
 

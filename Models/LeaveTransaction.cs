@@ -29,6 +29,19 @@ public class LeaveTransaction
     [MaxLength(80)]
     public string EnteredBy { get; set; } = "admin";
 
+    /// <summary>Direct (personal) manager - step after delegate acceptance.</summary>
+    [MaxLength(20)]
+    public string? DirectManagerFinancialNo { get; set; }
+
+    public DateTime? DirectManagerApprovedAt { get; set; }
+
+    /// <summary>Department manager - step after direct manager approval.</summary>
+    [MaxLength(20)]
+    public string? DepartmentManagerFinancialNo { get; set; }
+
+    public DateTime? DepartmentManagerApprovedAt { get; set; }
+
+    /// <summary>Legacy/compat: mirrors DirectManagerFinancialNo.</summary>
     [MaxLength(20)]
     public string? ManagerFinancialNo { get; set; }
 
@@ -36,12 +49,13 @@ public class LeaveTransaction
     [MaxLength(20)]
     public string? ManagerDelegateFinancialNo { get; set; }
 
-    /// <summary>Employee's delegate who must approve first (if configured). Optional.</summary>
+    /// <summary>Employee's delegate chosen per-request (same department) who must approve first.</summary>
     [MaxLength(20)]
     public string? DelegateFinancialNo { get; set; }
 
     public DateTime? DelegateApprovedAt { get; set; }
 
+    /// <summary>Legacy/compat: mirrors DirectManagerApprovedAt.</summary>
     public DateTime? ManagerApprovedAt { get; set; }
 
     /// <summary>Department HR employee assigned to final approval (if configured). Optional.</summary>
