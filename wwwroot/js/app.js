@@ -4160,6 +4160,27 @@ $('saveUserBtn').addEventListener('click', function () {
             });
     }
 
+    function relocateRefreshActions() {
+        document.querySelectorAll('.tab-content').forEach(function (tab) {
+            var heading = tab.querySelector(':scope > .section-heading');
+            var refresh = heading ? heading.querySelector('.refresh-action') : null;
+            var filterHeader = tab.querySelector('.filter-card .filter-header');
+            if (!refresh || !filterHeader) return;
+
+            var actions = filterHeader.querySelector('.filter-header-actions');
+            if (!actions) {
+                actions = document.createElement('div');
+                actions.className = 'filter-header-actions';
+                var count = filterHeader.querySelector('.active-filters-count');
+                if (count) actions.appendChild(count);
+                filterHeader.appendChild(actions);
+            }
+            actions.appendChild(refresh);
+            if (heading.parentNode) heading.parentNode.removeChild(heading);
+        });
+    }
+
+    relocateRefreshActions();
     loadCurrentUser();
     setInterval(updateSyncStatus, 10000);
 
